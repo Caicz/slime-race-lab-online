@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#07111f">
+    <meta name="color-scheme" content="dark">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+    <title>史莱姆竞速实验室（联网版）</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span>
+                </div>
+                <div>
+                    <p class="eyebrow">SLIME RACE LAB</p>
+                    <h1>史莱姆竞速实验室 <small>联网版</small></h1>
+                </div>
+            </div>
+            <div class="header-meta">
+                <span class="live-indicator"><i></i> 本地联网 · 只读同步</span>
+                <span class="platform-badge" id="platformBadge">APP</span>
+            </div>
+        </header>
+
+        <main class="dashboard">
+            <section class="race-column">
+                <article class="panel race-panel">
+                    <div class="panel-heading race-heading">
+                        <div>
+                            <p class="section-kicker">LIVE SIMULATION</p>
+                            <h2 id="raceTitle">第 1 场 · 等待开始</h2>
+                        </div>
+                        <div class="time-readout">
+                            <span id="raceTime">00.00</span><small>秒</small>
+                        </div>
+                    </div>
+
+                    <div class="track-stage" id="trackStage">
+                        <canvas id="raceCanvas" aria-label="四只史莱姆在环形赛道上的实时位置"></canvas>
+                        <div class="track-center-card" id="trackCenterCard">
+                            <span class="center-label">预测组合</span>
+                            <strong id="centerPrediction">—</strong>
+                            <small id="centerCoverage">按实盘历史动态计算</small>
+                        </div>
+                        <div class="winner-banner" id="winnerBanner" hidden>
+                            <span>本场冠军</span>
+                            <strong id="winnerName">—</strong>
+                        </div>
+                    </div>
+
+                    <div class="race-toolbar">
+                        <button class="primary-button" id="playButton" type="button">
+                            <span class="play-icon">▶</span><span class="button-label">开始比赛</span>
+                        </button>
+                        <button class="icon-button" id="resetButton" type="button" aria-label="新比赛" title="新比赛">↻</button>
+                        <div class="speed-control" aria-label="模拟速度">
+                            <button class="speed-button active" data-speed="1" type="button">1×</button>
+                            <button class="speed-button" data-speed="4" type="button">4×</button>
+                            <button class="speed-button" data-speed="12" type="button">12×</button>
+                        </div>
+                        <label class="seed-field">
+                            <span>随机种子</span>
+                            <input id="seedInput" value="slime-001" maxlength="40" autocomplete="off">
+                        </label>
+                    </div>
+                </article>
+
+                <article class="panel standings-panel">
+                    <div class="panel-heading compact-heading">
+                        <div>
+                            <p class="section-kicker">RACE TELEMETRY</p>
+                            <h2>实时赛况</h2>
+                        </div>
+                        <span class="model-note">50 ms / 帧 · 10% 平滑趋近</span>
+                    </div>
+                    <div class="standings" id="standings"></div>
+                </article>
+
+                <article class="panel methodology-panel">
+                    <div class="method-icon">≈</div>
+                    <div>
+                        <h3>路径模型说明</h3>
+                        <p>点没有碰撞体积。每半圈进入弯道时可能更换内外路线；外圈路径更长，内圈路径更短。默认赛道全宽等于约 1 秒移动距离。由于原游戏的转向逻辑未知，这部分是可调估算模型。</p>
+                    </div>
+                </article>
+            </section>
+
+            <aside class="side-column">
+                <article class="panel prediction-panel">
+                    <div class="panel-heading compact-heading">
+                        <div>
+                            <p class="section-kicker">PRE-RACE PICK</p>
+                            <h2>赛前预测</h2>
+                        </div>
+                        <span class="sample-badge" id="sampleBadge">459 场实盘</span>
+                    </div>
+                    <div class="pick-pair" id="realPickPair"></div>
+                    <div class="coverage-card">
+                        <div><span>双选实盘覆盖率</span><strong id="realCoverage">—</strong></div>
+                        <div class="coverage-track"><i id="realCoverageBar"></i></div>
+                        <small id="realCoverageNote">仅使用实盘获胜记录，不包含模拟盘结果。</small>
+                    </div>
+                    <div class="observed-bars" id="observedBars"></div>
+                </article>
+
+                <article class="panel batch-panel">
+                    <div class="panel-heading compact-heading">
+                        <div>
+                            <p class="section-kicker">MONTE CARLO</p>
+                            <h2>批量模拟</h2>
+                        </div>
+                    </div>
+                    <div class="batch-controls">
+                        <label><span>场次</span><input id="batchCount" type="number" min="100" max="50000" step="100" value="3000"></label>
+                        <button class="secondary-button" id="batchButton" type="button">运行模拟</button>
+                    </div>
+                    <div class="batch-progress" id="batchProgress" hidden><i></i></div>
+                    <div class="batch-placeholder" id="batchPlaceholder">
+                        <span>∿</span>
+                        <p>使用当前赛道参数批量比赛。模拟盘结果只用于模型校准，不会写入实盘历史。</p>
+                    </div>
+                    <div class="batch-results" id="batchResults" hidden>
+                        <div class="result-summary">
+                            <div><span>模型最优双选</span><strong id="modelPair">—</strong></div>
+                            <div><span>模型覆盖率</span><strong id="modelCoverage">—</strong></div>
+                        </div>
+                        <div class="simulated-bars" id="simulatedBars"></div>
+                        <div class="timing-summary">
+                            <span>第一名均时 <strong id="firstAverage">—</strong></span>
+                            <span>末名均时 <strong id="lastAverage">—</strong></span>
+                        </div>
+                    </div>
+                </article>
+
+                <details class="panel settings-panel">
+                    <summary>
+                        <span><b>模拟参数</b><small>默认值来自现有描述与完赛时间反推</small></span>
+                        <i>⌄</i>
+                    </summary>
+                    <div class="settings-body">
+                        <label class="setting-row">
+                            <span><b>中心线单圈长度</b><small>估算约 2000</small></span>
+                            <input id="lapLengthInput" type="number" min="500" max="10000" step="50" value="2000">
+                        </label>
+                        <label class="setting-row">
+                            <span><b>赛道宽度</b><small>以平均 1 秒移动距离为单位</small></span>
+                            <output id="trackWidthOutput">1.00 秒</output>
+                            <input id="trackWidthInput" type="range" min="0" max="2" step="0.05" value="1">
+                        </label>
+                        <label class="setting-row">
+                            <span><b>弯道换道概率</b><small>每半圈进行一次路径判断</small></span>
+                            <output id="routeChanceOutput">72%</output>
+                            <input id="routeChanceInput" type="range" min="0" max="1" step="0.01" value="0.72">
+                        </label>
+                        <label class="setting-row">
+                            <span><b>横穿赛道时间</b><small>从内侧到外侧的估计用时</small></span>
+                            <output id="laneTimeOutput">1.20 秒</output>
+                            <input id="laneTimeInput" type="range" min="0.3" max="3" step="0.1" value="1.2">
+                        </label>
+                        <label class="setting-row">
+                            <span><b>首次事件等待</b><small>之后事件无缝连续</small></span>
+                            <output id="initialDelayOutput">5.00 秒</output>
+                            <input id="initialDelayInput" type="range" min="0" max="10" step="0.25" value="5">
+                        </label>
+                        <button class="text-button" id="defaultSettingsButton" type="button">恢复默认参数</button>
+                    </div>
+                </details>
+            </aside>
+        </main>
+
+        <section class="data-workspace">
+            <article class="panel data-panel history-panel">
+                <div class="panel-heading compact-heading">
+                    <div>
+                        <p class="section-kicker">REAL RACE HISTORY</p>
+                        <h2>实盘冠军导入</h2>
+                    </div>
+                    <span class="sample-badge" id="importedCountBadge">新增 0 场</span>
+                </div>
+                <div class="quick-winners" aria-label="快速追加一场实盘冠军">
+                    <button type="button" data-winner="melon" style="--racer-color: var(--green)"><i></i>哈密瓜</button>
+                    <button type="button" data-winner="blueberry" style="--racer-color: var(--blue)"><i></i>蓝莓</button>
+                    <button type="button" data-winner="dragonfruit" style="--racer-color: var(--red)"><i></i>火龙果</button>
+                    <button type="button" data-winner="lemon" style="--racer-color: var(--yellow)"><i></i>柠檬</button>
+                </div>
+                <label class="stacked-field">
+                    <span>批量粘贴实盘冠军</span>
+                    <textarea id="winnerImportInput" rows="3" placeholder="例如：蓝莓，火龙果，柠檬&#10;支持简称、全名、空格、逗号或换行"></textarea>
+                </label>
+                <div class="action-row">
+                    <button class="secondary-button" id="importWinnersButton" type="button">导入新增结果</button>
+                    <button class="quiet-button" id="undoWinnerButton" type="button">撤销最后一场</button>
+                    <button class="quiet-button danger" id="clearWinnersButton" type="button">清空新增</button>
+                </div>
+                <p class="form-status" id="winnerImportStatus">只导入 459 场基线之后的新赛果，避免重复计数。</p>
+                <div class="real-summary" id="realSummary"></div>
+                <div class="recent-strip" id="recentRealWinners"></div>
+            </article>
+
+            <article class="panel data-panel pool-panel">
+                <div class="panel-heading compact-heading">
+                    <div>
+                        <p class="section-kicker">LIVE CHIP POOL</p>
+                        <h2>当前实盘押注池</h2>
+                    </div>
+                    <span class="sample-badge" id="currentPoolBadge">0 筹码</span>
+                </div>
+                <div class="pool-input-grid" id="poolInputs">
+                    <label style="--racer-color: var(--green)"><span><i></i>哈密瓜</span><input data-pool-id="melon" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                    <label style="--racer-color: var(--blue)"><span><i></i>蓝莓</span><input data-pool-id="blueberry" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                    <label style="--racer-color: var(--red)"><span><i></i>火龙果</span><input data-pool-id="dragonfruit" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                    <label style="--racer-color: var(--yellow)"><span><i></i>柠檬</span><input data-pool-id="lemon" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                </div>
+                <label class="stacked-field compact-textarea">
+                    <span>从文本导入当前池</span>
+                    <textarea id="poolImportInput" rows="2" placeholder="哈密瓜: 5000，蓝莓: 9000，火龙果: 13000，柠檬: 4000"></textarea>
+                </label>
+                <div class="action-row">
+                    <button class="secondary-button" id="importPoolButton" type="button">导入押注池</button>
+                    <button class="quiet-button" id="clearPoolButton" type="button">清空当前池</button>
+                </div>
+                <p class="form-status" id="poolImportStatus">可直接修改四项数字；数据仅保存在本机。</p>
+                <div class="projection-controls">
+                    <label><span>预计封盘总池<small>不含我的下注；已封盘时填当前总池</small></span><input id="closingPoolInput" type="number" min="0" step="1000" value="40000" inputmode="decimal"></label>
+                    <label><span>公众追热门强度<small>1.00 按胜率，越高越集中热门</small></span><output id="publicBiasOutput">1.25</output><input id="publicBiasInput" type="range" min="1" max="2" step="0.05" value="1.25"></label>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel betting-panel">
+            <div class="panel-heading betting-heading">
+                <div>
+                    <p class="section-kicker">PARIMUTUEL BET ANALYSIS</p>
+                    <h2>最优筹码押注方案</h2>
+                </div>
+                <span class="no-fee-badge">无手续费 · 最多双押</span>
+            </div>
+            <div class="bet-controls">
+                <label><span>可用筹码</span><input id="bankrollInput" type="number" min="0" step="100" value="10000" inputmode="decimal"></label>
+                <label><span>本场最多投入</span><input id="maxBetInput" type="number" min="0" step="100" value="2000" inputmode="decimal"></label>
+                <label><span>最小筹码单位</span><input id="betUnitInput" type="number" min="1" step="1" value="100" inputmode="decimal"></label>
+                <button class="primary-button" id="analyzeBetButton" type="button">重新计算</button>
+            </div>
+            <p class="bet-formula">封盘毛返还倍数 = 最终总奖池 ÷ 该史莱姆最终押注；推荐按更新后的实盘历史概率最大化期望净收益，并计算自己的下注对赔率的影响。</p>
+            <div class="betting-layout">
+                <div class="pool-analysis-wrap">
+                    <div class="table-scroll">
+                        <table class="analysis-table">
+                            <thead><tr><th>史莱姆</th><th>实盘概率</th><th>预计封盘押注</th><th>奖池占比</th><th>毛返还倍数</th><th>价值差</th></tr></thead>
+                            <tbody id="poolAnalysisBody"></tbody>
+                        </table>
+                    </div>
+                    <p class="table-note" id="projectionNote">预计封盘池会优先使用已导入的当前实盘池。</p>
+                </div>
+                <aside class="recommendation-card" id="recommendationCard">
+                    <span class="recommendation-label">最大期望净收益</span>
+                    <h3 id="recommendationTitle">—</h3>
+                    <div class="recommended-bets" id="recommendedBets"></div>
+                    <div class="recommendation-metrics" id="recommendationMetrics"></div>
+                    <p id="recommendationNote">—</p>
+                </aside>
+            </div>
+            <div class="scenario-section">
+                <h3>四种冠军结果下的收益</h3>
+                <div class="table-scroll">
+                    <table class="analysis-table scenario-table">
+                        <thead><tr><th>冠军</th><th>我的下注</th><th>封盘后倍数</th><th>毛返还</th><th>净收益</th></tr></thead>
+                        <tbody id="scenarioBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <footer>史莱姆竞速实验室 · 同一随机种子在三个平台生成相同结果</footer>
+    </div>
+
+    <script src="scripts/engine.js"></script>
+    <script src="scripts/betting.js"></script>
+    <script src="scripts/app.js"></script>
+</body>
+</html>

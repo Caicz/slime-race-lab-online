@@ -1,0 +1,9 @@
+node_modules/
+release/
+android/.gradle/
+android/build/
+android/app/build/
+build/electron-win32-x64/
+*.log
+.DS_Store
+.env.slime-race.local

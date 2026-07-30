@@ -1,0 +1,8 @@
+{
+    "appId": "com.marisa.slimeracelab.online",
+    "appName": "史莱姆竞速实验室（联网版）",
+    "webDir": "app",
+    "server": {
+        "androidScheme": "https"
+    }
+}

@@ -1,0 +1,60 @@
+{
+    "name": "slime-race-lab-online",
+    "version": "1.1.0",
+    "description": "仅供本机使用的联网实盘数据同步与史莱姆竞速分析器",
+    "main": "electron/main.cjs",
+    "author": "Marisa",
+    "license": "UNLICENSED",
+    "private": true,
+    "scripts": {
+        "start": "electron .",
+        "check": "node scripts/check-online-boundary.cjs && node --check electron/main.cjs && node --check app/scripts/engine.js && node --check app/scripts/betting.js && node --check app/scripts/app.js && node --check scripts/build-android.cjs && node --check scripts/create-ico.cjs && node --check scripts/inspect-slime-api.cjs && node --test",
+        "check:online": "node scripts/check-online-boundary.cjs",
+        "android:sync": "npx cap sync android",
+        "android:open": "npx cap open android",
+        "android:apk": "npm run android:sync && node scripts/build-android.cjs",
+        "dist:mac": "electron-builder --mac dmg zip",
+        "dist:mac:offline": "electron-builder --mac dmg zip --config.electronDist=node_modules/electron/dist",
+        "dist:win": "electron-builder --win nsis portable --x64",
+        "dist:win:offline": "electron-builder --win nsis portable --x64 --config.electronDist=build/electron-win32-x64"
+    },
+    "devDependencies": {
+        "@capacitor/android": "^7.4.3",
+        "@capacitor/cli": "^7.4.3",
+        "@capacitor/core": "^7.4.3",
+        "electron": "^43.2.0",
+        "electron-builder": "^26.0.12"
+    },
+    "build": {
+        "appId": "com.marisa.slimeracelab.online",
+        "productName": "史莱姆竞速实验室（联网版）",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "app/**/*",
+            "electron/**/*",
+            "package.json"
+        ],
+        "mac": {
+            "category": "public.app-category.games",
+            "icon": "build/icon.icns",
+            "target": [
+                "dmg",
+                "zip"
+            ]
+        },
+        "win": {
+            "icon": "build/icon.ico",
+            "target": [
+                "nsis",
+                "portable"
+            ]
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true
+        }
+    }
+}
