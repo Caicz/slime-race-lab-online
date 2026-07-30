@@ -6,7 +6,7 @@ const projectRoot = path.join(__dirname, '..');
 const envName = '.env.slime-race.local';
 const envPath = path.join(projectRoot, envName);
 const expectedPackagedFiles = ['app/**/*', 'electron/**/*', 'package.json'];
-const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'app/scripts/remote.js'];
+const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'app/scripts/remote-actions.js', 'app/scripts/remote.js'];
 
 function read(relativePath) {
     return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
@@ -25,10 +25,13 @@ function checkNoRemote(violations) {
 
 function checkNetworkCode(violations) {
     const content = networkFiles.map(relativePath => read(relativePath)).join('\n');
-    const forbiddenMutations = /\/api\/slime-race\/(?:bet|claim|reset|admin)(?:[/'"`]|$)/i;
+    const forbiddenMutations = /\/api\/slime-race\/(?:claim(?!-reward)|reset|admin|start|witch-bonus)(?:[/'"`-]|$)/i;
     const sensitiveLogging = /console\.(?:log|info|warn|error)\([^\n]*(?:password|cookie|token)/i;
 
-    if (forbiddenMutations.test(content)) violations.push('联网代码禁止包含下注、领奖、重置或管理接口');
+    if (forbiddenMutations.test(content)) violations.push('联网代码禁止包含自动领奖、开赛、奖金注入、重置或管理接口');
+    if (!content.includes('/api/slime-race/bet')) violations.push('联网版必须只通过固定赌马下注接口提交用户确认的下注');
+    if (!content.includes('/api/slime-race/claim-reward')) violations.push('联网版必须只通过固定赌马奖励接口领取用户确认的奖励');
+    if (!read('app/index.html').includes('确认远程下注')) violations.push('远程下注必须保留第二次确认界面');
     if (sensitiveLogging.test(content)) violations.push('联网代码禁止记录密码、Cookie 或 Token');
     if (!content.includes('https://zouzou-princess-fan.replit.app')) violations.push('联网代码必须固定允许的目标站点');
     if (!read('app/index.html').includes("connect-src 'none'")) violations.push('渲染层 CSP 必须继续禁止直接网络连接');
@@ -71,7 +74,7 @@ function checkBoundary() {
         return;
     }
 
-    console.log('联网版边界检查通过：应用标识独立，凭据未打包，Android 网络权限存在，Git 无远程。');
+    console.log('联网版边界检查通过：远程下注与领奖需用户确认，凭据未打包，Android 网络权限存在，Git 无远程。');
 }
 
 checkBoundary();

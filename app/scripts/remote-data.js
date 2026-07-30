@@ -43,7 +43,10 @@
         const winsById = Object.fromEntries(normalized.map(racer => [racer.id, racer.wins]));
 
         return {
-            racers: RACER_IDS.filter(id => Object.hasOwn(winsById, id)).map(id => ({id, wins: winsById[id]})),
+            racers: RACER_IDS.filter(id => Object.hasOwn(winsById, id)).map(id => {
+                const racer = normalized.find(item => item.id === id);
+                return {id, sourceId: racer.sourceId, wins: winsById[id]};
+            }),
             bySourceId
         };
     }
@@ -127,9 +130,47 @@
         };
     }
 
+    function normalizeAccount(rawAccount) {
+        if (!rawAccount || typeof rawAccount !== 'object') return null;
+
+        return {
+            magicFragments: Math.max(0, toNumber(rawAccount.magicFragments)),
+            checkinEnabled: rawAccount.checkinEnabled === true
+        };
+    }
+
+    function aggregateCurrentUserPool(rawPool, bySourceId, userId) {
+        const stakes = Object.fromEntries(RACER_IDS.map(id => [id, 0]));
+        const bets = Array.isArray(rawPool?.bets) ? rawPool.bets : [];
+
+        if (userId === null) return {stakes, total: 0, selectedIds: []};
+        bets.forEach(bet => {
+            if (toNumber(bet?.userId, null) !== userId) return;
+            const id = bySourceId[toNumber(bet?.slimeId, -1)];
+            if (id) stakes[id] += Math.max(0, toNumber(bet?.amount));
+        });
+
+        return {
+            stakes,
+            total: RACER_IDS.reduce((sum, id) => sum + stakes[id], 0),
+            selectedIds: RACER_IDS.filter(id => stakes[id] > 0)
+        };
+    }
+
+    function normalizePendingRewards(rawRewards) {
+        if (!Array.isArray(rawRewards)) return [];
+
+        return rawRewards.map(reward => ({
+            rewardId: toNumber(reward?.id, null),
+            amount: Math.max(0, toNumber(reward?.amount))
+        })).filter(reward => Number.isSafeInteger(reward.rewardId) && reward.rewardId > 0 && reward.amount > 0);
+    }
+
     function normalizeSnapshot(raw = {}) {
         const {racers, bySourceId} = normalizeRacers(raw.racers);
         const sessions = normalizeSessions(raw.sessions, bySourceId);
+        const accountId = toNumber(raw.account?.id, null);
+        const pendingRewards = normalizePendingRewards(raw.pendingRewards);
 
         return {
             mode: raw.mode === 'live' ? 'live' : 'full',
@@ -137,10 +178,14 @@
             current: normalizeCurrent(raw.current, bySourceId),
             racers,
             pool: aggregatePool(raw.bets, bySourceId),
+            currentUserPool: aggregateCurrentUserPool(raw.bets, bySourceId, accountId),
             sessions,
             recentWinnerIds: sessions.map(session => session.winnerId).filter(Boolean).slice(0, 12),
             myBets: normalizeMyBets(raw.myBets, bySourceId),
-            myStats: normalizeMyStats(raw.myStats)
+            myStats: normalizeMyStats(raw.myStats),
+            account: normalizeAccount(raw.account),
+            pendingRewards,
+            pendingRewardTotal: pendingRewards.reduce((sum, reward) => sum + reward.amount, 0)
         };
     }
 

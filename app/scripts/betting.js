@@ -332,10 +332,11 @@
     }
 
     function scoreCandidate(candidate, strategy, riskAversion) {
-        if (candidate.additionalBet <= 0) return 0;
+        if (candidate.additionalBet <= 0) return strategy === 'win-rate' ? candidate.profitProbability : 0;
         if (candidate.deltaExpectedProfit <= 1e-9) return Number.NEGATIVE_INFINITY;
         if (strategy === 'balanced') return candidate.deltaExpectedProfit - riskAversion * candidate.deltaExpectedDownside;
         if (strategy === 'high-odds') return candidate.incrementalRoi;
+        if (strategy === 'win-rate') return candidate.profitProbability;
         return candidate.deltaExpectedProfit;
     }
 
@@ -355,7 +356,7 @@
     }
 
     function optimizeAdditions(probabilities, currentPool, existingBets = {}, options = {}) {
-        const strategy = ['max-ev', 'balanced', 'preserve', 'high-odds'].includes(options.strategy) ? options.strategy : 'max-ev';
+        const strategy = ['max-ev', 'balanced', 'preserve', 'high-odds', 'win-rate'].includes(options.strategy) ? options.strategy : 'max-ev';
         const bankroll = toNonNegativeNumber(options.bankroll, Number.POSITIVE_INFINITY);
         const requestedMaxBet = toNonNegativeNumber(options.maxBet);
         const maxLossRate = clamp(toNonNegativeNumber(options.maxLossRate, 0.05), 0, 1);
@@ -366,7 +367,7 @@
         const existingTotal = sumMap(normalizedExisting);
         const riskBudgetExceeded = strategy === 'preserve' && existingTotal > riskBudget + 1e-9;
         const maxAddition = Math.max(0, totalBetLimit - existingTotal);
-        const requestedUnit = Math.max(1, toNonNegativeNumber(options.unit, 100));
+        const requestedUnit = Math.max(1, toNonNegativeNumber(options.unit, 1));
         const maxSteps = Math.max(20, Math.round(toNonNegativeNumber(options.maxSteps, 240)));
         const unit = Math.max(requestedUnit, Math.ceil(maxAddition / maxSteps / requestedUnit) * requestedUnit || requestedUnit);
         const amounts = getBetAmounts(maxAddition, unit);
@@ -462,6 +463,59 @@
         return optimizeAdditions(probabilities, poolStakes, {}, {...options, maxBet, bankroll});
     }
 
+    function analyzePortfolioScenarios(probabilities, currentPool, existingBets = {}, options = {}) {
+        const expectedTotal = Math.max(sumMap(normalizeMap(currentPool)), toNonNegativeNumber(options.expectedTotal));
+        const publicBias = Math.max(0.1, toNonNegativeNumber(options.publicBias, 1.25));
+        const oddsShare = clamp(toNonNegativeNumber(options.oddsShare, 0.4), 0, 1);
+        const scenarioConfigs = [
+            {id: 'popular', projection: {strategy: 'popular', bias: publicBias}},
+            {id: 'mixed', projection: {strategy: 'mixed', bias: publicBias, oddsShare}},
+            {id: 'odds', projection: {strategy: 'odds', bias: publicBias}}
+        ];
+        const scenarios = scenarioConfigs.map(config => {
+            const projected = projectClosingPool(currentPool, expectedTotal, probabilities, config.projection);
+            const result = optimizeAdditions(probabilities, projected.stakes, existingBets, options);
+            return {id: config.id, projected, result};
+        });
+        const candidates = new Map();
+        candidates.set('none', normalizeMap({}));
+        scenarios.forEach(scenario => {
+            const signature = RACER_IDS.map(id => scenario.result.additions[id]).join(':');
+            candidates.set(signature, scenario.result.additions);
+        });
+        let robust = null;
+
+        candidates.forEach(additions => {
+            const evaluations = scenarios.map(scenario => {
+                const baseline = evaluatePosition(probabilities, scenario.projected.stakes, existingBets, {});
+                const position = evaluatePosition(probabilities, scenario.projected.stakes, existingBets, additions);
+                return {scenarioId: scenario.id, deltaExpectedProfit: position.expectedProfit - baseline.expectedProfit};
+            });
+            const additionalBet = sumMap(normalizeMap(additions));
+            const worstDeltaExpectedProfit = Math.min(...evaluations.map(item => item.deltaExpectedProfit));
+            const averageDeltaExpectedProfit = evaluations.reduce((sum, item) => sum + item.deltaExpectedProfit, 0) / evaluations.length;
+            const candidate = {additions: normalizeMap(additions), additionalBet, worstDeltaExpectedProfit, averageDeltaExpectedProfit, evaluations};
+
+            if (additionalBet > 0 && worstDeltaExpectedProfit <= 1e-9) return;
+            if (!robust || candidate.worstDeltaExpectedProfit > robust.worstDeltaExpectedProfit + 1e-9) robust = candidate;
+            else if (Math.abs(candidate.worstDeltaExpectedProfit - robust.worstDeltaExpectedProfit) <= 1e-9
+                && candidate.averageDeltaExpectedProfit > robust.averageDeltaExpectedProfit + 1e-9) robust = candidate;
+        });
+
+        const signatures = scenarios.map(scenario => RACER_IDS.filter(id => scenario.result.additions[id] > 0).join('+') || 'wait');
+        const votes = Object.fromEntries(RACER_IDS.map(id => [id, scenarios.filter(scenario => scenario.result.additions[id] > 0).length]));
+        const consensusIds = [...RACER_IDS].sort((left, right) => votes[right] - votes[left]).filter(id => votes[id] > 0).slice(0, 2);
+
+        return {
+            scenarios,
+            robust,
+            stableRecommendation: signatures.every(signature => signature === signatures[0]),
+            consensusIds,
+            votes,
+            positiveScenarioCount: robust.evaluations.filter(item => item.deltaExpectedProfit > 1e-9).length
+        };
+    }
+
     return Object.freeze({
         RACER_IDS,
         parseWinnerInput,
@@ -472,6 +526,7 @@
         evaluateBet,
         evaluatePosition,
         optimizeAdditions,
-        optimizeBets
+        optimizeBets,
+        analyzePortfolioScenarios
     });
 });

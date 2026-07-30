@@ -168,6 +168,16 @@ test('高赔率价值策略只在正增量期望时下注并优先更高增量 R
     assert.ok(highOdds.totalBet <= maxEv.totalBet);
 });
 
+test('单场胜率策略只在正期望候选中提高本场盈利概率', () => {
+    const pool = {melon: 1409, blueberry: 7151, dragonfruit: 14445, lemon: 10511};
+    const maxEv = betting.optimizeBets(probabilities, pool, {maxBet: 2000, bankroll: 10000, unit: 100, strategy: 'max-ev'});
+    const winRate = betting.optimizeBets(probabilities, pool, {maxBet: 2000, bankroll: 10000, unit: 100, strategy: 'win-rate'});
+
+    assert.ok(winRate.expectedProfit > 0);
+    assert.ok(winRate.profitProbability > maxEv.profitProbability);
+    assert.ok(Object.values(winRate.bets).filter(amount => amount > 0).length <= 2);
+});
+
 test('既有下注已包含在当前奖池中，不会再次增加总池', () => {
     const currentPool = {melon: 1100, blueberry: 8000, dragonfruit: 12000, lemon: 5000};
     const result = betting.evaluatePosition(probabilities, currentPool, {melon: 100}, {});
@@ -217,4 +227,29 @@ test('既有下注已超过本金保护预算时不会继续追加', () => {
     assert.equal(result.riskBudgetExceeded, true);
     assert.equal(result.additionalBet, 0);
     assert.equal(result.action, 'stop');
+});
+
+test('组合稳健性会同时评估追热门、混合和追高赔率三种封盘情景', () => {
+    const analysis = betting.analyzePortfolioScenarios(
+        probabilities,
+        {melon: 2000, blueberry: 9000, dragonfruit: 16000, lemon: 3000},
+        {},
+        {
+            expectedTotal: 45000,
+            publicBias: 1.25,
+            oddsShare: 0.4,
+            maxBet: 2000,
+            bankroll: 10000,
+            unit: 100,
+            strategy: 'max-ev'
+        }
+    );
+    const selected = Object.values(analysis.robust.additions).filter(amount => amount > 0);
+
+    assert.deepEqual(analysis.scenarios.map(item => item.id), ['popular', 'mixed', 'odds']);
+    assert.ok(selected.length <= 2);
+    if (analysis.robust.additionalBet > 0) {
+        assert.equal(analysis.positiveScenarioCount, 3);
+        assert.ok(analysis.robust.worstDeltaExpectedProfit > 0);
+    }
 });

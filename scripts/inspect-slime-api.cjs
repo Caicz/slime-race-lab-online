@@ -6,12 +6,14 @@ const projectRoot = path.join(__dirname, '..');
 const envPath = path.join(projectRoot, '.env.slime-race.local');
 const outputPath = '/tmp/slime-race-api-inspection.json';
 const endpoints = [
-    '/api/slime-race/current',
-    '/api/slime-race/racers',
-    '/api/slime-race/bets',
-    '/api/slime-race/sessions',
-    '/api/slime-race/my-bets',
-    '/api/slime-race/my-stats'
+    {name: 'current', path: '/api/slime-race/current'},
+    {name: 'racers', path: '/api/slime-race/racers'},
+    {name: 'bets', path: '/api/slime-race/bets'},
+    {name: 'pendingRewards', path: '/api/slime-race/pending-rewards'},
+    {name: 'account', path: '/api/auth/me'},
+    {name: 'sessions', path: '/api/slime-race/sessions'},
+    {name: 'myBets', path: '/api/slime-race/my-bets'},
+    {name: 'myStats', path: '/api/slime-race/my-stats'}
 ];
 
 function parseEnv(text) {
@@ -93,11 +95,10 @@ async function main() {
     const raw = {};
 
     for (const endpoint of endpoints) {
-        const result = await requestJson(baseUrl, endpoint, cookie);
-        snapshot[endpoint] = {status: result.status, schema: result.data === null ? null : describe(result.data)};
-        const name = endpoint.split('/').pop().replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-        raw[name] = result.data;
-        console.log(`${endpoint}=${result.status}`);
+        const result = await requestJson(baseUrl, endpoint.path, cookie);
+        snapshot[endpoint.path] = {status: result.status, schema: result.data === null ? null : describe(result.data)};
+        raw[endpoint.name] = result.data;
+        console.log(`${endpoint.path}=${result.status}`);
         if (result.data !== null) console.log(JSON.stringify(describe(result.data)));
     }
 

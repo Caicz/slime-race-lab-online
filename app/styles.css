@@ -917,7 +917,7 @@ input:focus {
 
 .remote-metrics {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -945,6 +945,118 @@ input:focus {
 
 .remote-panel > .form-status {
     margin-bottom: 0;
+}
+
+.remote-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.remote-action-card {
+    padding: 12px 13px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.remote-action-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.remote-action-heading strong {
+    color: #dbeaf6;
+    font-size: 11px;
+}
+
+.remote-action-heading span {
+    color: #71899f;
+    font-size: 8px;
+    text-align: right;
+}
+
+.remote-bet-form {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(110px, 0.7fr) auto;
+    align-items: end;
+    gap: 9px;
+}
+
+.remote-bet-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    color: #91a8ba;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.remote-bet-form input, .remote-bet-form select {
+    min-width: 0;
+    width: 100%;
+    padding: 8px 9px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    outline: 0;
+    color: var(--text);
+    background: rgba(4, 14, 24, 0.55);
+    font-size: 10px;
+}
+
+.remote-confirm {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid rgba(244, 190, 85, 0.24);
+    border-radius: 10px;
+    background: rgba(244, 190, 85, 0.06);
+}
+
+.remote-confirm p {
+    margin: 0;
+    color: #d9c391;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.remote-action-card > .form-status {
+    margin-bottom: 0;
+}
+
+.remote-reward-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-height: 36px;
+}
+
+.remote-reward-list > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    padding: 7px 9px;
+    border-radius: 9px;
+    background: rgba(4, 14, 24, 0.34);
+}
+
+.remote-reward-list strong {
+    color: var(--cyan);
+    font-size: 10px;
+}
+
+.remote-reward-list p {
+    margin: 0;
+    color: #71899f;
+    font-size: 9px;
 }
 
 .data-workspace {
@@ -1338,6 +1450,91 @@ input:focus {
     margin-bottom: 14px;
 }
 
+.market-monitor {
+    margin-bottom: 14px;
+    padding: 12px 13px;
+    border: 1px solid rgba(83, 217, 197, 0.11);
+    border-radius: 13px;
+    background: linear-gradient(145deg, rgba(83, 217, 197, 0.035), rgba(255, 255, 255, 0.015));
+}
+
+.market-monitor-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.market-monitor-heading strong, .market-monitor-heading span {
+    display: block;
+}
+
+.market-monitor-heading strong {
+    color: #d7e6f0;
+    font-size: 11px;
+}
+
+.market-monitor-heading > div:last-child {
+    display: flex;
+    gap: 7px;
+}
+
+.market-monitor-heading span {
+    margin-top: 3px;
+    color: #71899f;
+    font-size: 8px;
+}
+
+.market-monitor-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.market-monitor-metrics div {
+    padding: 8px 9px;
+    border-radius: 9px;
+    background: rgba(4, 14, 24, 0.3);
+}
+
+.market-monitor-metrics span, .market-monitor-metrics strong {
+    display: block;
+}
+
+.market-monitor-metrics span {
+    color: #71899f;
+    font-size: 8px;
+}
+
+.market-monitor-metrics strong {
+    margin-top: 4px;
+    color: #cbdbe7;
+    font-size: 10px;
+}
+
+.portfolio-robustness {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.portfolio-robustness strong {
+    color: var(--cyan);
+    font-size: 10px;
+}
+
+.portfolio-robustness p {
+    margin: 0;
+    color: #71899f;
+    font-size: 8px;
+    text-align: right;
+}
+
 .betting-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.7fr) minmax(270px, 0.72fr);
@@ -1544,6 +1741,10 @@ footer {
         grid-template-columns: 1fr;
     }
 
+    .remote-actions {
+        grid-template-columns: 1fr;
+    }
+
     .remote-login {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -1641,6 +1842,14 @@ footer {
         grid-template-columns: 1fr;
     }
 
+    .remote-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .remote-bet-form, .remote-confirm {
+        grid-template-columns: 1fr;
+    }
+
     .remote-login .primary-button, .remote-login .secondary-button, .remote-login .quiet-button {
         width: 100%;
     }
@@ -1675,6 +1884,19 @@ footer {
     }
 
     .existing-bets-panel > div:first-child span {
+        text-align: left;
+    }
+
+    .market-monitor-heading, .portfolio-robustness {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .market-monitor-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .portfolio-robustness p {
         text-align: left;
     }
 

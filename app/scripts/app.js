@@ -3,10 +3,12 @@
 
     const engine = globalThis.SlimeRaceEngine;
     const betting = globalThis.SlimeBetting;
+    const marketMonitor = globalThis.SlimeMarketMonitor;
     const STORAGE_KEYS = Object.freeze({
         winners: 'slime-race-lab.real-winners.v1',
         pool: 'slime-race-lab.live-pool.v1',
-        betting: 'slime-race-lab.betting-settings.v1'
+        betting: 'slime-race-lab.betting-settings.v1',
+        market: 'slime-race-lab.market-monitor.v1'
     });
     const elements = {
         canvas: document.querySelector('#raceCanvas'),
@@ -91,7 +93,16 @@
         recommendedBets: document.querySelector('#recommendedBets'),
         recommendationMetrics: document.querySelector('#recommendationMetrics'),
         recommendationNote: document.querySelector('#recommendationNote'),
-        scenarioBody: document.querySelector('#scenarioBody')
+        scenarioBody: document.querySelector('#scenarioBody'),
+        marketSampleCount: document.querySelector('#marketSampleCount'),
+        marketPoolGrowth: document.querySelector('#marketPoolGrowth'),
+        marketOddsShare: document.querySelector('#marketOddsShare'),
+        marketAverageClose: document.querySelector('#marketAverageClose'),
+        marketPublicSuggestion: document.querySelector('#marketPublicSuggestion'),
+        portfolioRobustTitle: document.querySelector('#portfolioRobustTitle'),
+        portfolioRobustNote: document.querySelector('#portfolioRobustNote'),
+        applyMarketMonitor: document.querySelector('#applyMarketMonitorButton'),
+        clearMarketMonitor: document.querySelector('#clearMarketMonitorButton')
     };
     const context = elements.canvas.getContext('2d');
     const standingRows = new Map();
@@ -107,6 +118,7 @@
     let syncedObservedWins = null;
     let syncedRecentWinners = [];
     let remoteBetPoolKey = null;
+    let marketState = {};
     let realStats = betting.mergeRealStats(engine.RACERS, importedWinners);
 
     function getConfig() {
@@ -378,7 +390,7 @@
             betStrategy: elements.betStrategy.value,
             bankroll: Math.max(0, Number(elements.bankroll.value) || 0),
             maxBet: Math.max(0, Number(elements.maxBet.value) || 0),
-            betUnit: Math.max(1, Number(elements.betUnit.value) || 100),
+            betUnit: Math.max(1, Number(elements.betUnit.value) || 1),
             maxLossRate: Math.min(0.2, Math.max(0.01, Number(elements.maxLossRate.value) || 0.05))
         });
     }
@@ -426,22 +438,23 @@
         }
         remoteBetPoolKey = poolKey;
 
-        if (snapshot?.mode === 'full' && Array.isArray(snapshot.myBets)) {
-            const relevantBets = snapshot.myBets.filter(item => snapshot.pool?.sessionId === null
-                ? item.sessionId === null
-                : item.sessionId === snapshot.pool?.sessionId);
-            const aggregated = Object.fromEntries(betting.RACER_IDS.map(id => [id, 0]));
-            relevantBets.forEach(item => {
-                aggregated[item.racerId] += Math.max(0, Number(item.amount) || 0);
-            });
-            setExistingBetInputs(aggregated);
-            const total = Object.values(aggregated).reduce((sum, value) => sum + value, 0);
+        if (snapshot?.currentUserPool?.stakes) {
+            setExistingBetInputs(snapshot.currentUserPool.stakes);
+            const total = Math.max(0, Number(snapshot.currentUserPool.total) || 0);
             elements.existingBetStatus.textContent = total > 0
                 ? `已从当前实盘同步 ${formatChips(total)} 筹码；这些下注不可撤回，只分析是否追加。`
                 : '当前实盘未识别到我的已提交下注，可手动填写后分析。';
         }
 
+        if (snapshot?.account && Number.isFinite(Number(snapshot.account.magicFragments))) {
+            const committed = Math.max(0, Number(snapshot.currentUserPool?.total) || 0);
+            elements.bankroll.value = Math.max(0, Number(snapshot.account.magicFragments)) + committed;
+        }
+
         renderRealStats();
+        marketState = marketMonitor.recordSnapshot(marketState, snapshot, getProbabilities());
+        writeStoredJson(STORAGE_KEYS.market, marketState);
+        renderMarketMonitor();
         renderBetAnalysis();
     }
 
@@ -462,6 +475,39 @@
         const rounded = Math.round(value);
         if (rounded === 0) return '0';
         return `${rounded > 0 ? '+' : '−'}${formatChips(Math.abs(rounded))}`;
+    }
+
+    function renderMarketMonitor() {
+        const analysis = marketMonitor.analyze(marketState, getProbabilities());
+        const publicLabels = {popular: '追历史热门', mixed: '混合群体', odds: '追高赔率冷门'};
+
+        elements.marketSampleCount.textContent = `${analysis.samples} 次`;
+        elements.marketPoolGrowth.textContent = formatSignedChips(analysis.currentGrowth);
+        elements.marketOddsShare.textContent = analysis.estimatedOddsShare === null ? '等待样本' : formatPercent(analysis.estimatedOddsShare, 0);
+        elements.marketAverageClose.textContent = analysis.completedRounds > 0
+            ? `${formatChips(analysis.averageClosingTotal)} · ${analysis.completedRounds} 场`
+            : '等待完整场次';
+        elements.marketPublicSuggestion.textContent = publicLabels[analysis.recommendedPublicStrategy];
+    }
+
+    function renderPortfolioRobustness(analysis) {
+        const robust = analysis.robust;
+        const selected = realStats.racers.filter(profile => robust.additions[profile.id] > 0);
+        const scenarioNames = {popular: '追热门', mixed: '混合', odds: '追高赔率'};
+        const scenarioText = analysis.scenarios.map(scenario => {
+            const names = realStats.racers.filter(profile => scenario.result.additions[profile.id] > 0).map(profile => profile.shortName);
+            return `${scenarioNames[scenario.id]}：${names.join('+') || '等待'}`;
+        }).join('；');
+
+        if (selected.length === 0) {
+            elements.portfolioRobustTitle.textContent = '稳健组合：等待，不追加';
+            elements.portfolioRobustNote.textContent = `${scenarioText}。没有候选能在三种公众情景下同时保持正增量期望。`;
+            return;
+        }
+
+        const betText = selected.map(profile => `${profile.shortName} +${formatChips(robust.additions[profile.id])}`).join('，');
+        elements.portfolioRobustTitle.textContent = `稳健组合：${betText}`;
+        elements.portfolioRobustNote.textContent = `${analysis.positiveScenarioCount}/3 种情景为正增量期望；最坏情景 ${formatSignedChips(robust.worstDeltaExpectedProfit)}，平均 ${formatSignedChips(robust.averageDeltaExpectedProfit)}。${scenarioText}。`;
     }
 
     function renderPoolTable(analysis) {
@@ -485,6 +531,7 @@
     function renderRecommendation(result) {
         const strategyLabels = {
             'max-ev': '最大期望净收益',
+            'win-rate': '单场盈利概率优先',
             balanced: '风险调整后方案',
             preserve: '本金保护方案',
             'high-odds': '高赔率价值方案'
@@ -527,6 +574,7 @@
         const precisionNote = result.searchUnit > result.requestedUnit ? ` 为控制计算量，本次按 ${formatChips(result.searchUnit)} 筹码步长搜索。` : '';
         const strategyNotes = {
             'max-ev': '优先最大化追加带来的期望净收益，单场仍可能损失全部累计投入。',
+            'win-rate': '先排除负增量期望，再优先提高这一场出现正净收益的概率；赔率不足的高胜率热门仍不会入选。',
             balanced: '同时惩罚预期下行风险，可能用较少筹码换取更平缓的波动。',
             preserve: result.riskBudgetExceeded
                 ? `已提交下注超过 ${formatPercent(result.maxLossRate, 0)} 本金风险预算，无法撤回；本轮不会继续扩大风险。最坏赛果后预计剩余 ${formatChips(result.bankroll + result.worstProfit)} 筹码。`
@@ -576,7 +624,7 @@
         const analysis = betting.analyzePool(probabilities, projected.stakes);
         const bankroll = Math.max(0, Number(elements.bankroll.value) || 0);
         const maxBet = Math.max(0, Number(elements.maxBet.value) || 0);
-        const unit = Math.max(1, Number(elements.betUnit.value) || 100);
+        const unit = Math.max(1, Number(elements.betUnit.value) || 1);
         const strategy = elements.betStrategy.value;
         const maxLossRate = Math.min(0.2, Math.max(0.01, Number(elements.maxLossRate.value) || 0.05));
         const result = betting.optimizeAdditions(probabilities, projected.stakes, existingBets, {
@@ -586,6 +634,18 @@
             strategy,
             maxLossRate,
             riskAversion: 0.75
+        });
+        const robustness = betting.analyzePortfolioScenarios(probabilities, currentPool, existingBets, {
+            expectedTotal: requestedClosingTotal,
+            publicBias,
+            oddsShare,
+            maxBet,
+            bankroll,
+            unit,
+            strategy,
+            maxLossRate,
+            riskAversion: 0.75,
+            maxSteps: 80
         });
         const projectionDescriptions = {
             popular: `按历史胜率的 ${publicBias.toFixed(2)} 次方追热门`,
@@ -608,6 +668,7 @@
         renderPoolTable(analysis);
         renderRecommendation(result);
         renderScenarios(result);
+        renderPortfolioRobustness(robustness);
         savePoolAndSettings();
     }
 
@@ -904,10 +965,27 @@
         resetRace();
     }
 
+    function clearMarketHistory() {
+        if (!window.confirm('确定清空本机保存的逐场聚合盘口监控记录吗？')) return;
+        marketState = {};
+        writeStoredJson(STORAGE_KEYS.market, marketState);
+        renderMarketMonitor();
+    }
+
+    function applyMarketSuggestion() {
+        const analysis = marketMonitor.analyze(marketState, getProbabilities());
+
+        if (analysis.averageClosingTotal > 0) elements.closingPool.value = Math.round(analysis.averageClosingTotal);
+        if (analysis.estimatedOddsShare !== null) elements.oddsShare.value = analysis.estimatedOddsShare.toFixed(2);
+        elements.publicStrategy.value = analysis.recommendedPublicStrategy;
+        renderBetAnalysis();
+    }
+
     function loadPersistentState() {
         const storedWinners = readStoredJson(STORAGE_KEYS.winners, []);
         const storedPool = readStoredJson(STORAGE_KEYS.pool, {});
         const storedBetting = readStoredJson(STORAGE_KEYS.betting, {});
+        marketState = readStoredJson(STORAGE_KEYS.market, {});
 
         importedWinners = Array.isArray(storedWinners) ? storedWinners.filter(id => betting.RACER_IDS.includes(id)) : [];
         setPoolInputs(storedPool);
@@ -915,10 +993,9 @@
         if (['popular', 'odds', 'mixed', 'uniform'].includes(storedBetting.publicStrategy)) elements.publicStrategy.value = storedBetting.publicStrategy;
         if (Number.isFinite(Number(storedBetting.publicBias))) elements.publicBias.value = Math.min(2, Math.max(0.5, Number(storedBetting.publicBias)));
         if (Number.isFinite(Number(storedBetting.oddsShare))) elements.oddsShare.value = Math.min(1, Math.max(0, Number(storedBetting.oddsShare)));
-        if (['max-ev', 'balanced', 'preserve', 'high-odds'].includes(storedBetting.betStrategy)) elements.betStrategy.value = storedBetting.betStrategy;
+        if (['max-ev', 'win-rate', 'balanced', 'preserve', 'high-odds'].includes(storedBetting.betStrategy)) elements.betStrategy.value = storedBetting.betStrategy;
         if (Number.isFinite(Number(storedBetting.bankroll))) elements.bankroll.value = Math.max(0, Number(storedBetting.bankroll));
         if (Number.isFinite(Number(storedBetting.maxBet))) elements.maxBet.value = Math.max(0, Number(storedBetting.maxBet));
-        if (Number.isFinite(Number(storedBetting.betUnit))) elements.betUnit.value = Math.max(1, Number(storedBetting.betUnit));
         if (Number.isFinite(Number(storedBetting.maxLossRate))) elements.maxLossRate.value = Math.min(0.2, Math.max(0.01, Number(storedBetting.maxLossRate)));
     }
 
@@ -936,6 +1013,8 @@
         });
         elements.importPoolButton.addEventListener('click', importPool);
         elements.clearPoolButton.addEventListener('click', clearPool);
+        elements.applyMarketMonitor.addEventListener('click', applyMarketSuggestion);
+        elements.clearMarketMonitor.addEventListener('click', clearMarketHistory);
         elements.analyzeBetButton.addEventListener('click', renderBetAnalysis);
         elements.poolInputs.forEach(input => input.addEventListener('change', renderBetAnalysis));
         elements.existingBetInputs.forEach(input => input.addEventListener('change', () => {
@@ -982,6 +1061,7 @@
         loadPersistentState();
         createStandingRows();
         renderRealStats();
+        renderMarketMonitor();
         updateSettingsLabels();
         bindEvents();
         renderBetAnalysis();

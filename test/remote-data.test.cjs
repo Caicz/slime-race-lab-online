@@ -12,6 +12,7 @@ const racers = [
 test('逐笔实盘押注会聚合并丢弃其他玩家标识', () => {
     const snapshot = remoteData.normalizeSnapshot({
         mode: 'full',
+        account: {id: 9001, username: 'tester', magicFragments: 12345, checkinEnabled: true},
         racers,
         bets: {
             bets: [
@@ -22,6 +23,7 @@ test('逐笔实盘押注会聚合并丢弃其他玩家标识', () => {
             jackpot: 30000,
             witchBonus: 500
         },
+        pendingRewards: [{id: 81, userId: 9001, amount: 600, claimed: false}],
         sessions: []
     });
 
@@ -29,7 +31,12 @@ test('逐笔实盘押注会聚合并丢弃其他玩家标识', () => {
     assert.equal(snapshot.pool.stakes.blueberry, 5000);
     assert.equal(snapshot.pool.total, 25000);
     assert.equal(snapshot.pool.phase, 'unbound');
-    assert.doesNotMatch(JSON.stringify(snapshot), /userId|betId|9001|9002/);
+    assert.equal(snapshot.account.magicFragments, 12345);
+    assert.equal(snapshot.currentUserPool.total, 17000);
+    assert.deepEqual(snapshot.currentUserPool.selectedIds, ['blueberry', 'dragonfruit']);
+    assert.deepEqual(snapshot.pendingRewards, [{rewardId: 81, amount: 600}]);
+    assert.equal(snapshot.pendingRewardTotal, 600);
+    assert.doesNotMatch(JSON.stringify(snapshot), /userId|betId|9001|9002|tester/);
 });
 
 test('上一场状态与下一场未绑定盘口保持独立', () => {
