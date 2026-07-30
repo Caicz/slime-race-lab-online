@@ -42,6 +42,30 @@
         return {racerId, slimeId: racer.sourceId, amount};
     }
 
+    function validateBetBatch(snapshot, intents) {
+        if (!Array.isArray(intents) || intents.length < 1 || intents.length > 2) throw new Error('一键下注必须包含一至两笔建议');
+
+        const virtualSnapshot = {
+            ...snapshot,
+            account: snapshot?.account ? {...snapshot.account} : null,
+            currentUserPool: {
+                ...snapshot?.currentUserPool,
+                stakes: {...snapshot?.currentUserPool?.stakes}
+            }
+        };
+        const seen = new Set();
+
+        return intents.map(intent => {
+            const validated = validateBetIntent(virtualSnapshot, intent);
+            if (seen.has(validated.racerId)) throw new Error('一键下注建议不能重复包含同一只史莱姆');
+            seen.add(validated.racerId);
+            virtualSnapshot.account.magicFragments -= validated.amount;
+            virtualSnapshot.currentUserPool.stakes[validated.racerId] =
+                (Number(virtualSnapshot.currentUserPool.stakes[validated.racerId]) || 0) + validated.amount;
+            return validated;
+        });
+    }
+
     function validateClaimIntent(snapshot, rewardId) {
         if (!snapshot?.account) throw new Error('请先登录并同步账户信息');
         const normalizedRewardId = toPositiveInteger(rewardId, '奖励编号');
@@ -51,5 +75,5 @@
         return reward;
     }
 
-    return Object.freeze({RACER_IDS, validateBetIntent, validateClaimIntent});
+    return Object.freeze({RACER_IDS, validateBetIntent, validateBetBatch, validateClaimIntent});
 });

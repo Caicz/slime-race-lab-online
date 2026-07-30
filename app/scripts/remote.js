@@ -36,6 +36,7 @@
         betRacer: document.querySelector('#remoteBetRacer'),
         betAmount: document.querySelector('#remoteBetAmount'),
         betReview: document.querySelector('#remoteBetReviewButton'),
+        optimalBet: document.querySelector('#remoteOptimalBetButton'),
         betConfirm: document.querySelector('#remoteBetConfirm'),
         betConfirmText: document.querySelector('#remoteBetConfirmText'),
         betCancel: document.querySelector('#remoteBetCancelButton'),
@@ -51,7 +52,8 @@
     let liveTicks = 0;
     let timer = null;
     let latestSnapshot = null;
-    let pendingBet = null;
+    let latestRecommendation = null;
+    let pendingBets = [];
 
     function formatChips(value) {
         return Math.round(Number(value) || 0).toLocaleString('zh-CN');
@@ -60,6 +62,35 @@
     function setStatus(element, message, type = '') {
         element.textContent = message;
         element.className = `form-status${type ? ` ${type}` : ''}`;
+    }
+
+    function getPoolKey(snapshot) {
+        return `${snapshot?.current?.sessionId ?? 'none'}:${snapshot?.pool?.phase || 'unknown'}:${snapshot?.pool?.sessionId ?? 'open'}`;
+    }
+
+    function hasCurrentRecommendation() {
+        return Boolean(
+            latestRecommendation
+            && !latestRecommendation.invalid
+            && latestRecommendation.bets.length > 0
+            && latestRecommendation.poolKey === getPoolKey(latestSnapshot)
+        );
+    }
+
+    function updateBetControls() {
+        const busy = syncing || mutating;
+        elements.betReview.disabled = busy || !authenticated;
+        elements.optimalBet.disabled = busy || !authenticated || !hasCurrentRecommendation();
+        elements.betSubmit.disabled = busy || pendingBets.length === 0;
+    }
+
+    function showBetConfirmation(bets, label) {
+        pendingBets = bets.map(({racerId, amount}) => ({racerId, amount}));
+        const details = pendingBets.map(bet => `${racerNames[bet.racerId]} ${formatChips(bet.amount)}`).join('，');
+        const total = pendingBets.reduce((sum, bet) => sum + bet.amount, 0);
+        elements.betConfirmText.textContent = `${label}：${details}，合计 ${formatChips(total)} 碎片。将按顺序提交，提交后不可撤回，是否确认？`;
+        elements.betConfirm.hidden = false;
+        updateBetControls();
     }
 
     function getElectronAdapter() {
@@ -125,11 +156,33 @@
                 return fetchSnapshot('full');
             },
             sync: fetchSnapshot,
-            async placeBet(intent) {
-                const preflight = await fetchSnapshot('live');
-                const validated = remoteActions.validateBetIntent(preflight, intent);
-                await request('/api/slime-race/bet', {method: 'POST', data: {slimeId: validated.slimeId, amount: validated.amount}});
-                return fetchSnapshot('full');
+            async placeBets(intents) {
+                await requestPolicy.delay(800);
+                let snapshot = await fetchSnapshot('live');
+                const planned = remoteActions.validateBetBatch(snapshot, intents);
+                let completed = 0;
+
+                try {
+                    for (let index = 0; index < planned.length; index += 1) {
+                        if (index > 0) {
+                            await requestPolicy.delay(2000);
+                            snapshot = await fetchSnapshot('live');
+                        }
+
+                        const validated = remoteActions.validateBetIntent(snapshot, planned[index]);
+                        await requestPolicy.delay(400);
+                        await request('/api/slime-race/bet', {method: 'POST', data: {slimeId: validated.slimeId, amount: validated.amount}});
+                        completed += 1;
+                    }
+
+                    await requestPolicy.delay(600);
+                    return await fetchSnapshot('live');
+                } catch (error) {
+                    const message = String(error?.message || error);
+                    if (completed === planned.length) throw new Error(`${completed} 笔下注已经提交，但结果同步失败：${message}`);
+                    if (completed > 0) throw new Error(`已完成 ${completed}/${planned.length} 笔下注，剩余操作已停止：${message}`);
+                    throw error;
+                }
             },
             async claimReward(rewardId) {
                 const preflight = await fetchSnapshot('live');
@@ -196,10 +249,11 @@
 
         window.dispatchEvent(new CustomEvent('slime-race-remote-snapshot', {detail: snapshot}));
         setStatus(elements.status, `已同步 · ${new Date(snapshot.updatedAt).toLocaleTimeString('zh-CN', {hour12: false})}`, 'success');
+        updateBetControls();
     }
 
     async function sync(mode = 'live') {
-        if (!authenticated || syncing || mutating) return;
+        if (!authenticated || syncing || mutating || pendingBets.length > 0) return;
         const adapter = getAdapter();
 
         if (!adapter) return;
@@ -213,6 +267,7 @@
         } finally {
             syncing = false;
             elements.syncButton.disabled = false;
+            updateBetControls();
         }
     }
 
@@ -228,55 +283,85 @@
 
     function reviewBet() {
         try {
-            pendingBet = remoteActions.validateBetIntent(latestSnapshot, {
+            const planned = remoteActions.validateBetBatch(latestSnapshot, [{
                 racerId: elements.betRacer.value,
                 amount: elements.betAmount.value
-            });
-            elements.betConfirmText.textContent = `将向${racerNames[pendingBet.racerId]}下注 ${formatChips(pendingBet.amount)} 碎片。提交后不可撤回，是否确认？`;
-            elements.betConfirm.hidden = false;
+            }]);
+            showBetConfirmation(planned, '手动下注');
             setStatus(elements.betStatus, '请再次核对史莱姆和碎片数量。');
         } catch (error) {
-            pendingBet = null;
+            pendingBets = [];
             elements.betConfirm.hidden = true;
             setStatus(elements.betStatus, String(error.message || error), 'error');
+            updateBetControls();
+        }
+    }
+
+    async function reviewOptimalBets() {
+        if (!authenticated || syncing || mutating) return;
+        const adapter = getAdapter();
+        if (!adapter) return;
+
+        syncing = true;
+        setStatus(elements.betStatus, '正在刷新当前盘口并重新计算最优建议…');
+        updateBetControls();
+
+        try {
+            updateSnapshot(await adapter.sync('live'));
+            if (!hasCurrentRecommendation()) throw new Error('当前策略建议等待或停止追加，没有可执行的一键下注方案');
+            const planned = remoteActions.validateBetBatch(latestSnapshot, latestRecommendation.bets);
+            showBetConfirmation(planned, '当前最优建议');
+            setStatus(elements.betStatus, '盘口已刷新；一次确认后将串行提交，任一失败都会停止剩余下注。');
+        } catch (error) {
+            pendingBets = [];
+            elements.betConfirm.hidden = true;
+            setStatus(elements.betStatus, String(error.message || error), 'error');
+        } finally {
+            syncing = false;
+            updateBetControls();
         }
     }
 
     function cancelBetReview() {
-        pendingBet = null;
+        pendingBets = [];
         elements.betConfirm.hidden = true;
         setStatus(elements.betStatus, '已取消，未提交任何下注。');
+        updateBetControls();
     }
 
-    async function submitBet() {
-        if (!pendingBet || mutating) return;
+    async function submitBets() {
+        if (pendingBets.length === 0 || mutating || syncing) return;
         const adapter = getAdapter();
         if (!adapter) return;
+
+        const submitted = pendingBets.map(bet => ({...bet}));
         mutating = true;
-        elements.betSubmit.disabled = true;
-        elements.betReview.disabled = true;
-        setStatus(elements.betStatus, '正在重新校验盘口并提交，请勿重复点击…');
+        setStatus(elements.betStatus, `正在重新校验并串行提交 ${submitted.length} 笔下注；两笔间主动等待，请勿重复点击…`);
+        updateBetControls();
 
         try {
-            const submitted = {...pendingBet};
-            updateSnapshot(await adapter.placeBet(submitted));
-            pendingBet = null;
+            updateSnapshot(await adapter.placeBets(submitted));
+            pendingBets = [];
             elements.betConfirm.hidden = true;
             elements.betAmount.value = '1';
-            setStatus(elements.betStatus, `下注成功：${racerNames[submitted.racerId]} +${formatChips(submitted.amount)} 碎片。`, 'success');
+            const summary = submitted.map(bet => `${racerNames[bet.racerId]} +${formatChips(bet.amount)}`).join('，');
+            setStatus(elements.betStatus, `${submitted.length} 笔下注全部成功：${summary}。`, 'success');
         } catch (error) {
-            setStatus(elements.betStatus, String(error.message || error), 'error');
-            pendingBet = null;
+            const message = String(error.message || error);
+            setStatus(elements.betStatus, message, 'error');
+            pendingBets = [];
             elements.betConfirm.hidden = true;
-            try {
-                updateSnapshot(await adapter.sync('full'));
-            } catch {
-                // Preserve the original mutation error when reconciliation is unavailable.
+            if (!message.includes('请求过于频繁')) {
+                try {
+                    await requestPolicy.delay(800);
+                    updateSnapshot(await adapter.sync('live'));
+                } catch {
+                    // Preserve the original mutation error when reconciliation is unavailable.
+                }
             }
         } finally {
             mutating = false;
-            elements.betSubmit.disabled = false;
-            elements.betReview.disabled = false;
+            updateBetControls();
             if (latestSnapshot) renderRewards(latestSnapshot);
         }
     }
@@ -287,6 +372,7 @@
         if (!adapter) return;
         mutating = true;
         setStatus(elements.claimStatus, '正在重新核对并领取奖励…');
+        updateBetControls();
         renderRewards(latestSnapshot);
 
         try {
@@ -301,6 +387,7 @@
             }
         } finally {
             mutating = false;
+            updateBetControls();
             if (latestSnapshot) renderRewards(latestSnapshot);
         }
     }
@@ -348,7 +435,8 @@
         timer = null;
         authenticated = false;
         latestSnapshot = null;
-        pendingBet = null;
+        latestRecommendation = null;
+        pendingBets = [];
 
         try {
             await getAdapter()?.logout();
@@ -374,11 +462,23 @@
     elements.syncButton.addEventListener('click', () => sync('full'));
     elements.logoutButton.addEventListener('click', logout);
     elements.betReview.addEventListener('click', reviewBet);
+    elements.optimalBet.addEventListener('click', reviewOptimalBets);
     elements.betCancel.addEventListener('click', cancelBetReview);
-    elements.betSubmit.addEventListener('click', submitBet);
+    elements.betSubmit.addEventListener('click', submitBets);
     [elements.betRacer, elements.betAmount].forEach(input => input.addEventListener('change', () => {
-        pendingBet = null;
+        pendingBets = [];
         elements.betConfirm.hidden = true;
+        updateBetControls();
     }));
+    window.addEventListener('slime-race-bet-recommendation', event => {
+        const detail = event.detail || {};
+        latestRecommendation = {
+            poolKey: detail.poolKey,
+            strategy: detail.strategy,
+            invalid: detail.invalid === true,
+            bets: Array.isArray(detail.bets) ? detail.bets.map(bet => ({racerId: bet.racerId, amount: bet.amount})) : []
+        };
+        updateBetControls();
+    });
     window.addEventListener('beforeunload', () => clearInterval(timer));
 })();

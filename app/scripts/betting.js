@@ -337,6 +337,7 @@
         if (strategy === 'balanced') return candidate.deltaExpectedProfit - riskAversion * candidate.deltaExpectedDownside;
         if (strategy === 'high-odds') return candidate.incrementalRoi;
         if (strategy === 'win-rate') return candidate.profitProbability;
+        if (strategy === 'long-term') return candidate.deltaExpectedLogGrowth;
         return candidate.deltaExpectedProfit;
     }
 
@@ -356,29 +357,41 @@
     }
 
     function optimizeAdditions(probabilities, currentPool, existingBets = {}, options = {}) {
-        const strategy = ['max-ev', 'balanced', 'preserve', 'high-odds', 'win-rate'].includes(options.strategy) ? options.strategy : 'max-ev';
+        const strategy = ['max-ev', 'balanced', 'preserve', 'high-odds', 'win-rate', 'long-term'].includes(options.strategy) ? options.strategy : 'max-ev';
         const bankroll = toNonNegativeNumber(options.bankroll, Number.POSITIVE_INFINITY);
         const requestedMaxBet = toNonNegativeNumber(options.maxBet);
         const maxLossRate = clamp(toNonNegativeNumber(options.maxLossRate, 0.05), 0, 1);
+        const longTermRiskRate = clamp(toNonNegativeNumber(options.longTermRiskRate, 0.01), 0.001, 0.05);
         const riskAversion = toNonNegativeNumber(options.riskAversion, 0.75);
-        const riskBudget = strategy === 'preserve' ? bankroll * maxLossRate : Number.POSITIVE_INFINITY;
+        const riskBudget = strategy === 'preserve'
+            ? bankroll * maxLossRate
+            : strategy === 'long-term' ? bankroll * longTermRiskRate : Number.POSITIVE_INFINITY;
         const totalBetLimit = Math.min(requestedMaxBet, bankroll, riskBudget);
         const normalizedExisting = normalizeMap(existingBets);
         const existingTotal = sumMap(normalizedExisting);
         const riskBudgetExceeded = strategy === 'preserve' && existingTotal > riskBudget + 1e-9;
+        const longTermBudgetExceeded = strategy === 'long-term' && existingTotal > riskBudget + 1e-9;
         const maxAddition = Math.max(0, totalBetLimit - existingTotal);
         const requestedUnit = Math.max(1, toNonNegativeNumber(options.unit, 1));
         const maxSteps = Math.max(20, Math.round(toNonNegativeNumber(options.maxSteps, 240)));
         const unit = Math.max(requestedUnit, Math.ceil(maxAddition / maxSteps / requestedUnit) * requestedUnit || requestedUnit);
         const amounts = getBetAmounts(maxAddition, unit);
         const existingIds = RACER_IDS.filter(id => normalizedExisting[id] > 0);
+        const normalizedProbabilities = normalizeProbabilities(probabilities);
         const baseline = evaluatePosition(probabilities, currentPool, normalizedExisting, {});
+        const growthBankroll = Number.isFinite(bankroll) ? bankroll : requestedMaxBet;
+        const expectedLogWealth = position => RACER_IDS.reduce((total, id) => {
+            const finalWealth = Math.max(1e-9, growthBankroll + position.outcomes[id].profit);
+            return total + normalizedProbabilities[id] * Math.log(finalWealth);
+        }, 0);
+        const baselineExpectedLogWealth = strategy === 'long-term' ? expectedLogWealth(baseline) : 0;
 
         function compare(additions) {
             const candidate = evaluatePosition(probabilities, currentPool, normalizedExisting, additions);
             candidate.deltaExpectedProfit = candidate.expectedProfit - baseline.expectedProfit;
             candidate.deltaExpectedDownside = candidate.expectedDownside - baseline.expectedDownside;
             candidate.incrementalRoi = candidate.additionalBet > 0 ? candidate.deltaExpectedProfit / candidate.additionalBet : 0;
+            candidate.deltaExpectedLogGrowth = strategy === 'long-term' ? expectedLogWealth(candidate) - baselineExpectedLogWealth : 0;
             candidate.score = scoreCandidate(candidate, strategy, riskAversion);
             return candidate;
         }
@@ -394,8 +407,10 @@
                 bankroll,
                 riskBudget,
                 maxLossRate,
+                longTermRiskRate,
                 riskAversion,
                 riskBudgetExceeded,
+                longTermBudgetExceeded,
                 requestedMaxBet,
                 effectiveMaxBet: totalBetLimit,
                 requestedUnit,
@@ -444,8 +459,10 @@
             bankroll,
             riskBudget,
             maxLossRate,
+            longTermRiskRate,
             riskAversion,
             riskBudgetExceeded,
+            longTermBudgetExceeded,
             requestedMaxBet,
             effectiveMaxBet: totalBetLimit,
             requestedUnit,

@@ -178,6 +178,35 @@ test('单场胜率策略只在正期望候选中提高本场盈利概率', () =>
     assert.ok(Object.values(winRate.bets).filter(amount => amount > 0).length <= 2);
 });
 
+test('长线稳健策略按每日五场把单场累计风险限制为本金的 1%', () => {
+    const probabilities = {melon: 0.1, blueberry: 0.2, dragonfruit: 0.5, lemon: 0.2};
+    const pool = {melon: 1000, blueberry: 14000, dragonfruit: 18000, lemon: 3000};
+    const result = betting.optimizeBets(probabilities, pool, {
+        maxBet: 3000,
+        bankroll: 10000,
+        unit: 1,
+        strategy: 'long-term'
+    });
+
+    assert.ok(result.totalBet <= 100);
+    assert.equal(result.longTermRiskRate, 0.01);
+    assert.ok(result.additionalBet === 0 || result.deltaExpectedProfit > 0);
+    assert.ok(result.additionalBet === 0 || result.deltaExpectedLogGrowth > 0);
+});
+
+test('长线稳健策略不会在既有仓位超过单场预算后继续追加', () => {
+    const result = betting.optimizeAdditions(
+        {melon: 0.1, blueberry: 0.2, dragonfruit: 0.5, lemon: 0.2},
+        {melon: 1000, blueberry: 14000, dragonfruit: 18000, lemon: 3000},
+        {melon: 101},
+        {maxBet: 3000, bankroll: 10000, unit: 1, strategy: 'long-term'}
+    );
+
+    assert.equal(result.longTermBudgetExceeded, true);
+    assert.equal(result.additionalBet, 0);
+    assert.equal(result.action, 'stop');
+});
+
 test('既有下注已包含在当前奖池中，不会再次增加总池', () => {
     const currentPool = {melon: 1100, blueberry: 8000, dragonfruit: 12000, lemon: 5000};
     const result = betting.evaluatePosition(probabilities, currentPool, {melon: 100}, {});

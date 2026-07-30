@@ -534,6 +534,7 @@
             'win-rate': '单场盈利概率优先',
             balanced: '风险调整后方案',
             preserve: '本金保护方案',
+            'long-term': '长线稳健方案 · 每日5场',
             'high-odds': '高赔率价值方案'
         };
         const selected = realStats.racers.filter(profile => result.additions[profile.id] > 0);
@@ -579,13 +580,29 @@
             preserve: result.riskBudgetExceeded
                 ? `已提交下注超过 ${formatPercent(result.maxLossRate, 0)} 本金风险预算，无法撤回；本轮不会继续扩大风险。最坏赛果后预计剩余 ${formatChips(result.bankroll + result.worstProfit)} 筹码。`
                 : `累计投入受 ${formatPercent(result.maxLossRate, 0)} 本金风险预算约束；最坏赛果后预计至少剩余 ${formatChips(result.bankroll + result.worstProfit)} 筹码。最多双押无法对四种冠军结果同时做到零亏损。`,
+            'long-term': result.longTermBudgetExceeded
+                ? '本场已提交仓位超过长线单场预算，无法撤回；为保护后续场次，本轮停止追加。'
+                : '按每日 12:00、15:00、18:00、21:00、23:00 共五场规划；只选正增量期望且提高长期资金对数增长的组合，单场累计投入不超过赛前本金 1%，连续五场最坏结果后理论保留约 95.1% 本金，但不保证盈利。',
             'high-odds': '只在正增量期望候选中优先追加 ROI 与高返还倍数，波动和未押中概率通常更高。'
         };
         let actionNote = selected.length === 0 ? '“等待 / 停止追加”也参与比较；当前没有更好的正增量方案。' : strategyNotes[result.strategy];
         if (result.strategy === 'preserve' && result.riskBudgetExceeded) actionNote = strategyNotes.preserve;
+        if (result.strategy === 'long-term' && result.longTermBudgetExceeded) actionNote = strategyNotes['long-term'];
         if (result.invalidExistingSelection) actionNote = '最多只能选择两只史莱姆；请核对手动输入或等待个人下注重新同步。';
         const baselineNote = result.existingTotal > 0 ? ` 已提交 ${formatChips(result.existingTotal)} 筹码被视为不可撤回。` : '';
         elements.recommendationNote.textContent = `${actionNote}${baselineNote}${precisionNote}`;
+        window.dispatchEvent(new CustomEvent('slime-race-bet-recommendation', {
+            detail: {
+                poolKey: remoteBetPoolKey,
+                strategy: result.strategy,
+                bets: selected
+                    .map(profile => ({racerId: profile.id, amount: result.additions[profile.id]}))
+                    .sort((left, right) => right.amount - left.amount),
+                additionalBet: result.additionalBet,
+                deltaExpectedProfit: result.deltaExpectedProfit,
+                invalid: result.invalidExistingSelection
+            }
+        }));
     }
 
     function renderScenarios(result) {
@@ -993,7 +1010,7 @@
         if (['popular', 'odds', 'mixed', 'uniform'].includes(storedBetting.publicStrategy)) elements.publicStrategy.value = storedBetting.publicStrategy;
         if (Number.isFinite(Number(storedBetting.publicBias))) elements.publicBias.value = Math.min(2, Math.max(0.5, Number(storedBetting.publicBias)));
         if (Number.isFinite(Number(storedBetting.oddsShare))) elements.oddsShare.value = Math.min(1, Math.max(0, Number(storedBetting.oddsShare)));
-        if (['max-ev', 'win-rate', 'balanced', 'preserve', 'high-odds'].includes(storedBetting.betStrategy)) elements.betStrategy.value = storedBetting.betStrategy;
+        if (['max-ev', 'win-rate', 'balanced', 'preserve', 'long-term', 'high-odds'].includes(storedBetting.betStrategy)) elements.betStrategy.value = storedBetting.betStrategy;
         if (Number.isFinite(Number(storedBetting.bankroll))) elements.bankroll.value = Math.max(0, Number(storedBetting.bankroll));
         if (Number.isFinite(Number(storedBetting.maxBet))) elements.maxBet.value = Math.max(0, Number(storedBetting.maxBet));
         if (Number.isFinite(Number(storedBetting.maxLossRate))) elements.maxLossRate.value = Math.min(0.2, Math.max(0.01, Number(storedBetting.maxLossRate)));

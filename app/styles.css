@@ -982,7 +982,7 @@ input:focus {
 
 .remote-bet-form {
     display: grid;
-    grid-template-columns: minmax(140px, 1fr) minmax(110px, 0.7fr) auto;
+    grid-template-columns: minmax(140px, 1fr) minmax(110px, 0.7fr) auto auto;
     align-items: end;
     gap: 9px;
 }

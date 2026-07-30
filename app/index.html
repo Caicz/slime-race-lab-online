@@ -181,7 +181,7 @@
                     <p class="section-kicker">LIVE ACCOUNT BRIDGE</p>
                     <h2>实盘同步与远程操作</h2>
                 </div>
-                <span class="no-fee-badge">固定站点 · 每笔手动确认</span>
+                <span class="no-fee-badge">固定站点 · 提交前统一确认</span>
             </div>
             <div class="remote-layout">
                 <form class="remote-login" id="remoteLoginForm" autocomplete="off">
@@ -207,13 +207,14 @@
                         <label><span>史莱姆</span><select id="remoteBetRacer"><option value="melon">迷你哈密瓜</option><option value="blueberry">迷你蓝莓</option><option value="dragonfruit">迷你火龙果</option><option value="lemon">迷你柠檬</option></select></label>
                         <label><span>下注碎片</span><input id="remoteBetAmount" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
                         <button class="secondary-button" id="remoteBetReviewButton" type="button">核对下注</button>
+                        <button class="primary-button" id="remoteOptimalBetButton" type="button" disabled>按最优建议一键下注</button>
                     </div>
                     <div class="remote-confirm" id="remoteBetConfirm" hidden>
                         <p id="remoteBetConfirmText">—</p>
                         <button class="quiet-button" id="remoteBetCancelButton" type="button">取消</button>
                         <button class="primary-button" id="remoteBetSubmitButton" type="button">确认远程下注</button>
                     </div>
-                    <p class="form-status" id="remoteBetStatus">先核对金额，再进行第二次确认；软件不会自动下注或重试超时请求。</p>
+                    <p class="form-status" id="remoteBetStatus">手动下注先核对金额；一键下注会刷新建议并统一确认；任何 POST 都不会自动重试。</p>
                 </section>
                 <section class="remote-action-card">
                     <div class="remote-action-heading"><strong>待领取奖励</strong><span id="remoteRewardSummary">暂无可领取碎片</span></div>
@@ -221,7 +222,7 @@
                     <p class="form-status" id="remoteClaimStatus">每笔奖励需手动确认领取，不会自动领取。</p>
                 </section>
             </div>
-            <p class="form-status" id="remoteStatus">密码不会保存；账户余额、奖励和盘口每 3 秒刷新，历史与个人统计每 30 秒刷新。</p>
+            <p class="form-status" id="remoteStatus">密码不会保存；账户余额、奖励和盘口每 4 秒刷新，历史与个人统计每 40 秒刷新。</p>
         </section>
 
         <section class="data-workspace">
@@ -294,7 +295,7 @@
                 <span class="no-fee-badge">无手续费 · 最多双押</span>
             </div>
             <div class="bet-controls">
-                <label><span>推荐策略</span><select id="betStrategyInput"><option value="max-ev">最大期望</option><option value="win-rate">单场胜率优先</option><option value="balanced">均衡风险</option><option value="preserve">本金保护</option><option value="high-odds">高赔率价值</option></select></label>
+                <label><span>推荐策略</span><select id="betStrategyInput"><option value="max-ev">最大期望</option><option value="win-rate">单场胜率优先</option><option value="balanced">均衡风险</option><option value="preserve">本金保护</option><option value="long-term">长线稳健 · 每日5场</option><option value="high-odds">高赔率价值</option></select></label>
                 <label><span>赛前本金</span><input id="bankrollInput" type="number" min="0" step="100" value="10000" inputmode="decimal"></label>
                 <label><span>本场累计投入上限</span><input id="maxBetInput" type="number" min="0" step="100" value="2000" inputmode="decimal"></label>
                 <label><span>最小筹码单位</span><input id="betUnitInput" type="number" min="1" step="1" value="1" inputmode="decimal"></label>

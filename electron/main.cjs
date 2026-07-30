@@ -123,15 +123,37 @@ async function runMutation(action) {
     }
 }
 
-async function placeRemoteBet(intent) {
+async function placeRemoteBets(intents) {
     return runMutation(async () => {
-        const preflight = await syncRemote('live');
-        const validated = remoteActions.validateBetIntent(preflight, intent);
-        await requestJson('/api/slime-race/bet', {
-            method: 'POST',
-            data: {slimeId: validated.slimeId, amount: validated.amount}
-        });
-        return syncRemote('full');
+        await requestPolicy.delay(800);
+        let snapshot = await syncRemote('live');
+        const planned = remoteActions.validateBetBatch(snapshot, intents);
+        let completed = 0;
+
+        try {
+            for (let index = 0; index < planned.length; index += 1) {
+                if (index > 0) {
+                    await requestPolicy.delay(2000);
+                    snapshot = await syncRemote('live');
+                }
+
+                const validated = remoteActions.validateBetIntent(snapshot, planned[index]);
+                await requestPolicy.delay(400);
+                await requestJson('/api/slime-race/bet', {
+                    method: 'POST',
+                    data: {slimeId: validated.slimeId, amount: validated.amount}
+                });
+                completed += 1;
+            }
+
+            await requestPolicy.delay(600);
+            return await syncRemote('live');
+        } catch (error) {
+            const message = String(error?.message || error);
+            if (completed === planned.length) throw new Error(`${completed} 笔下注已经提交，但结果同步失败：${message}`);
+            if (completed > 0) throw new Error(`已完成 ${completed}/${planned.length} 笔下注，剩余操作已停止：${message}`);
+            throw error;
+        }
     });
 }
 
@@ -152,9 +174,9 @@ ipcMain.handle('slime-remote:sync', (event, mode) => {
     assertTrustedSender(event);
     return syncRemote(mode);
 });
-ipcMain.handle('slime-remote:place-bet', (event, intent) => {
+ipcMain.handle('slime-remote:place-bets', (event, intents) => {
     assertTrustedSender(event);
-    return placeRemoteBet(intent);
+    return placeRemoteBets(intents);
 });
 ipcMain.handle('slime-remote:claim-reward', (event, rewardId) => {
     assertTrustedSender(event);
