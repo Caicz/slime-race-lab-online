@@ -175,6 +175,32 @@
             </aside>
         </main>
 
+        <section class="panel remote-panel">
+            <div class="panel-heading remote-heading">
+                <div>
+                    <p class="section-kicker">READ-ONLY LIVE SYNC</p>
+                    <h2>实盘只读同步</h2>
+                </div>
+                <span class="no-fee-badge">固定站点 · 不自动下注</span>
+            </div>
+            <div class="remote-layout">
+                <form class="remote-login" id="remoteLoginForm" autocomplete="off">
+                    <label><span>账号</span><input id="remoteUsername" type="text" maxlength="160" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+                    <label><span>密码</span><input id="remotePassword" type="password" maxlength="512" autocomplete="off"></label>
+                    <button class="primary-button" id="remoteLoginButton" type="submit">登录并同步</button>
+                    <button class="secondary-button" id="remoteSyncButton" type="button" hidden>立即全量同步</button>
+                    <button class="quiet-button" id="remoteLogoutButton" type="button" hidden>退出并清会话</button>
+                </form>
+                <div class="remote-metrics">
+                    <div><span>比赛状态</span><strong id="remoteRaceStatus">未连接</strong></div>
+                    <div><span>实时盘口</span><strong id="remotePoolStatus">等待登录</strong></div>
+                    <div><span>历史记录</span><strong id="remoteHistoryStatus">等待登录</strong></div>
+                    <div><span>个人统计</span><strong id="remoteAccountStatus">会话未建立</strong></div>
+                </div>
+            </div>
+            <p class="form-status" id="remoteStatus">密码不会保存；登录后盘口每 3 秒聚合刷新，历史和个人统计每 30 秒刷新。</p>
+        </section>
+
         <section class="data-workspace">
             <article class="panel data-panel history-panel">
                 <div class="panel-heading compact-heading">
@@ -282,6 +308,8 @@
 
     <script src="scripts/engine.js"></script>
     <script src="scripts/betting.js"></script>
+    <script src="scripts/remote-data.js"></script>
     <script src="scripts/app.js"></script>
+    <script src="scripts/remote.js"></script>
 </body>
 </html>

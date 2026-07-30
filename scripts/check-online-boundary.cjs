@@ -6,6 +6,7 @@ const projectRoot = path.join(__dirname, '..');
 const envName = '.env.slime-race.local';
 const envPath = path.join(projectRoot, envName);
 const expectedPackagedFiles = ['app/**/*', 'electron/**/*', 'package.json'];
+const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'app/scripts/remote.js'];
 
 function read(relativePath) {
     return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
@@ -20,6 +21,17 @@ function checkNoRemote(violations) {
     } catch (error) {
         violations.push(`无法检查 Git 远程：${String(error.message || error)}`);
     }
+}
+
+function checkNetworkCode(violations) {
+    const content = networkFiles.map(relativePath => read(relativePath)).join('\n');
+    const forbiddenMutations = /\/api\/slime-race\/(?:bet|claim|reset|admin)(?:[/'"`]|$)/i;
+    const sensitiveLogging = /console\.(?:log|info|warn|error)\([^\n]*(?:password|cookie|token)/i;
+
+    if (forbiddenMutations.test(content)) violations.push('联网代码禁止包含下注、领奖、重置或管理接口');
+    if (sensitiveLogging.test(content)) violations.push('联网代码禁止记录密码、Cookie 或 Token');
+    if (!content.includes('https://zouzou-princess-fan.replit.app')) violations.push('联网代码必须固定允许的目标站点');
+    if (!read('app/index.html').includes("connect-src 'none'")) violations.push('渲染层 CSP 必须继续禁止直接网络连接');
 }
 
 function checkBoundary() {
@@ -45,6 +57,12 @@ function checkBoundary() {
         if (mode !== 0o600) violations.push(`${envName} 权限必须为 600，当前为 ${mode.toString(8)}`);
     }
 
+    if (fs.existsSync(path.join(projectRoot, '.git'))) {
+        const trackedEnv = execFileSync('git', ['ls-files', envName], {cwd: projectRoot, encoding: 'utf8'}).trim();
+        if (trackedEnv) violations.push(`${envName} 禁止被 Git 跟踪`);
+    }
+
+    checkNetworkCode(violations);
     checkNoRemote(violations);
 
     if (violations.length > 0) {

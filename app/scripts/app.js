@@ -93,6 +93,8 @@
     let animationFrame = 0;
     let batchRunId = 0;
     let importedWinners = [];
+    let syncedObservedWins = null;
+    let syncedRecentWinners = [];
     let realStats = betting.mergeRealStats(engine.RACERS, importedWinners);
 
     function getConfig() {
@@ -209,16 +211,22 @@
     }
 
     function renderRealStats() {
-        realStats = betting.mergeRealStats(engine.RACERS, importedWinners);
+        const observedProfiles = syncedObservedWins
+            ? engine.RACERS.map(profile => ({...profile, observedWins: syncedObservedWins[profile.id] ?? profile.observedWins}))
+            : engine.RACERS;
+        const effectiveImportedWinners = syncedObservedWins ? [] : importedWinners;
+        realStats = betting.mergeRealStats(observedProfiles, effectiveImportedWinners);
         const ranked = [...realStats.racers].sort((left, right) => right.rate - left.rate);
         const topPair = ranked.slice(0, 2);
         const coverage = topPair.reduce((total, profile) => total + profile.rate, 0);
 
         elements.sampleBadge.textContent = `${realStats.total} 场实盘`;
-        elements.importedCountBadge.textContent = `新增 ${realStats.importedTotal} 场`;
+        elements.importedCountBadge.textContent = syncedObservedWins ? '联网同步' : `新增 ${realStats.importedTotal} 场`;
         elements.realCoverage.textContent = formatPercent(coverage);
         elements.realCoverageBar.style.width = `${coverage * 100}%`;
-        elements.realCoverageNote.textContent = realStats.importedTotal > 0
+        elements.realCoverageNote.textContent = syncedObservedWins
+            ? `已使用网站累计 ${realStats.total} 场实盘；本地手工记录不会重复计入。`
+            : realStats.importedTotal > 0
             ? `已合并 ${realStats.importedTotal} 场新增实盘；模拟盘结果不会计入。`
             : '当前使用 459 场实盘基线；模拟盘结果不会计入。';
         elements.realPickPair.replaceChildren(createPickCard(topPair[0], 1));
@@ -245,7 +253,8 @@
             const card = document.createElement('div');
             card.className = 'real-stat';
             card.style.setProperty('--racer-color', profile.color);
-            card.innerHTML = `<span>${profile.shortName}</span><strong>${profile.wins} 胜</strong><small>${formatPercent(profile.rate)} · 新增 ${profile.importedWins}</small>`;
+            const source = syncedObservedWins ? '联网同步' : `新增 ${profile.importedWins}`;
+            card.innerHTML = `<span>${profile.shortName}</span><strong>${profile.wins} 胜</strong><small>${formatPercent(profile.rate)} · ${source}</small>`;
             elements.realSummary.append(card);
         });
 
@@ -257,16 +266,17 @@
 
     function renderRecentWinners() {
         elements.recentRealWinners.replaceChildren();
+        const recentWinners = syncedObservedWins ? syncedRecentWinners : importedWinners.slice(-12).reverse();
 
-        if (importedWinners.length === 0) {
+        if (recentWinners.length === 0) {
             const empty = document.createElement('span');
             empty.className = 'form-status';
-            empty.textContent = '尚未导入 459 场基线之后的新实盘赛果。';
+            empty.textContent = syncedObservedWins ? '网站最近场次暂时没有可用冠军。' : '尚未导入 459 场基线之后的新实盘赛果。';
             elements.recentRealWinners.append(empty);
             return;
         }
 
-        importedWinners.slice(-12).reverse().forEach((id, index) => {
+        recentWinners.forEach((id, index) => {
             const profile = getProfile(id);
             const chip = document.createElement('span');
             chip.className = 'recent-chip';
@@ -367,6 +377,31 @@
         setPoolInputs({});
         renderBetAnalysis();
         setFormStatus(elements.poolImportStatus, '已清空当前实盘押注池。', 'success');
+    }
+
+    function applyRemoteSnapshot(snapshot) {
+        if (Array.isArray(snapshot?.racers) && snapshot.racers.length === engine.RACERS.length) {
+            syncedObservedWins = Object.fromEntries(snapshot.racers.map(racer => [racer.id, Math.max(0, Number(racer.wins) || 0)]));
+        }
+
+        if (snapshot?.mode === 'full' && Array.isArray(snapshot.recentWinnerIds)) {
+            syncedRecentWinners = snapshot.recentWinnerIds.filter(id => betting.RACER_IDS.includes(id));
+        }
+
+        if (snapshot?.pool?.stakes) {
+            setPoolInputs(snapshot.pool.stakes);
+            setFormStatus(elements.poolImportStatus, `联网聚合池已更新：${formatChips(snapshot.pool.total)} 筹码；未保存其他玩家 ID。`, 'success');
+        }
+
+        renderRealStats();
+        renderBetAnalysis();
+    }
+
+    function disconnectRemoteStats() {
+        syncedObservedWins = null;
+        syncedRecentWinners = [];
+        renderRealStats();
+        renderBetAnalysis();
     }
 
     function createTableSlime(profile) {
@@ -816,6 +851,8 @@
             input.addEventListener('change', () => resetRace());
         });
         elements.lapLength.addEventListener('change', () => resetRace());
+        window.addEventListener('slime-race-remote-snapshot', event => applyRemoteSnapshot(event.detail));
+        window.addEventListener('slime-race-remote-disconnected', disconnectRemoteStats);
         window.addEventListener('resize', drawRace);
         document.addEventListener('visibilitychange', () => {
             lastFrameTime = 0;

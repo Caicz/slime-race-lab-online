@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const remoteData = require('../app/scripts/remote-data.js');
 
 const projectRoot = path.join(__dirname, '..');
 const envPath = path.join(projectRoot, '.env.slime-race.local');
@@ -89,13 +90,21 @@ async function main() {
     }
 
     const snapshot = {};
+    const raw = {};
 
     for (const endpoint of endpoints) {
         const result = await requestJson(baseUrl, endpoint, cookie);
         snapshot[endpoint] = {status: result.status, schema: result.data === null ? null : describe(result.data)};
+        const name = endpoint.split('/').pop().replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+        raw[name] = result.data;
         console.log(`${endpoint}=${result.status}`);
         if (result.data !== null) console.log(JSON.stringify(describe(result.data)));
     }
+
+    const normalized = remoteData.normalizeSnapshot({...raw, mode: 'full'});
+    const normalizedText = JSON.stringify(normalized);
+    if (/userId|betId/.test(normalizedText)) throw new Error('聚合结果意外保留了逐笔用户标识');
+    console.log(`normalized=racers:${normalized.racers.length},pool:${normalized.pool.total},sessions:${normalized.sessions.length},myBets:${normalized.myBets.length}`);
 
     fs.writeFileSync(outputPath, JSON.stringify(snapshot), {encoding: 'utf8', mode: 0o600});
     fs.chmodSync(outputPath, 0o600);
