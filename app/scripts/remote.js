@@ -4,6 +4,7 @@
     const TARGET_ORIGIN = 'https://zouzou-princess-fan.replit.app';
     const remoteData = globalThis.SlimeRemoteData;
     const remoteActions = globalThis.SlimeRemoteActions;
+    const requestPolicy = globalThis.SlimeRequestPolicy;
     const endpointPaths = Object.freeze({
         current: '/api/slime-race/current',
         racers: '/api/slime-race/racers',
@@ -71,10 +72,11 @@
 
         if (!http || globalThis.Capacitor?.getPlatform?.() !== 'android') return null;
 
-        async function request(endpoint, options = {}) {
+        async function request(endpoint, options = {}, attempt = 0) {
+            const method = String(options.method || 'GET').toUpperCase();
             const response = await http.request({
                 url: new URL(endpoint, TARGET_ORIGIN).href,
-                method: options.method || 'GET',
+                method,
                 headers: options.headers || {
                     Accept: 'application/json',
                     ...(options.data ? {'Content-Type': 'application/json'} : {})
@@ -84,7 +86,19 @@
                 readTimeout: 10000
             });
 
+            if (response.status === 429 && method === 'GET' && attempt === 0) {
+                const retryAfter = requestPolicy.getHeaderValue(response.headers, 'retry-after');
+                await requestPolicy.delay(requestPolicy.getRetryDelayMilliseconds(retryAfter));
+                return request(endpoint, options, attempt + 1);
+            }
             if (response.status < 200 || response.status >= 300) {
+                if (response.status === 429 && method === 'POST') {
+                    if (endpoint === '/api/auth/login') {
+                        throw new Error('登录请求过于频繁，请等待站点限流恢复后再试；软件不会自动重试登录');
+                    }
+                    throw new Error('站点请求过于频繁，本次提交不会自动重试；请先同步核对结果');
+                }
+                if (response.status === 429) throw new Error('站点请求过于频繁，请等待几秒后再同步');
                 const message = String(response.data?.message || response.data?.error || `请求失败，HTTP ${response.status}`).slice(0, 240);
                 throw new Error(message);
             }
@@ -94,7 +108,7 @@
         async function fetchSnapshot(mode) {
             const normalizedMode = mode === 'live' ? 'live' : 'full';
             const endpoints = normalizedMode === 'live' ? liveEndpoints : fullEndpoints;
-            const values = await Promise.all(endpoints.map(name => request(endpointPaths[name])));
+            const values = await requestPolicy.mapSequential(endpoints, name => request(endpointPaths[name]));
             const raw = Object.fromEntries(endpoints.map((name, index) => [name, values[index]]));
 
             return remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
@@ -209,7 +223,7 @@
             if (document.hidden) return;
             liveTicks += 1;
             sync(liveTicks % 10 === 0 ? 'full' : 'live');
-        }, 3000);
+        }, 4000);
     }
 
     function reviewBet() {

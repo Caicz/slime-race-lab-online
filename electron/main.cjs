@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const remoteData = require('../app/scripts/remote-data.js');
 const remoteActions = require('../app/scripts/remote-actions.js');
+const requestPolicy = require('../app/scripts/request-policy.js');
 
 const targetOrigin = 'https://zouzou-princess-fan.replit.app';
 const endpointPaths = Object.freeze({
@@ -37,12 +38,13 @@ function assertTrustedSender(event) {
     if (!senderUrl.startsWith('file://')) throw new Error('拒绝非本地页面调用联网桥接');
 }
 
-async function requestJson(endpoint, options = {}) {
+async function requestJson(endpoint, options = {}, attempt = 0) {
     let response;
+    const method = String(options.method || 'GET').toUpperCase();
 
     try {
         response = await fetch(new URL(endpoint, targetOrigin), {
-            method: options.method || 'GET',
+            method,
             headers: {
                 Accept: 'application/json',
                 ...(options.data ? {'Content-Type': 'application/json'} : {}),
@@ -66,7 +68,20 @@ async function requestJson(endpoint, options = {}) {
         data = null;
     }
 
+    if (response.status === 429 && method === 'GET' && attempt === 0) {
+        const retryAfter = requestPolicy.getHeaderValue(response.headers, 'retry-after');
+        await requestPolicy.delay(requestPolicy.getRetryDelayMilliseconds(retryAfter));
+        return requestJson(endpoint, options, attempt + 1);
+    }
+
     if (!response.ok) {
+        if (response.status === 429 && method === 'POST') {
+            if (endpoint === '/api/auth/login') {
+                throw new Error('登录请求过于频繁，请等待站点限流恢复后再试；软件不会自动重试登录');
+            }
+            throw new Error('站点请求过于频繁，本次提交不会自动重试；请先同步核对结果');
+        }
+        if (response.status === 429) throw new Error('站点请求过于频繁，请等待几秒后再同步');
         const message = String(data?.message || data?.error || `请求失败，HTTP ${response.status}`).slice(0, 240);
         throw new Error(message);
     }
@@ -89,7 +104,10 @@ async function syncRemote(mode) {
     if (!sessionCookie) throw new Error('请先登录');
     const normalizedMode = mode === 'live' ? 'live' : 'full';
     const endpoints = normalizedMode === 'live' ? liveEndpoints : fullEndpoints;
-    const values = await Promise.all(endpoints.map(name => requestJson(endpointPaths[name]).then(result => result.data)));
+    const values = await requestPolicy.mapSequential(
+        endpoints,
+        name => requestJson(endpointPaths[name]).then(result => result.data)
+    );
     const raw = Object.fromEntries(endpoints.map((name, index) => [name, values[index]]));
     return remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
 }
