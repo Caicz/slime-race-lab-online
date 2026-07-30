@@ -62,6 +62,33 @@ test('公众新增筹码按热门加权并保留当前实盘池', () => {
     assert.ok(projected.stakes.melon >= 1000);
 });
 
+test('追高赔率公众策略会把更多新增筹码投向当前低占比项', () => {
+    const projected = betting.projectClosingPool(
+        {melon: 1000, blueberry: 4000, dragonfruit: 12000, lemon: 3000},
+        40000,
+        probabilities,
+        {strategy: 'odds', bias: 1.25}
+    );
+    const melonAdded = projected.stakes.melon - 1000;
+    const dragonfruitAdded = projected.stakes.dragonfruit - 12000;
+
+    assert.equal(projected.strategy, 'odds');
+    assert.ok(melonAdded > dragonfruitAdded);
+});
+
+test('混合公众策略的两端分别等于追热门和追高赔率预测', () => {
+    const pool = {melon: 1000, blueberry: 4000, dragonfruit: 12000, lemon: 3000};
+    const popular = betting.projectClosingPool(pool, 40000, probabilities, {strategy: 'popular', bias: 1.25});
+    const odds = betting.projectClosingPool(pool, 40000, probabilities, {strategy: 'odds', bias: 1.25});
+    const mixedPopular = betting.projectClosingPool(pool, 40000, probabilities, {strategy: 'mixed', bias: 1.25, oddsShare: 0});
+    const mixedOdds = betting.projectClosingPool(pool, 40000, probabilities, {strategy: 'mixed', bias: 1.25, oddsShare: 1});
+
+    betting.RACER_IDS.forEach(id => {
+        assert.ok(Math.abs(mixedPopular.stakes[id] - popular.stakes[id]) < 1e-9);
+        assert.ok(Math.abs(mixedOdds.stakes[id] - odds.stakes[id]) < 1e-9);
+    });
+});
+
 test('优化结果最多押两只且不会超过投入上限', () => {
     const result = betting.optimizeBets(
         probabilities,
@@ -105,4 +132,89 @@ test('相同输入产生稳定的最优方案', () => {
         betting.optimizeBets(probabilities, stakes, options),
         betting.optimizeBets(probabilities, stakes, options)
     );
+});
+
+test('本金保护策略把累计投入限制在设定的本金亏损预算内', () => {
+    const bankroll = 10000;
+    const maxLossRate = 0.05;
+    const result = betting.optimizeBets(
+        probabilities,
+        {melon: 1000, blueberry: 14000, dragonfruit: 18000, lemon: 3000},
+        {maxBet: 3000, bankroll, unit: 100, strategy: 'preserve', maxLossRate}
+    );
+
+    assert.ok(result.totalBet <= bankroll * maxLossRate);
+    assert.ok(bankroll + result.worstProfit >= bankroll * (1 - maxLossRate));
+    assert.ok(result.expectedProfit > 0);
+});
+
+test('均衡策略可牺牲部分期望收益来降低预期下行', () => {
+    const pool = {melon: 2000, blueberry: 9000, dragonfruit: 16000, lemon: 3000};
+    const maxEv = betting.optimizeBets(probabilities, pool, {maxBet: 2000, bankroll: 10000, unit: 100, strategy: 'max-ev'});
+    const balanced = betting.optimizeBets(probabilities, pool, {maxBet: 2000, bankroll: 10000, unit: 100, strategy: 'balanced', riskAversion: 0.75});
+
+    assert.ok(balanced.expectedDownside <= maxEv.expectedDownside + 1e-9);
+    assert.ok(balanced.expectedProfit > 0);
+    assert.ok(balanced.totalBet <= maxEv.totalBet);
+});
+
+test('高赔率价值策略只在正增量期望时下注并优先更高增量 ROI', () => {
+    const pool = {melon: 1000, blueberry: 14000, dragonfruit: 18000, lemon: 3000};
+    const maxEv = betting.optimizeBets(probabilities, pool, {maxBet: 2000, bankroll: 10000, unit: 100, strategy: 'max-ev'});
+    const highOdds = betting.optimizeBets(probabilities, pool, {maxBet: 2000, bankroll: 10000, unit: 100, strategy: 'high-odds'});
+
+    assert.ok(highOdds.expectedProfit > 0);
+    assert.ok(highOdds.incrementalRoi >= maxEv.incrementalRoi);
+    assert.ok(highOdds.totalBet <= maxEv.totalBet);
+});
+
+test('既有下注已包含在当前奖池中，不会再次增加总池', () => {
+    const currentPool = {melon: 1100, blueberry: 8000, dragonfruit: 12000, lemon: 5000};
+    const result = betting.evaluatePosition(probabilities, currentPool, {melon: 100}, {});
+
+    assert.equal(result.currentTotal, 26100);
+    assert.equal(result.finalTotal, 26100);
+    assert.equal(result.outcomes.melon.finalRacerStake, 1100);
+    assert.equal(result.outcomes.melon.grossReturn, 100 / 1100 * 26100);
+});
+
+test('追加方案计算增量期望且不会在已有双押后选择第三只', () => {
+    const currentPool = {melon: 3000, blueberry: 15000, dragonfruit: 17000, lemon: 2000};
+    const existing = {melon: 100, blueberry: 100};
+    const result = betting.optimizeAdditions(probabilities, currentPool, existing, {
+        maxBet: 1000,
+        bankroll: 10000,
+        unit: 100,
+        strategy: 'max-ev'
+    });
+    const selected = betting.RACER_IDS.filter(id => result.bets[id] > 0);
+
+    assert.ok(selected.every(id => ['melon', 'blueberry'].includes(id)));
+    assert.equal(result.deltaExpectedProfit, result.expectedProfit - result.baseline.expectedProfit);
+    assert.ok(['add', 'stop'].includes(result.action));
+});
+
+test('累计投入上限已用完时停止追加', () => {
+    const result = betting.optimizeAdditions(
+        probabilities,
+        {melon: 3000, blueberry: 9000, dragonfruit: 16000, lemon: 3000},
+        {melon: 200},
+        {maxBet: 200, bankroll: 10000, unit: 100, strategy: 'max-ev'}
+    );
+
+    assert.equal(result.additionalBet, 0);
+    assert.equal(result.action, 'stop');
+});
+
+test('既有下注已超过本金保护预算时不会继续追加', () => {
+    const result = betting.optimizeAdditions(
+        probabilities,
+        {melon: 600, blueberry: 9000, dragonfruit: 16000, lemon: 3000},
+        {melon: 600},
+        {maxBet: 2000, bankroll: 10000, unit: 100, strategy: 'preserve', maxLossRate: 0.05}
+    );
+
+    assert.equal(result.riskBudgetExceeded, true);
+    assert.equal(result.additionalBet, 0);
+    assert.equal(result.action, 'stop');
 });

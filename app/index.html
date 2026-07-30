@@ -254,8 +254,10 @@
                 </div>
                 <p class="form-status" id="poolImportStatus">可直接修改四项数字；数据仅保存在本机。</p>
                 <div class="projection-controls">
-                    <label><span>预计封盘总池<small>不含我的下注；已封盘时填当前总池</small></span><input id="closingPoolInput" type="number" min="0" step="1000" value="40000" inputmode="decimal"></label>
-                    <label><span>公众追热门强度<small>1.00 按胜率，越高越集中热门</small></span><output id="publicBiasOutput">1.25</output><input id="publicBiasInput" type="range" min="1" max="2" step="0.05" value="1.25"></label>
+                    <label><span>预计封盘总池<small>包含当前池；不含我之后的追加</small></span><input id="closingPoolInput" type="number" min="0" step="1000" value="40000" inputmode="decimal"></label>
+                    <label><span>公众下注行为<small>预测最后两分钟新增筹码的流向</small></span><select id="publicStrategyInput"><option value="mixed">混合群体</option><option value="popular">追历史热门</option><option value="odds">追高赔率冷门</option><option value="uniform">均匀分散</option></select></label>
+                    <label><span>行为集中强度<small>越高越集中于策略偏好的史莱姆</small></span><output id="publicBiasOutput">1.25</output><input id="publicBiasInput" type="range" min="0.5" max="2" step="0.05" value="1.25"></label>
+                    <label id="oddsShareControl"><span>高赔率人群占比<small>仅用于混合群体预测</small></span><output id="oddsShareOutput">40%</output><input id="oddsShareInput" type="range" min="0" max="1" step="0.05" value="0.4"></label>
                 </div>
             </article>
         </section>
@@ -269,12 +271,23 @@
                 <span class="no-fee-badge">无手续费 · 最多双押</span>
             </div>
             <div class="bet-controls">
-                <label><span>可用筹码</span><input id="bankrollInput" type="number" min="0" step="100" value="10000" inputmode="decimal"></label>
-                <label><span>本场最多投入</span><input id="maxBetInput" type="number" min="0" step="100" value="2000" inputmode="decimal"></label>
+                <label><span>推荐策略</span><select id="betStrategyInput"><option value="max-ev">最大期望</option><option value="balanced">均衡风险</option><option value="preserve">本金保护</option><option value="high-odds">高赔率价值</option></select></label>
+                <label><span>赛前本金</span><input id="bankrollInput" type="number" min="0" step="100" value="10000" inputmode="decimal"></label>
+                <label><span>本场累计投入上限</span><input id="maxBetInput" type="number" min="0" step="100" value="2000" inputmode="decimal"></label>
                 <label><span>最小筹码单位</span><input id="betUnitInput" type="number" min="1" step="1" value="100" inputmode="decimal"></label>
+                <label class="bet-range-control" id="maxLossControl"><span>最大亏损占本金 <output id="maxLossRateOutput">5%</output><small>仅本金保护策略生效</small></span><input id="maxLossRateInput" type="range" min="0.01" max="0.2" step="0.01" value="0.05"></label>
                 <button class="primary-button" id="analyzeBetButton" type="button">重新计算</button>
             </div>
-            <p class="bet-formula">封盘毛返还倍数 = 最终总奖池 ÷ 该史莱姆最终押注；推荐按更新后的实盘历史概率最大化期望净收益，并计算自己的下注对赔率的影响。</p>
+            <div class="existing-bets-panel">
+                <div><strong>本场已提交下注</strong><span id="existingBetStatus">可手动填写；联网完整同步时自动识别当前开放池下注</span></div>
+                <div class="pool-input-grid existing-bet-grid">
+                    <label style="--racer-color: var(--green)"><span><i></i>哈密瓜</span><input data-existing-bet-id="melon" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                    <label style="--racer-color: var(--blue)"><span><i></i>蓝莓</span><input data-existing-bet-id="blueberry" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                    <label style="--racer-color: var(--red)"><span><i></i>火龙果</span><input data-existing-bet-id="dragonfruit" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                    <label style="--racer-color: var(--yellow)"><span><i></i>柠檬</span><input data-existing-bet-id="lemon" type="number" min="0" step="100" value="0" inputmode="decimal"></label>
+                </div>
+            </div>
+            <p class="bet-formula">封盘毛返还倍数 = 最终总奖池 ÷ 该史莱姆最终押注。已提交下注不可撤回，推荐器只比较追加前后的增量期望收益，并把自己的追加对赔率造成的下压计入计算。</p>
             <div class="betting-layout">
                 <div class="pool-analysis-wrap">
                     <div class="table-scroll">
@@ -286,7 +299,7 @@
                     <p class="table-note" id="projectionNote">预计封盘池会优先使用已导入的当前实盘池。</p>
                 </div>
                 <aside class="recommendation-card" id="recommendationCard">
-                    <span class="recommendation-label">最大期望净收益</span>
+                    <span class="recommendation-label" id="recommendationLabel">最大期望净收益</span>
                     <h3 id="recommendationTitle">—</h3>
                     <div class="recommended-bets" id="recommendedBets"></div>
                     <div class="recommendation-metrics" id="recommendationMetrics"></div>
@@ -297,7 +310,7 @@
                 <h3>四种冠军结果下的收益</h3>
                 <div class="table-scroll">
                     <table class="analysis-table scenario-table">
-                        <thead><tr><th>冠军</th><th>我的下注</th><th>封盘后倍数</th><th>毛返还</th><th>净收益</th></tr></thead>
+                        <thead><tr><th>冠军</th><th>最终累计下注</th><th>封盘后倍数</th><th>毛返还</th><th>净收益</th></tr></thead>
                         <tbody id="scenarioBody"></tbody>
                     </table>
                 </div>

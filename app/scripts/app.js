@@ -67,15 +67,26 @@
         poolImportStatus: document.querySelector('#poolImportStatus'),
         currentPoolBadge: document.querySelector('#currentPoolBadge'),
         closingPool: document.querySelector('#closingPoolInput'),
+        publicStrategy: document.querySelector('#publicStrategyInput'),
         publicBias: document.querySelector('#publicBiasInput'),
         publicBiasOutput: document.querySelector('#publicBiasOutput'),
+        oddsShare: document.querySelector('#oddsShareInput'),
+        oddsShareOutput: document.querySelector('#oddsShareOutput'),
+        oddsShareControl: document.querySelector('#oddsShareControl'),
+        betStrategy: document.querySelector('#betStrategyInput'),
         bankroll: document.querySelector('#bankrollInput'),
         maxBet: document.querySelector('#maxBetInput'),
         betUnit: document.querySelector('#betUnitInput'),
+        maxLossRate: document.querySelector('#maxLossRateInput'),
+        maxLossRateOutput: document.querySelector('#maxLossRateOutput'),
+        maxLossControl: document.querySelector('#maxLossControl'),
+        existingBetInputs: [...document.querySelectorAll('[data-existing-bet-id]')],
+        existingBetStatus: document.querySelector('#existingBetStatus'),
         analyzeBetButton: document.querySelector('#analyzeBetButton'),
         poolAnalysisBody: document.querySelector('#poolAnalysisBody'),
         projectionNote: document.querySelector('#projectionNote'),
         recommendationCard: document.querySelector('#recommendationCard'),
+        recommendationLabel: document.querySelector('#recommendationLabel'),
         recommendationTitle: document.querySelector('#recommendationTitle'),
         recommendedBets: document.querySelector('#recommendedBets'),
         recommendationMetrics: document.querySelector('#recommendationMetrics'),
@@ -95,6 +106,7 @@
     let importedWinners = [];
     let syncedObservedWins = null;
     let syncedRecentWinners = [];
+    let remoteBetPoolKey = null;
     let realStats = betting.mergeRealStats(engine.RACERS, importedWinners);
 
     function getConfig() {
@@ -146,6 +158,10 @@
 
     function getCurrentPool() {
         return Object.fromEntries(elements.poolInputs.map(input => [input.dataset.poolId, Math.max(0, Number(input.value) || 0)]));
+    }
+
+    function getExistingBets() {
+        return Object.fromEntries(elements.existingBetInputs.map(input => [input.dataset.existingBetId, Math.max(0, Number(input.value) || 0)]));
     }
 
     function detectPlatform() {
@@ -346,14 +362,24 @@
         });
     }
 
+    function setExistingBetInputs(bets) {
+        elements.existingBetInputs.forEach(input => {
+            input.value = Math.max(0, Number(bets?.[input.dataset.existingBetId]) || 0);
+        });
+    }
+
     function savePoolAndSettings() {
         writeStoredJson(STORAGE_KEYS.pool, getCurrentPool());
         writeStoredJson(STORAGE_KEYS.betting, {
             closingPool: Math.max(0, Number(elements.closingPool.value) || 0),
-            publicBias: Math.max(1, Number(elements.publicBias.value) || 1.25),
+            publicStrategy: elements.publicStrategy.value,
+            publicBias: Math.max(0.5, Number(elements.publicBias.value) || 1.25),
+            oddsShare: Math.min(1, Math.max(0, Number(elements.oddsShare.value) || 0)),
+            betStrategy: elements.betStrategy.value,
             bankroll: Math.max(0, Number(elements.bankroll.value) || 0),
             maxBet: Math.max(0, Number(elements.maxBet.value) || 0),
-            betUnit: Math.max(1, Number(elements.betUnit.value) || 100)
+            betUnit: Math.max(1, Number(elements.betUnit.value) || 100),
+            maxLossRate: Math.min(0.2, Math.max(0.01, Number(elements.maxLossRate.value) || 0.05))
         });
     }
 
@@ -393,6 +419,28 @@
             setFormStatus(elements.poolImportStatus, `联网聚合池已更新：${formatChips(snapshot.pool.total)} 筹码；未保存其他玩家 ID。`, 'success');
         }
 
+        const poolKey = `${snapshot?.current?.sessionId ?? 'none'}:${snapshot?.pool?.phase || 'unknown'}:${snapshot?.pool?.sessionId ?? 'open'}`;
+        if (remoteBetPoolKey !== null && poolKey !== remoteBetPoolKey) {
+            setExistingBetInputs({});
+            elements.existingBetStatus.textContent = '检测到新盘口，已清空上一场仓位；等待下一次个人下注完整同步。';
+        }
+        remoteBetPoolKey = poolKey;
+
+        if (snapshot?.mode === 'full' && Array.isArray(snapshot.myBets)) {
+            const relevantBets = snapshot.myBets.filter(item => snapshot.pool?.sessionId === null
+                ? item.sessionId === null
+                : item.sessionId === snapshot.pool?.sessionId);
+            const aggregated = Object.fromEntries(betting.RACER_IDS.map(id => [id, 0]));
+            relevantBets.forEach(item => {
+                aggregated[item.racerId] += Math.max(0, Number(item.amount) || 0);
+            });
+            setExistingBetInputs(aggregated);
+            const total = Object.values(aggregated).reduce((sum, value) => sum + value, 0);
+            elements.existingBetStatus.textContent = total > 0
+                ? `已从当前实盘同步 ${formatChips(total)} 筹码；这些下注不可撤回，只分析是否追加。`
+                : '当前实盘未识别到我的已提交下注，可手动填写后分析。';
+        }
+
         renderRealStats();
         renderBetAnalysis();
     }
@@ -400,6 +448,8 @@
     function disconnectRemoteStats() {
         syncedObservedWins = null;
         syncedRecentWinners = [];
+        remoteBetPoolKey = null;
+        elements.existingBetStatus.textContent = '联网已断开；保留当前显示值供核对，可手动修改。';
         renderRealStats();
         renderBetAnalysis();
     }
@@ -433,37 +483,61 @@
     }
 
     function renderRecommendation(result) {
-        const selected = realStats.racers.filter(profile => result.bets[profile.id] > 0);
+        const strategyLabels = {
+            'max-ev': '最大期望净收益',
+            balanced: '风险调整后方案',
+            preserve: '本金保护方案',
+            'high-odds': '高赔率价值方案'
+        };
+        const selected = realStats.racers.filter(profile => result.additions[profile.id] > 0);
         elements.recommendedBets.replaceChildren();
+        elements.recommendationLabel.textContent = strategyLabels[result.strategy];
 
-        if (selected.length === 0) {
-            elements.recommendationTitle.textContent = '本场建议不下注';
+        if (result.invalidExistingSelection) {
+            elements.recommendationTitle.textContent = '请先核对已下注仓位';
             const empty = document.createElement('div');
             empty.className = 'recommended-bet';
-            empty.textContent = '当前赔率下没有正期望方案';
+            empty.textContent = '已填写超过两只史莱姆，无法生成合规追加方案';
+            elements.recommendedBets.append(empty);
+        } else if (selected.length === 0) {
+            elements.recommendationTitle.textContent = result.action === 'stop' ? '停止追加' : '等待，不下注';
+            const empty = document.createElement('div');
+            empty.className = 'recommended-bet';
+            empty.textContent = result.action === 'stop' ? '保持已提交仓位，不再投入筹码' : '当前赔率下没有正增量期望方案';
             elements.recommendedBets.append(empty);
         } else {
-            elements.recommendationTitle.textContent = selected.length === 1 ? `单押 ${selected[0].shortName}` : `${selected[0].shortName} + ${selected[1].shortName}`;
+            const action = result.action === 'add' ? '追加' : '下注';
+            elements.recommendationTitle.textContent = `${action} ${selected.map(profile => profile.shortName).join(' + ')}`;
             selected.forEach(profile => {
                 const item = document.createElement('div');
                 item.className = 'recommended-bet';
                 item.style.setProperty('--racer-color', profile.color);
-                item.innerHTML = `<span><i></i>${profile.shortName}</span><strong>${formatChips(result.bets[profile.id])} 筹码</strong>`;
+                item.innerHTML = `<span><i></i>${profile.shortName}</span><strong>+${formatChips(result.additions[profile.id])} 筹码</strong>`;
                 elements.recommendedBets.append(item);
             });
         }
 
         elements.recommendationMetrics.innerHTML = `
-            <div><span>总投入</span><strong>${formatChips(result.totalBet)}</strong></div>
-            <div><span>冠军覆盖概率</span><strong>${formatPercent(result.coverage)}</strong></div>
-            <div><span>期望净收益</span><strong class="${result.expectedProfit > 0 ? 'value-positive' : result.expectedProfit < 0 ? 'value-negative' : ''}">${formatSignedChips(result.expectedProfit)}</strong></div>
-            <div><span>预期 ROI</span><strong>${result.totalBet > 0 ? formatPercent(result.roi) : '—'}</strong></div>
-            <div><span>期望毛返还</span><strong>${formatChips(result.expectedReturn)}</strong></div>
+            <div><span>本轮追加</span><strong>${formatChips(result.additionalBet)}</strong></div>
+            <div><span>最终累计投入</span><strong>${formatChips(result.totalBet)}</strong></div>
+            <div><span>增量期望收益</span><strong class="${result.deltaExpectedProfit > 0 ? 'value-positive' : result.deltaExpectedProfit < 0 ? 'value-negative' : ''}">${formatSignedChips(result.deltaExpectedProfit)}</strong></div>
+            <div><span>追加增量 ROI</span><strong>${result.additionalBet > 0 ? formatPercent(result.incrementalRoi) : '—'}</strong></div>
+            <div><span>最终盈利概率</span><strong>${formatPercent(result.profitProbability)}</strong></div>
             <div><span>最坏情况</span><strong>${formatSignedChips(result.worstProfit)}</strong></div>`;
         const precisionNote = result.searchUnit > result.requestedUnit ? ` 为控制计算量，本次按 ${formatChips(result.searchUnit)} 筹码步长搜索。` : '';
-        elements.recommendationNote.textContent = selected.length === 0
-            ? `“不下注”也参与比较；0 筹码的期望收益高于所有可选方案。${precisionNote}`
-            : `这是最大期望净收益方案，不保证单场盈利；未押中的冠军会损失全部 ${formatChips(result.totalBet)} 筹码。${precisionNote}`;
+        const strategyNotes = {
+            'max-ev': '优先最大化追加带来的期望净收益，单场仍可能损失全部累计投入。',
+            balanced: '同时惩罚预期下行风险，可能用较少筹码换取更平缓的波动。',
+            preserve: result.riskBudgetExceeded
+                ? `已提交下注超过 ${formatPercent(result.maxLossRate, 0)} 本金风险预算，无法撤回；本轮不会继续扩大风险。最坏赛果后预计剩余 ${formatChips(result.bankroll + result.worstProfit)} 筹码。`
+                : `累计投入受 ${formatPercent(result.maxLossRate, 0)} 本金风险预算约束；最坏赛果后预计至少剩余 ${formatChips(result.bankroll + result.worstProfit)} 筹码。最多双押无法对四种冠军结果同时做到零亏损。`,
+            'high-odds': '只在正增量期望候选中优先追加 ROI 与高返还倍数，波动和未押中概率通常更高。'
+        };
+        let actionNote = selected.length === 0 ? '“等待 / 停止追加”也参与比较；当前没有更好的正增量方案。' : strategyNotes[result.strategy];
+        if (result.strategy === 'preserve' && result.riskBudgetExceeded) actionNote = strategyNotes.preserve;
+        if (result.invalidExistingSelection) actionNote = '最多只能选择两只史莱姆；请核对手动输入或等待个人下注重新同步。';
+        const baselineNote = result.existingTotal > 0 ? ` 已提交 ${formatChips(result.existingTotal)} 筹码被视为不可撤回。` : '';
+        elements.recommendationNote.textContent = `${actionNote}${baselineNote}${precisionNote}`;
     }
 
     function renderScenarios(result) {
@@ -487,21 +561,49 @@
 
     function renderBetAnalysis() {
         const currentPool = getCurrentPool();
+        const existingBets = getExistingBets();
         const currentTotal = Object.values(currentPool).reduce((sum, value) => sum + value, 0);
         const probabilities = getProbabilities();
         const requestedClosingTotal = Math.max(0, Number(elements.closingPool.value) || 0);
-        const publicBias = Math.max(1, Number(elements.publicBias.value) || 1.25);
-        const projected = betting.projectClosingPool(currentPool, requestedClosingTotal, probabilities, publicBias);
+        const publicStrategy = elements.publicStrategy.value;
+        const publicBias = Math.max(0.5, Number(elements.publicBias.value) || 1.25);
+        const oddsShare = Math.min(1, Math.max(0, Number(elements.oddsShare.value) || 0));
+        const projected = betting.projectClosingPool(currentPool, requestedClosingTotal, probabilities, {
+            strategy: publicStrategy,
+            bias: publicBias,
+            oddsShare
+        });
         const analysis = betting.analyzePool(probabilities, projected.stakes);
         const bankroll = Math.max(0, Number(elements.bankroll.value) || 0);
-        const maxBet = Math.min(bankroll, Math.max(0, Number(elements.maxBet.value) || 0));
+        const maxBet = Math.max(0, Number(elements.maxBet.value) || 0);
         const unit = Math.max(1, Number(elements.betUnit.value) || 100);
-        const result = betting.optimizeBets(probabilities, projected.stakes, {maxBet, unit});
+        const strategy = elements.betStrategy.value;
+        const maxLossRate = Math.min(0.2, Math.max(0.01, Number(elements.maxLossRate.value) || 0.05));
+        const result = betting.optimizeAdditions(probabilities, projected.stakes, existingBets, {
+            maxBet,
+            bankroll,
+            unit,
+            strategy,
+            maxLossRate,
+            riskAversion: 0.75
+        });
+        const projectionDescriptions = {
+            popular: `按历史胜率的 ${publicBias.toFixed(2)} 次方追热门`,
+            odds: `按当前池占比倒数的 ${publicBias.toFixed(2)} 次方追高赔率`,
+            uniform: '在四只史莱姆间均匀分配',
+            mixed: `由 ${formatPercent(1 - oddsShare, 0)} 追热门与 ${formatPercent(oddsShare, 0)} 追高赔率人群混合`
+        };
 
         elements.publicBiasOutput.value = publicBias.toFixed(2);
+        elements.oddsShareOutput.value = formatPercent(oddsShare, 0);
+        elements.oddsShare.disabled = publicStrategy !== 'mixed';
+        elements.oddsShareControl.classList.toggle('control-disabled', publicStrategy !== 'mixed');
+        elements.maxLossRateOutput.value = formatPercent(maxLossRate, 0);
+        elements.maxLossRate.disabled = strategy !== 'preserve';
+        elements.maxLossControl.classList.toggle('control-disabled', strategy !== 'preserve');
         elements.currentPoolBadge.textContent = `${formatChips(currentTotal)} 筹码`;
         elements.projectionNote.textContent = projected.added > 0
-            ? `当前池 ${formatChips(currentTotal)}；预计还有 ${formatChips(projected.added)} 公众筹码进入，按实盘胜率的 ${publicBias.toFixed(2)} 次方分配。`
+            ? `当前池 ${formatChips(currentTotal)}；预计还有 ${formatChips(projected.added)} 公众筹码进入，${projectionDescriptions[publicStrategy]}。`
             : `当前池 ${formatChips(currentTotal)} 已达到预计封盘总池，直接按当前实盘池分析。`;
         renderPoolTable(analysis);
         renderRecommendation(result);
@@ -810,10 +912,14 @@
         importedWinners = Array.isArray(storedWinners) ? storedWinners.filter(id => betting.RACER_IDS.includes(id)) : [];
         setPoolInputs(storedPool);
         if (Number.isFinite(Number(storedBetting.closingPool))) elements.closingPool.value = Math.max(0, Number(storedBetting.closingPool));
-        if (Number.isFinite(Number(storedBetting.publicBias))) elements.publicBias.value = Math.min(2, Math.max(1, Number(storedBetting.publicBias)));
+        if (['popular', 'odds', 'mixed', 'uniform'].includes(storedBetting.publicStrategy)) elements.publicStrategy.value = storedBetting.publicStrategy;
+        if (Number.isFinite(Number(storedBetting.publicBias))) elements.publicBias.value = Math.min(2, Math.max(0.5, Number(storedBetting.publicBias)));
+        if (Number.isFinite(Number(storedBetting.oddsShare))) elements.oddsShare.value = Math.min(1, Math.max(0, Number(storedBetting.oddsShare)));
+        if (['max-ev', 'balanced', 'preserve', 'high-odds'].includes(storedBetting.betStrategy)) elements.betStrategy.value = storedBetting.betStrategy;
         if (Number.isFinite(Number(storedBetting.bankroll))) elements.bankroll.value = Math.max(0, Number(storedBetting.bankroll));
         if (Number.isFinite(Number(storedBetting.maxBet))) elements.maxBet.value = Math.max(0, Number(storedBetting.maxBet));
         if (Number.isFinite(Number(storedBetting.betUnit))) elements.betUnit.value = Math.max(1, Number(storedBetting.betUnit));
+        if (Number.isFinite(Number(storedBetting.maxLossRate))) elements.maxLossRate.value = Math.min(0.2, Math.max(0.01, Number(storedBetting.maxLossRate)));
     }
 
     function bindEvents() {
@@ -832,13 +938,25 @@
         elements.clearPoolButton.addEventListener('click', clearPool);
         elements.analyzeBetButton.addEventListener('click', renderBetAnalysis);
         elements.poolInputs.forEach(input => input.addEventListener('change', renderBetAnalysis));
-        [elements.closingPool, elements.bankroll, elements.maxBet, elements.betUnit].forEach(input => {
+        elements.existingBetInputs.forEach(input => input.addEventListener('change', () => {
+            elements.existingBetStatus.textContent = '已使用手动填写的不可撤回仓位；请确认这些筹码已包含在当前总押注池中。';
+            renderBetAnalysis();
+        }));
+        [elements.closingPool, elements.publicStrategy, elements.betStrategy, elements.bankroll, elements.maxBet, elements.betUnit].forEach(input => {
             input.addEventListener('change', renderBetAnalysis);
         });
         elements.publicBias.addEventListener('input', () => {
             elements.publicBiasOutput.value = Number(elements.publicBias.value).toFixed(2);
         });
         elements.publicBias.addEventListener('change', renderBetAnalysis);
+        elements.oddsShare.addEventListener('input', () => {
+            elements.oddsShareOutput.value = formatPercent(Number(elements.oddsShare.value), 0);
+        });
+        elements.oddsShare.addEventListener('change', renderBetAnalysis);
+        elements.maxLossRate.addEventListener('input', () => {
+            elements.maxLossRateOutput.value = formatPercent(Number(elements.maxLossRate.value), 0);
+        });
+        elements.maxLossRate.addEventListener('change', renderBetAnalysis);
         document.querySelectorAll('.speed-button').forEach(button => {
             button.addEventListener('click', () => {
                 simulationSpeed = Number(button.dataset.speed);
