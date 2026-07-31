@@ -4,6 +4,7 @@
     const TARGET_ORIGIN = 'https://zouzou-princess-fan.replit.app';
     const remoteData = globalThis.SlimeRemoteData;
     const remoteActions = globalThis.SlimeRemoteActions;
+    const dailyQuest = globalThis.SlimeDailyQuest;
     const requestPolicy = globalThis.SlimeRequestPolicy;
     const endpointPaths = Object.freeze({
         current: '/api/slime-race/current',
@@ -25,6 +26,7 @@
         loginButton: document.querySelector('#remoteLoginButton'),
         syncButton: document.querySelector('#remoteSyncButton'),
         logoutButton: document.querySelector('#remoteLogoutButton'),
+        autoSync: document.querySelector('#remoteAutoSyncToggle'),
         status: document.querySelector('#remoteStatus'),
         race: document.querySelector('#remoteRaceStatus'),
         pool: document.querySelector('#remotePoolStatus'),
@@ -44,7 +46,27 @@
         betStatus: document.querySelector('#remoteBetStatus'),
         rewardSummary: document.querySelector('#remoteRewardSummary'),
         rewardList: document.querySelector('#remoteRewardList'),
-        claimStatus: document.querySelector('#remoteClaimStatus')
+        claimStatus: document.querySelector('#remoteClaimStatus'),
+        dailyRefresh: document.querySelector('#dailyQuestRefreshButton'),
+        dailyOpen: document.querySelector('#dailyQuestOpenButton'),
+        dailyReciteProgress: document.querySelector('#dailyReciteProgress'),
+        dailyClickProgress: document.querySelector('#dailyClickProgress'),
+        dailyDodgeProgress: document.querySelector('#dailyDodgeProgress'),
+        dailyTimerProgress: document.querySelector('#dailyTimerProgress'),
+        dailyText: document.querySelector('#dailyQuestText'),
+        dailyReciteInput: document.querySelector('#dailyReciteInput'),
+        dailyReciteSubmit: document.querySelector('#dailyReciteSubmitButton'),
+        dailyAutoRecite: document.querySelector('#dailyAutoReciteButton'),
+        dailyClickButton: document.querySelector('#dailyClickButton'),
+        dailyClickCount: document.querySelector('#dailyClickCount'),
+        dailyClickBar: document.querySelector('#dailyClickBar'),
+        dailyClickReset: document.querySelector('#dailyClickResetButton'),
+        dailyAutoClick: document.querySelector('#dailyAutoClickButton'),
+        dailyAutoTimer: document.querySelector('#dailyAutoTimerButton'),
+        dailyTimerErrorTest: document.querySelector('#dailyTimerErrorTestButton'),
+        dailyDodgeClaim: document.querySelector('#dailyDodgeClaimButton'),
+        dailyTimerClaim: document.querySelector('#dailyTimerClaimButton'),
+        dailyStatus: document.querySelector('#dailyQuestStatus')
     };
     let authenticated = false;
     let syncing = false;
@@ -54,6 +76,10 @@
     let latestSnapshot = null;
     let latestRecommendation = null;
     let pendingBets = [];
+    let dailyState = null;
+    let dailyBusy = false;
+    let dailyClickCount = 0;
+    let dailyClickResetTimer = null;
 
     function formatChips(value) {
         return Math.round(Number(value) || 0).toLocaleString('zh-CN');
@@ -82,6 +108,7 @@
         elements.betReview.disabled = busy || !authenticated;
         elements.optimalBet.disabled = busy || !authenticated || !hasCurrentRecommendation();
         elements.betSubmit.disabled = busy || pendingBets.length === 0;
+        updateDailyControls();
     }
 
     function showBetConfirmation(bets, label) {
@@ -145,6 +172,13 @@
             return remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
         }
 
+        async function fetchDailyQuest() {
+            const names = ['progress', 'text'];
+            const endpoints = {progress: '/api/quest/progress', text: '/api/quest/text'};
+            const values = await requestPolicy.mapSequential(names, name => request(endpoints[name]), 400);
+            return dailyQuest.normalizeDailyQuest(Object.fromEntries(names.map((name, index) => [name, values[index]])));
+        }
+
         return {
             async login(credentials) {
                 await cookies?.clearAllCookies?.();
@@ -156,6 +190,7 @@
                 return fetchSnapshot('full');
             },
             sync: fetchSnapshot,
+            syncDailyQuest: fetchDailyQuest,
             async placeBets(intents) {
                 await requestPolicy.delay(800);
                 let snapshot = await fetchSnapshot('live');
@@ -189,6 +224,58 @@
                 const reward = remoteActions.validateClaimIntent(preflight, rewardId);
                 await request('/api/slime-race/claim-reward', {method: 'POST', data: {rewardId: reward.rewardId}});
                 return fetchSnapshot('full');
+            },
+            async submitDailyRecite(intent) {
+                const state = await fetchDailyQuest();
+                const payload = dailyQuest.validateReciteSubmission(state, intent);
+                await requestPolicy.delay(500);
+                await request('/api/quest/submit', {method: 'POST', data: payload});
+                await requestPolicy.delay(600);
+                return fetchDailyQuest();
+            },
+            async autoSubmitDailyRecite() {
+                const state = await fetchDailyQuest();
+                const payload = dailyQuest.createAutomaticReciteSubmission(state);
+                await requestPolicy.delay(500);
+                await request('/api/quest/submit', {method: 'POST', data: payload});
+                await requestPolicy.delay(600);
+                return fetchDailyQuest();
+            },
+            async completeDailyClick(clickCount) {
+                const state = await fetchDailyQuest();
+                dailyQuest.validateClickCompletion(state, clickCount);
+                await requestPolicy.delay(500);
+                await request('/api/quest/click-complete', {method: 'POST'});
+                await requestPolicy.delay(600);
+                return fetchDailyQuest();
+            },
+            async completeDailyTimer() {
+                const state = await fetchDailyQuest();
+                const payload = dailyQuest.createAutomaticTimerSubmission(state);
+                await requestPolicy.delay(500);
+                await request('/api/timer-game/submit', {method: 'POST', data: payload});
+                await requestPolicy.delay(600);
+                return fetchDailyQuest();
+            },
+            async testDailyTimerError() {
+                const state = await fetchDailyQuest();
+                const payload = dailyQuest.createRandomTimerSubmission(state);
+                await requestPolicy.delay(500);
+                const submission = await request('/api/timer-game/submit', {method: 'POST', data: payload});
+                const result = dailyQuest.normalizeTimerSubmissionResult(submission, payload.actualTime);
+                await requestPolicy.delay(600);
+                return {state: await fetchDailyQuest(), result};
+            },
+            async claimDailyGameReward(type) {
+                const state = await fetchDailyQuest();
+                const claim = dailyQuest.validateGameClaim(state, type);
+                await requestPolicy.delay(500);
+                await request(claim.endpoint, {method: 'POST'});
+                await requestPolicy.delay(600);
+                return fetchDailyQuest();
+            },
+            async openDailyQuest() {
+                globalThis.open(new URL('/daily-quest', TARGET_ORIGIN).href, '_blank', 'noopener,noreferrer');
             },
             async logout() {
                 await cookies?.clearAllCookies?.();
@@ -228,6 +315,252 @@
         });
     }
 
+    function formatDailyCount(task) {
+        const maximum = task.maxDaily > 0 ? ` / ${task.maxDaily}` : '';
+        return `${task.completionCount}${maximum} 次 · ${formatChips(task.fragmentsEarned)} 碎片`;
+    }
+
+    function formatDailyGame(task) {
+        const maximum = task.maxRewards > 0 ? ` / ${task.maxRewards}` : '';
+        return `已得 ${task.rewardsEarned}${maximum} · 待领 ${task.unclaimed}`;
+    }
+
+    function renderDailyClickCounter() {
+        elements.dailyClickCount.textContent = `${dailyClickCount} / 100`;
+        elements.dailyClickBar.style.width = `${dailyClickCount}%`;
+    }
+
+    function renderDailyQuest(state) {
+        dailyState = state;
+        elements.dailyReciteProgress.textContent = formatDailyCount(state.recite);
+        elements.dailyClickProgress.textContent = formatDailyCount(state.click);
+        elements.dailyDodgeProgress.textContent = formatDailyGame(state.dodge);
+        elements.dailyTimerProgress.textContent = formatDailyGame(state.timer);
+        elements.dailyText.textContent = state.text?.content || '当前没有可用的复述题目';
+        elements.dailyReciteInput.disabled = !state.text;
+        updateDailyControls();
+    }
+
+    function updateDailyControls() {
+        const busy = syncing || mutating || dailyBusy;
+        const clickAtLimit = dailyState?.click?.maxDaily > 0
+            && dailyState.click.completionCount >= dailyState.click.maxDaily;
+        const timerAtLimit = dailyState?.timer?.maxRewards > 0
+            && dailyState.timer.rewardsEarned >= dailyState.timer.maxRewards;
+        elements.dailyRefresh.disabled = busy || !authenticated;
+        elements.dailyOpen.disabled = busy || !authenticated;
+        elements.dailyReciteSubmit.disabled = busy || !dailyState?.text || !elements.dailyReciteInput.value.trim();
+        elements.dailyAutoRecite.disabled = busy || !dailyState?.text;
+        elements.dailyClickButton.disabled = busy || !dailyState || clickAtLimit;
+        elements.dailyClickReset.disabled = busy || dailyClickCount === 0;
+        elements.dailyAutoClick.disabled = busy || !dailyState || clickAtLimit;
+        elements.dailyAutoTimer.disabled = busy || !dailyState || timerAtLimit;
+        elements.dailyTimerErrorTest.disabled = busy || !dailyState || timerAtLimit;
+        elements.dailyDodgeClaim.disabled = busy || !dailyState || dailyState.dodge.unclaimed < 1;
+        elements.dailyTimerClaim.disabled = busy || !dailyState || dailyState.timer.unclaimed < 1;
+    }
+
+    function resetDailyClicks(message = '') {
+        clearTimeout(dailyClickResetTimer);
+        dailyClickResetTimer = null;
+        dailyClickCount = 0;
+        renderDailyClickCounter();
+        updateDailyControls();
+        if (message) setStatus(elements.dailyStatus, message);
+    }
+
+    async function refreshDailyQuest(announce = true) {
+        if (!authenticated || dailyBusy || mutating) return;
+        const adapter = getAdapter();
+        if (!adapter?.syncDailyQuest) return;
+        dailyBusy = true;
+        if (announce) setStatus(elements.dailyStatus, '正在低频读取日常进度和当前题目…');
+        updateBetControls();
+
+        try {
+            renderDailyQuest(await adapter.syncDailyQuest());
+            setStatus(elements.dailyStatus, `日常进度已更新 · ${new Date().toLocaleTimeString('zh-CN', {hour12: false})}`, 'success');
+        } catch (error) {
+            setStatus(elements.dailyStatus, String(error.message || error), 'error');
+        } finally {
+            dailyBusy = false;
+            updateBetControls();
+        }
+    }
+
+    async function performDailyRecite(intent, automatic = false) {
+        if (!authenticated || mutating || dailyBusy) return;
+        const adapter = getAdapter();
+        if (!adapter?.submitDailyRecite || (automatic && !adapter.autoSubmitDailyRecite)) return;
+
+        try {
+            if (automatic) dailyQuest.createAutomaticReciteSubmission(dailyState);
+            else dailyQuest.validateReciteSubmission(dailyState, intent);
+        } catch (error) {
+            setStatus(elements.dailyStatus, String(error.message || error), 'error');
+            return;
+        }
+
+        mutating = true;
+        setStatus(elements.dailyStatus, `正在重新核对题目并提交${automatic ? '自动' : '手动'}复述；本次 POST 不会自动重试…`);
+        updateBetControls();
+
+        try {
+            const state = automatic
+                ? await adapter.autoSubmitDailyRecite()
+                : await adapter.submitDailyRecite(intent);
+            renderDailyQuest(state);
+            elements.dailyReciteInput.value = '';
+            setStatus(elements.dailyStatus, `${automatic ? '自动' : '手动'}复述已通过站点验证；碎片余额将在下一轮同步更新。`, 'success');
+        } catch (error) {
+            setStatus(elements.dailyStatus, `${String(error.message || error)}；如遇超时，请先手动刷新日常，禁止立即重复提交。`, 'error');
+        } finally {
+            mutating = false;
+            updateBetControls();
+        }
+    }
+
+    function submitDailyRecite() {
+        return performDailyRecite({text: elements.dailyReciteInput.value, questTextId: dailyState?.text?.id});
+    }
+
+    function automateDailyRecite() {
+        return performDailyRecite(null, true);
+    }
+
+    async function completeDailyClicks(automatic = false) {
+        if (!authenticated || mutating || dailyBusy || (!automatic && dailyClickCount !== 100)) return;
+        const adapter = getAdapter();
+        if (!adapter?.completeDailyClick) return;
+        clearTimeout(dailyClickResetTimer);
+        dailyClickResetTimer = null;
+        if (automatic) {
+            dailyClickCount = 100;
+            renderDailyClickCounter();
+        }
+        mutating = true;
+        setStatus(elements.dailyStatus, `${automatic ? '自动' : '手动'}完成 100 次点击，正在重新核对每日上限并提交一轮…`);
+        updateBetControls();
+
+        try {
+            renderDailyQuest(await adapter.completeDailyClick(100));
+            resetDailyClicks();
+            setStatus(elements.dailyStatus, '打工点击任务完成一轮；碎片余额将在下一轮同步更新。', 'success');
+        } catch (error) {
+            resetDailyClicks();
+            setStatus(elements.dailyStatus, `${String(error.message || error)}；本轮已清零，请刷新确认结果后再开始。`, 'error');
+        } finally {
+            mutating = false;
+            updateBetControls();
+        }
+    }
+
+    async function automateDailyTimer() {
+        if (!authenticated || mutating || dailyBusy) return;
+        const adapter = getAdapter();
+        if (!adapter?.completeDailyTimer) return;
+
+        try {
+            dailyQuest.createAutomaticTimerSubmission(dailyState);
+        } catch (error) {
+            setStatus(elements.dailyStatus, String(error.message || error), 'error');
+            return;
+        }
+
+        mutating = true;
+        setStatus(elements.dailyStatus, '正在自动提交 60.00 秒报时；本次 POST 不会自动重试…');
+        updateBetControls();
+
+        try {
+            renderDailyQuest(await adapter.completeDailyTimer());
+            setStatus(elements.dailyStatus, '60.00 秒自动报时已提交；待领奖励已重新同步。', 'success');
+        } catch (error) {
+            setStatus(elements.dailyStatus, `${String(error.message || error)}；请先刷新进度，再决定是否重新报时。`, 'error');
+        } finally {
+            mutating = false;
+            updateBetControls();
+        }
+    }
+
+    async function testDailyTimerError() {
+        if (!authenticated || mutating || dailyBusy) return;
+        const adapter = getAdapter();
+        if (!adapter?.testDailyTimerError) return;
+
+        try {
+            dailyQuest.createRandomTimerSubmission(dailyState, () => 0.5);
+        } catch (error) {
+            setStatus(elements.dailyStatus, String(error.message || error), 'error');
+            return;
+        }
+
+        mutating = true;
+        setStatus(elements.dailyStatus, '正在随机生成并提交 59.80–60.20 秒测试值；本次 POST 不会自动重试…');
+        updateBetControls();
+
+        try {
+            const response = await adapter.testDailyTimerError();
+            const result = response.result;
+            const serverDiff = result.diff === null ? '未返回' : `${result.diff.toFixed(3)} 秒`;
+            const verdict = result.isSuccess ? '通过' : '未通过';
+            const detail = result.message ? `；${result.message}` : '';
+            renderDailyQuest(response.state);
+            setStatus(
+                elements.dailyStatus,
+                `随机误差测试${verdict}：提交 ${result.actualTime.toFixed(2)} 秒，绝对误差 ${result.absoluteError.toFixed(2)} 秒，服务端误差 ${serverDiff}${detail}`,
+                result.isSuccess ? 'success' : 'error'
+            );
+        } catch (error) {
+            setStatus(elements.dailyStatus, `${String(error.message || error)}；请先刷新进度，再决定是否重新测试。`, 'error');
+        } finally {
+            mutating = false;
+            updateBetControls();
+        }
+    }
+
+    function registerDailyClick() {
+        if (!authenticated || mutating || dailyBusy || !dailyState || dailyClickCount >= 100) return;
+        dailyClickCount += 1;
+        clearTimeout(dailyClickResetTimer);
+        dailyClickResetTimer = setTimeout(() => resetDailyClicks('连续 10 秒没有点击，本轮计数已清零。'), 10000);
+        renderDailyClickCounter();
+        updateDailyControls();
+        if (dailyClickCount === 100) completeDailyClicks();
+    }
+
+    async function claimDailyGameReward(type) {
+        const taskName = type === 'dodge' ? '躲避飞吻' : '乖宝宝报时';
+        const unclaimed = dailyState?.[type]?.unclaimed || 0;
+        if (!authenticated || mutating || dailyBusy || unclaimed < 1) return;
+        if (!window.confirm(`确认领取 ${taskName} 当前 ${unclaimed} 份待领奖励吗？`)) return;
+        const adapter = getAdapter();
+        if (!adapter?.claimDailyGameReward) return;
+        mutating = true;
+        setStatus(elements.dailyStatus, `正在重新核对并领取${taskName}奖励；本次 POST 不会自动重试…`);
+        updateBetControls();
+
+        try {
+            renderDailyQuest(await adapter.claimDailyGameReward(type));
+            setStatus(elements.dailyStatus, `${taskName}待领奖励已领取；碎片余额将在下一轮同步更新。`, 'success');
+        } catch (error) {
+            setStatus(elements.dailyStatus, `${String(error.message || error)}；如遇超时，请刷新进度后再决定是否重试。`, 'error');
+        } finally {
+            mutating = false;
+            updateBetControls();
+        }
+    }
+
+    async function openDailyQuest() {
+        if (!authenticated) return;
+
+        try {
+            await getAdapter()?.openDailyQuest?.();
+            setStatus(elements.dailyStatus, '已请求使用系统浏览器打开官方日常页面；躲避游戏保持官方页面原有流程。');
+        } catch (error) {
+            setStatus(elements.dailyStatus, String(error.message || error), 'error');
+        }
+    }
+
     function updateSnapshot(snapshot) {
         latestSnapshot = snapshot;
         const raceStatus = snapshot.current?.status || '未知';
@@ -252,8 +585,15 @@
         updateBetControls();
     }
 
-    async function sync(mode = 'live') {
+    function isAutoSyncPaused() {
+        const editingBet = document.activeElement === elements.betRacer || document.activeElement === elements.betAmount;
+        const editingRecite = Boolean(elements.dailyReciteInput.value.trim());
+        return dailyBusy || editingBet || editingRecite || dailyClickCount > 0 || pendingBets.length > 0;
+    }
+
+    async function sync(mode = 'live', automatic = false) {
         if (!authenticated || syncing || mutating || pendingBets.length > 0) return;
+        if (automatic && (!elements.autoSync.checked || isAutoSyncPaused())) return;
         const adapter = getAdapter();
 
         if (!adapter) return;
@@ -273,12 +613,26 @@
 
     function startPolling() {
         clearInterval(timer);
+        timer = null;
         liveTicks = 0;
+        if (!authenticated || !elements.autoSync.checked) return;
         timer = setInterval(() => {
             if (document.hidden) return;
             liveTicks += 1;
-            sync(liveTicks % 10 === 0 ? 'full' : 'live');
+            sync(liveTicks % 10 === 0 ? 'full' : 'live', true);
         }, 4000);
+    }
+
+    function toggleAutoSync() {
+        if (!authenticated) return;
+        startPolling();
+        setStatus(
+            elements.status,
+            elements.autoSync.checked
+                ? '自动实时更新已开启；日常任务和下注操作期间会自动暂停。'
+                : '自动实时更新已关闭；仍可使用“立即全量同步”。',
+            'success'
+        );
     }
 
     function reviewBet() {
@@ -392,6 +746,20 @@
         }
     }
 
+    async function activateRemoteSession(snapshot) {
+        authenticated = true;
+        elements.actions.hidden = false;
+        elements.syncButton.hidden = false;
+        elements.logoutButton.hidden = false;
+        elements.username.disabled = true;
+        elements.password.disabled = true;
+        elements.autoSync.disabled = false;
+        updateSnapshot(snapshot);
+        await requestPolicy.delay(900);
+        await refreshDailyQuest(false);
+        startPolling();
+    }
+
     async function login(event) {
         event.preventDefault();
         const adapter = getAdapter();
@@ -414,19 +782,39 @@
         try {
             const snapshot = await adapter.login({username, password});
             elements.password.value = '';
-            authenticated = true;
-            elements.actions.hidden = false;
-            elements.syncButton.hidden = false;
-            elements.logoutButton.hidden = false;
-            elements.username.disabled = true;
-            elements.password.disabled = true;
-            updateSnapshot(snapshot);
-            startPolling();
+            await activateRemoteSession(snapshot);
         } catch (error) {
             elements.password.value = '';
             setStatus(elements.status, String(error.message || error), 'error');
         } finally {
             elements.loginButton.disabled = false;
+        }
+    }
+
+    async function autoLogin() {
+        const adapter = getElectronAdapter();
+        if (!adapter?.autoLogin || authenticated) return;
+        elements.loginButton.disabled = true;
+        elements.username.disabled = true;
+        elements.password.disabled = true;
+        setStatus(elements.status, '正在使用本地环境文件自动登录…');
+
+        try {
+            const snapshot = await adapter.autoLogin();
+            if (!snapshot) {
+                setStatus(elements.status, '未找到本地自动登录配置，请手动登录。');
+                return;
+            }
+            await activateRemoteSession(snapshot);
+            setStatus(elements.status, '已使用本地环境文件自动登录；凭据仅由主进程读取。', 'success');
+        } catch (error) {
+            setStatus(elements.status, `自动登录失败：${String(error.message || error)}；仍可手动登录。`, 'error');
+        } finally {
+            elements.loginButton.disabled = false;
+            if (!authenticated) {
+                elements.username.disabled = false;
+                elements.password.disabled = false;
+            }
         }
     }
 
@@ -437,12 +825,18 @@
         latestSnapshot = null;
         latestRecommendation = null;
         pendingBets = [];
+        dailyState = null;
+        dailyBusy = false;
+        resetDailyClicks();
 
         try {
             await getAdapter()?.logout();
         } finally {
             elements.username.disabled = false;
             elements.password.disabled = false;
+            elements.username.value = '';
+            elements.password.value = '';
+            elements.autoSync.disabled = true;
             elements.syncButton.hidden = true;
             elements.logoutButton.hidden = true;
             elements.actions.hidden = true;
@@ -453,18 +847,39 @@
             elements.reward.textContent = '等待登录';
             elements.history.textContent = '等待登录';
             elements.account.textContent = '会话未建立';
-            setStatus(elements.status, '已退出并清除本机会话。', 'success');
+            elements.dailyReciteProgress.textContent = '等待同步';
+            elements.dailyClickProgress.textContent = '等待同步';
+            elements.dailyDodgeProgress.textContent = '等待同步';
+            elements.dailyTimerProgress.textContent = '等待同步';
+            elements.dailyText.textContent = '刷新后显示当前题目';
+            elements.dailyReciteInput.value = '';
+            elements.dailyReciteInput.disabled = true;
+            setStatus(elements.dailyStatus, '登录后低频同步一次；自动化操作每次只执行一轮，不会后台循环或自动领取。');
+            setStatus(elements.status, '已退出并清除本机会话；重新启动应用后会再次尝试环境文件自动登录。', 'success');
             window.dispatchEvent(new CustomEvent('slime-race-remote-disconnected'));
         }
     }
 
     elements.form.addEventListener('submit', login);
     elements.syncButton.addEventListener('click', () => sync('full'));
+    elements.autoSync.addEventListener('change', toggleAutoSync);
     elements.logoutButton.addEventListener('click', logout);
     elements.betReview.addEventListener('click', reviewBet);
     elements.optimalBet.addEventListener('click', reviewOptimalBets);
     elements.betCancel.addEventListener('click', cancelBetReview);
     elements.betSubmit.addEventListener('click', submitBets);
+    elements.dailyRefresh.addEventListener('click', () => refreshDailyQuest());
+    elements.dailyOpen.addEventListener('click', openDailyQuest);
+    elements.dailyReciteSubmit.addEventListener('click', submitDailyRecite);
+    elements.dailyAutoRecite.addEventListener('click', automateDailyRecite);
+    elements.dailyClickButton.addEventListener('click', registerDailyClick);
+    elements.dailyClickReset.addEventListener('click', () => resetDailyClicks('本轮点击已手动清零。'));
+    elements.dailyAutoClick.addEventListener('click', () => completeDailyClicks(true));
+    elements.dailyAutoTimer.addEventListener('click', automateDailyTimer);
+    elements.dailyTimerErrorTest.addEventListener('click', testDailyTimerError);
+    elements.dailyDodgeClaim.addEventListener('click', () => claimDailyGameReward('dodge'));
+    elements.dailyTimerClaim.addEventListener('click', () => claimDailyGameReward('timer'));
+    elements.dailyReciteInput.addEventListener('input', updateDailyControls);
     [elements.betRacer, elements.betAmount].forEach(input => input.addEventListener('change', () => {
         pendingBets = [];
         elements.betConfirm.hidden = true;
@@ -480,5 +895,9 @@
         };
         updateBetControls();
     });
-    window.addEventListener('beforeunload', () => clearInterval(timer));
+    window.addEventListener('beforeunload', () => {
+        clearInterval(timer);
+        clearTimeout(dailyClickResetTimer);
+    });
+    autoLogin();
 })();

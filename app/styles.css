@@ -877,6 +877,36 @@ input:focus {
     align-items: center;
 }
 
+.remote-heading-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+}
+
+.remote-sync-toggle {
+    display: inline-flex;
+    cursor: pointer;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 9px;
+    border: 1px solid rgba(83, 217, 197, 0.2);
+    border-radius: 999px;
+    color: #9eb1c3;
+    background: rgba(83, 217, 197, 0.04);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.remote-sync-toggle input {
+    accent-color: var(--cyan);
+}
+
+.remote-sync-toggle:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .remote-layout {
     display: grid;
     grid-template-columns: minmax(420px, 1.1fr) minmax(360px, 1fr);
@@ -1057,6 +1087,165 @@ input:focus {
     margin: 0;
     color: #71899f;
     font-size: 9px;
+}
+
+.daily-quest-card {
+    grid-column: 1 / -1;
+}
+
+.daily-quest-heading > div {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.daily-quest-heading > div:last-child {
+    flex-shrink: 0;
+}
+
+.daily-progress-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.daily-progress-grid > div {
+    padding: 8px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    border-radius: 9px;
+    background: rgba(4, 14, 24, 0.3);
+}
+
+.daily-progress-grid span, .daily-progress-grid strong {
+    display: block;
+}
+
+.daily-progress-grid span {
+    margin-bottom: 3px;
+    color: #71899f;
+    font-size: 8px;
+}
+
+.daily-progress-grid strong {
+    color: #dbeaf6;
+    font-size: 10px;
+}
+
+.daily-task-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.4fr) minmax(180px, 0.8fr) minmax(180px, 0.8fr);
+    gap: 9px;
+}
+
+.daily-task-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    border-radius: 10px;
+    background: rgba(4, 14, 24, 0.25);
+}
+
+.daily-task-block > div:first-child {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.daily-task-block strong {
+    color: #c9d9e6;
+    font-size: 10px;
+}
+
+.daily-task-block span, .daily-task-block small {
+    color: #71899f;
+    font-size: 8px;
+}
+
+.daily-task-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.daily-task-actions button {
+    width: 100%;
+}
+
+.daily-recite-task blockquote {
+    margin: 0;
+    padding: 9px 10px;
+    border-left: 2px solid rgba(83, 217, 197, 0.5);
+    color: #cfe0ec;
+    background: rgba(83, 217, 197, 0.04);
+    font-size: 10px;
+    line-height: 1.55;
+    user-select: none;
+}
+
+.daily-recite-task textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    outline: 0;
+    color: var(--text);
+    background: rgba(4, 14, 24, 0.55);
+    font: inherit;
+    font-size: 10px;
+}
+
+.daily-click-button {
+    display: flex;
+    min-height: 92px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    border: 1px solid rgba(244, 190, 85, 0.3);
+    border-radius: 12px;
+    color: #f4d28b;
+    background: rgba(244, 190, 85, 0.06);
+}
+
+.daily-click-button span {
+    color: inherit;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.daily-click-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.daily-click-progress {
+    overflow: hidden;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.daily-click-progress i {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f4be55, #f48d55);
+    transition: width 120ms ease;
+}
+
+.daily-game-task .secondary-button {
+    width: 100%;
+}
+
+.daily-game-task .primary-button {
+    width: 100%;
 }
 
 .data-workspace {
@@ -1745,7 +1934,15 @@ footer {
         grid-template-columns: 1fr;
     }
 
+    .daily-task-layout {
+        grid-template-columns: 1fr;
+    }
+
     .remote-login {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .daily-progress-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1836,6 +2033,11 @@ footer {
     .remote-heading {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .remote-heading-actions {
+        flex-wrap: wrap;
+        justify-content: flex-start;
     }
 
     .remote-login {

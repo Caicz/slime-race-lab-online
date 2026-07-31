@@ -181,7 +181,7 @@
                     <p class="section-kicker">LIVE ACCOUNT BRIDGE</p>
                     <h2>实盘同步与远程操作</h2>
                 </div>
-                <span class="no-fee-badge">固定站点 · 提交前统一确认</span>
+                <div class="remote-heading-actions"><span class="no-fee-badge">固定站点 · 提交前统一确认</span><label class="remote-sync-toggle"><input id="remoteAutoSyncToggle" type="checkbox" checked disabled><span>自动实时更新（操作时暂停）</span></label></div>
             </div>
             <div class="remote-layout">
                 <form class="remote-login" id="remoteLoginForm" autocomplete="off">
@@ -189,7 +189,7 @@
                     <label><span>密码</span><input id="remotePassword" type="password" maxlength="512" autocomplete="off"></label>
                     <button class="primary-button" id="remoteLoginButton" type="submit">登录并同步</button>
                     <button class="secondary-button" id="remoteSyncButton" type="button" hidden>立即全量同步</button>
-                    <button class="quiet-button" id="remoteLogoutButton" type="button" hidden>退出并清会话</button>
+                    <button class="quiet-button" id="remoteLogoutButton" type="button" hidden>退出当前账号</button>
                 </form>
                 <div class="remote-metrics">
                     <div><span>比赛状态</span><strong id="remoteRaceStatus">未连接</strong></div>
@@ -221,8 +221,43 @@
                     <div class="remote-reward-list" id="remoteRewardList"><p>同步后在这里显示逐笔奖励。</p></div>
                     <p class="form-status" id="remoteClaimStatus">每笔奖励需手动确认领取，不会自动领取。</p>
                 </section>
+                <section class="remote-action-card daily-quest-card">
+                    <div class="remote-action-heading daily-quest-heading">
+                        <div><strong>日常任务自动化</strong><span>站点所有者模式 · 单次执行 · 不自动领取</span></div>
+                        <div><button class="secondary-button" id="dailyQuestRefreshButton" type="button">刷新日常</button><button class="quiet-button" id="dailyQuestOpenButton" type="button">打开官方小游戏</button></div>
+                    </div>
+                    <div class="daily-progress-grid">
+                        <div><span>复述公主的话</span><strong id="dailyReciteProgress">等待同步</strong></div>
+                        <div><span>打工点击</span><strong id="dailyClickProgress">等待同步</strong></div>
+                        <div><span>躲避飞吻</span><strong id="dailyDodgeProgress">等待同步</strong></div>
+                        <div><span>乖宝宝报时</span><strong id="dailyTimerProgress">等待同步</strong></div>
+                    </div>
+                    <div class="daily-task-layout">
+                        <section class="daily-task-block daily-recite-task">
+                            <div><strong>复述任务</strong><span>可手动输入，也可自动提交当前题目</span></div>
+                            <blockquote id="dailyQuestText">刷新后显示当前题目</blockquote>
+                            <textarea id="dailyReciteInput" rows="3" maxlength="2000" placeholder="输入上方文字，或使用自动复述" disabled></textarea>
+                            <div class="daily-task-actions"><button class="secondary-button" id="dailyReciteSubmitButton" type="button" disabled>提交输入内容</button><button class="primary-button" id="dailyAutoReciteButton" type="button" disabled>自动复述一次</button></div>
+                        </section>
+                        <section class="daily-task-block daily-click-task">
+                            <div><strong>点击任务</strong><span>手动点击或自动完成一轮 100 次</span></div>
+                            <button class="daily-click-button" id="dailyClickButton" type="button" disabled><span id="dailyClickCount">0 / 100</span><small>点击这里手动累计</small></button>
+                            <div class="daily-click-progress"><i id="dailyClickBar"></i></div>
+                            <div class="daily-task-actions"><button class="quiet-button" id="dailyClickResetButton" type="button" disabled>清零本轮点击</button><button class="primary-button" id="dailyAutoClickButton" type="button" disabled>自动完成 100 次</button></div>
+                        </section>
+                        <section class="daily-task-block daily-game-task">
+                            <div><strong>小游戏与奖励</strong><span>报时可自动提交；躲避游戏保持原流程</span></div>
+                            <button class="primary-button" id="dailyAutoTimerButton" type="button" disabled>自动报时 60.00 秒</button>
+                            <button class="secondary-button" id="dailyTimerErrorTestButton" type="button" disabled>随机误差测试（±0.20 秒）</button>
+                            <button class="secondary-button" id="dailyDodgeClaimButton" type="button" disabled>领取躲避奖励</button>
+                            <button class="secondary-button" id="dailyTimerClaimButton" type="button" disabled>领取报时奖励</button>
+                            <small>每次领取前都会再次读取进度并要求确认；POST 不自动重试。</small>
+                        </section>
+                    </div>
+                    <p class="form-status" id="dailyQuestStatus">登录后低频同步一次；自动化操作每次只执行一轮，不会后台循环或自动领取奖励。</p>
+                </section>
             </div>
-            <p class="form-status" id="remoteStatus">密码不会保存；账户余额、奖励和盘口每 4 秒刷新，历史与个人统计每 40 秒刷新。</p>
+            <p class="form-status" id="remoteStatus">密码不会保存；开启自动实时更新后，账户余额、奖励和盘口每 4 秒刷新，历史与个人统计每 40 秒刷新。</p>
         </section>
 
         <section class="data-workspace">
@@ -364,6 +399,7 @@
     <script src="scripts/betting.js"></script>
     <script src="scripts/remote-data.js"></script>
     <script src="scripts/remote-actions.js"></script>
+    <script src="scripts/daily-quest.js"></script>
     <script src="scripts/request-policy.js"></script>
     <script src="scripts/market-monitor.js"></script>
     <script src="scripts/app.js"></script>

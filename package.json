@@ -8,8 +8,9 @@
     "private": true,
     "scripts": {
         "start": "electron .",
-        "check": "node scripts/check-online-boundary.cjs && node --check electron/main.cjs && node --check electron/preload.cjs && node --check app/scripts/engine.js && node --check app/scripts/betting.js && node --check app/scripts/remote-data.js && node --check app/scripts/remote-actions.js && node --check app/scripts/request-policy.js && node --check app/scripts/market-monitor.js && node --check app/scripts/app.js && node --check app/scripts/remote.js && node --check scripts/build-android.cjs && node --check scripts/create-ico.cjs && node --check scripts/inspect-slime-api.cjs && node --test",
+        "check": "node scripts/check-online-boundary.cjs && node --check electron/main.cjs && node --check electron/preload.cjs && node --check app/scripts/engine.js && node --check app/scripts/betting.js && node --check app/scripts/remote-data.js && node --check app/scripts/remote-actions.js && node --check app/scripts/daily-quest.js && node --check app/scripts/request-policy.js && node --check app/scripts/market-monitor.js && node --check app/scripts/app.js && node --check app/scripts/remote.js && node --check scripts/build-android.cjs && node --check scripts/create-ico.cjs && node --check scripts/inspect-slime-api.cjs && node --check scripts/run-timer-error-check.cjs && node --test",
         "check:online": "node scripts/check-online-boundary.cjs",
+        "test:timer-error": "node scripts/run-timer-error-check.cjs",
         "android:sync": "npx cap sync android",
         "android:open": "npx cap open android",
         "android:apk": "npm run android:sync && node scripts/build-android.cjs",

@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const remoteData = require('../app/scripts/remote-data.js');
+const dailyQuest = require('../app/scripts/daily-quest.js');
 
 const projectRoot = path.join(__dirname, '..');
 const envPath = path.join(projectRoot, '.env.slime-race.local');
@@ -13,7 +14,9 @@ const endpoints = [
     {name: 'account', path: '/api/auth/me'},
     {name: 'sessions', path: '/api/slime-race/sessions'},
     {name: 'myBets', path: '/api/slime-race/my-bets'},
-    {name: 'myStats', path: '/api/slime-race/my-stats'}
+    {name: 'myStats', path: '/api/slime-race/my-stats'},
+    {name: 'questProgress', path: '/api/quest/progress'},
+    {name: 'questText', path: '/api/quest/text'}
 ];
 
 function parseEnv(text) {
@@ -103,9 +106,11 @@ async function main() {
     }
 
     const normalized = remoteData.normalizeSnapshot({...raw, mode: 'full'});
+    const normalizedDaily = dailyQuest.normalizeDailyQuest({progress: raw.questProgress, text: raw.questText});
     const normalizedText = JSON.stringify(normalized);
     if (/userId|betId/.test(normalizedText)) throw new Error('聚合结果意外保留了逐笔用户标识');
     console.log(`normalized=racers:${normalized.racers.length},pool:${normalized.pool.total},sessions:${normalized.sessions.length},myBets:${normalized.myBets.length}`);
+    console.log(`daily=recite:${normalizedDaily.recite.completionCount},click:${normalizedDaily.click.completionCount},dodge-pending:${normalizedDaily.dodge.unclaimed},timer-pending:${normalizedDaily.timer.unclaimed}`);
 
     fs.writeFileSync(outputPath, JSON.stringify(snapshot), {encoding: 'utf8', mode: 0o600});
     fs.chmodSync(outputPath, 0o600);

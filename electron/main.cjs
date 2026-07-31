@@ -1,11 +1,13 @@
-const {app, BrowserWindow, ipcMain} = require('electron');
+const {app, BrowserWindow, ipcMain, shell} = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const remoteData = require('../app/scripts/remote-data.js');
 const remoteActions = require('../app/scripts/remote-actions.js');
+const dailyQuest = require('../app/scripts/daily-quest.js');
 const requestPolicy = require('../app/scripts/request-policy.js');
 
 const targetOrigin = 'https://zouzou-princess-fan.replit.app';
+const localEnvPath = path.join(__dirname, '..', '.env.slime-race.local');
 const endpointPaths = Object.freeze({
     current: '/api/slime-race/current',
     racers: '/api/slime-race/racers',
@@ -18,6 +20,7 @@ const endpointPaths = Object.freeze({
 });
 const liveEndpoints = Object.freeze(['current', 'racers', 'bets', 'pendingRewards', 'account']);
 const fullEndpoints = Object.freeze([...liveEndpoints, 'sessions', 'myBets', 'myStats']);
+const dailyEndpointPaths = Object.freeze({progress: '/api/quest/progress', text: '/api/quest/text'});
 let sessionCookie = '';
 let mutationInFlight = false;
 
@@ -36,6 +39,51 @@ function getSessionCookie(response) {
 function assertTrustedSender(event) {
     const senderUrl = event.senderFrame?.url || '';
     if (!senderUrl.startsWith('file://')) throw new Error('拒绝非本地页面调用联网桥接');
+}
+
+function parseLocalEnv(text) {
+    const values = {};
+
+    text.split(/\r?\n/).forEach(line => {
+        const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+        if (!match) return;
+        let value = match[2].trim();
+
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
+        values[match[1]] = value;
+    });
+
+    return values;
+}
+
+async function readLocalCredentials() {
+    let stat;
+    let text;
+
+    try {
+        [stat, text] = await Promise.all([fs.stat(localEnvPath), fs.readFile(localEnvPath, 'utf8')]);
+    } catch (error) {
+        if (error?.code === 'ENOENT') return null;
+        throw error;
+    }
+
+    if (process.platform !== 'win32' && (stat.mode & 0o777) !== 0o600) throw new Error('本地凭据文件权限必须为 600');
+    const env = parseLocalEnv(text);
+    const username = String(env.SLIME_RACE_USERNAME || '').trim();
+    const password = String(env.SLIME_RACE_PASSWORD || '');
+    let configuredOrigin;
+
+    try {
+        configuredOrigin = new URL(env.SLIME_RACE_URL || '').origin;
+    } catch {
+        throw new Error('本地凭据文件中的 SLIME_RACE_URL 无效');
+    }
+
+    if (configuredOrigin !== targetOrigin) throw new Error('本地凭据文件必须使用固定目标站点');
+    if (!username || !password) throw new Error('本地凭据文件缺少账号或密码');
+    return {username, password};
 }
 
 async function requestJson(endpoint, options = {}, attempt = 0) {
@@ -100,6 +148,19 @@ async function loginRemote(credentials) {
     return syncRemote('full');
 }
 
+async function autoLoginRemote() {
+    if (capturePath) return null;
+    const credentials = await readLocalCredentials();
+    if (!credentials) return null;
+
+    try {
+        return await loginRemote(credentials);
+    } catch (error) {
+        sessionCookie = '';
+        throw error;
+    }
+}
+
 async function syncRemote(mode) {
     if (!sessionCookie) throw new Error('请先登录');
     const normalizedMode = mode === 'live' ? 'live' : 'full';
@@ -110,6 +171,18 @@ async function syncRemote(mode) {
     );
     const raw = Object.fromEntries(endpoints.map((name, index) => [name, values[index]]));
     return remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
+}
+
+async function syncDailyQuest() {
+    if (!sessionCookie) throw new Error('请先登录');
+    const names = Object.keys(dailyEndpointPaths);
+    const values = await requestPolicy.mapSequential(
+        names,
+        name => requestJson(dailyEndpointPaths[name]).then(result => result.data),
+        400
+    );
+
+    return dailyQuest.normalizeDailyQuest(Object.fromEntries(names.map((name, index) => [name, values[index]])));
 }
 
 async function runMutation(action) {
@@ -166,9 +239,84 @@ async function claimRemoteReward(rewardId) {
     });
 }
 
+async function submitDailyRecite(intent) {
+    return runMutation(async () => {
+        const state = await syncDailyQuest();
+        const payload = dailyQuest.validateReciteSubmission(state, intent);
+        await requestPolicy.delay(500);
+        await requestJson('/api/quest/submit', {method: 'POST', data: payload});
+        await requestPolicy.delay(600);
+        return syncDailyQuest();
+    });
+}
+
+async function autoSubmitDailyRecite() {
+    return runMutation(async () => {
+        const state = await syncDailyQuest();
+        const payload = dailyQuest.createAutomaticReciteSubmission(state);
+        await requestPolicy.delay(500);
+        await requestJson('/api/quest/submit', {method: 'POST', data: payload});
+        await requestPolicy.delay(600);
+        return syncDailyQuest();
+    });
+}
+
+async function completeDailyClick(clickCount) {
+    return runMutation(async () => {
+        const progress = await requestJson('/api/quest/progress').then(result => result.data);
+        const state = dailyQuest.normalizeDailyQuest({progress});
+        dailyQuest.validateClickCompletion(state, clickCount);
+        await requestPolicy.delay(500);
+        await requestJson('/api/quest/click-complete', {method: 'POST'});
+        await requestPolicy.delay(600);
+        return syncDailyQuest();
+    });
+}
+
+async function completeDailyTimer() {
+    return runMutation(async () => {
+        const progress = await requestJson('/api/quest/progress').then(result => result.data);
+        const state = dailyQuest.normalizeDailyQuest({progress});
+        const payload = dailyQuest.createAutomaticTimerSubmission(state);
+        await requestPolicy.delay(500);
+        await requestJson('/api/timer-game/submit', {method: 'POST', data: payload});
+        await requestPolicy.delay(600);
+        return syncDailyQuest();
+    });
+}
+
+async function testDailyTimerError() {
+    return runMutation(async () => {
+        const progress = await requestJson('/api/quest/progress').then(result => result.data);
+        const state = dailyQuest.normalizeDailyQuest({progress});
+        const payload = dailyQuest.createRandomTimerSubmission(state);
+        await requestPolicy.delay(500);
+        const submission = await requestJson('/api/timer-game/submit', {method: 'POST', data: payload});
+        const result = dailyQuest.normalizeTimerSubmissionResult(submission.data, payload.actualTime);
+        await requestPolicy.delay(600);
+        return {state: await syncDailyQuest(), result};
+    });
+}
+
+async function claimDailyGameReward(type) {
+    return runMutation(async () => {
+        const progress = await requestJson('/api/quest/progress').then(result => result.data);
+        const state = dailyQuest.normalizeDailyQuest({progress});
+        const claim = dailyQuest.validateGameClaim(state, type);
+        await requestPolicy.delay(500);
+        await requestJson(claim.endpoint, {method: 'POST'});
+        await requestPolicy.delay(600);
+        return syncDailyQuest();
+    });
+}
+
 ipcMain.handle('slime-remote:login', (event, credentials) => {
     assertTrustedSender(event);
     return loginRemote(credentials);
+});
+ipcMain.handle('slime-remote:auto-login', event => {
+    assertTrustedSender(event);
+    return autoLoginRemote();
 });
 ipcMain.handle('slime-remote:sync', (event, mode) => {
     assertTrustedSender(event);
@@ -181,6 +329,38 @@ ipcMain.handle('slime-remote:place-bets', (event, intents) => {
 ipcMain.handle('slime-remote:claim-reward', (event, rewardId) => {
     assertTrustedSender(event);
     return claimRemoteReward(rewardId);
+});
+ipcMain.handle('slime-remote:daily-sync', event => {
+    assertTrustedSender(event);
+    return syncDailyQuest();
+});
+ipcMain.handle('slime-remote:daily-recite', (event, intent) => {
+    assertTrustedSender(event);
+    return submitDailyRecite(intent);
+});
+ipcMain.handle('slime-remote:daily-auto-recite', event => {
+    assertTrustedSender(event);
+    return autoSubmitDailyRecite();
+});
+ipcMain.handle('slime-remote:daily-click', (event, clickCount) => {
+    assertTrustedSender(event);
+    return completeDailyClick(clickCount);
+});
+ipcMain.handle('slime-remote:daily-timer', event => {
+    assertTrustedSender(event);
+    return completeDailyTimer();
+});
+ipcMain.handle('slime-remote:daily-timer-error-test', event => {
+    assertTrustedSender(event);
+    return testDailyTimerError();
+});
+ipcMain.handle('slime-remote:daily-claim', (event, type) => {
+    assertTrustedSender(event);
+    return claimDailyGameReward(type);
+});
+ipcMain.handle('slime-remote:daily-open', event => {
+    assertTrustedSender(event);
+    return shell.openExternal(new URL('/daily-quest', targetOrigin).href);
 });
 ipcMain.handle('slime-remote:logout', event => {
     assertTrustedSender(event);
