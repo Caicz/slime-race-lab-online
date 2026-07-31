@@ -10,6 +10,9 @@
     'use strict';
 
     const RACER_IDS = Object.freeze(['melon', 'blueberry', 'dragonfruit', 'lemon']);
+    const LIVE_ENDPOINT_NAMES = Object.freeze(['current', 'racers', 'bets', 'pendingRewards', 'account']);
+    const FULL_ENDPOINT_NAMES = Object.freeze([...LIVE_ENDPOINT_NAMES, 'sessions', 'myBets', 'myStats']);
+    const BET_ENDPOINT_NAMES = Object.freeze(['current', 'bets', 'account']);
     const NAME_TO_ID = Object.freeze({
         '迷你哈密瓜': 'melon',
         '哈密瓜': 'melon',
@@ -166,6 +169,18 @@
         })).filter(reward => Number.isSafeInteger(reward.rewardId) && reward.rewardId > 0 && reward.amount > 0);
     }
 
+    function normalizeSnapshotMode(mode) {
+        return ['live', 'bet'].includes(mode) ? mode : 'full';
+    }
+
+    function getSnapshotEndpointNames(mode, hasCachedRacers = false) {
+        const normalizedMode = normalizeSnapshotMode(mode);
+
+        if (normalizedMode === 'full') return [...FULL_ENDPOINT_NAMES];
+        if (normalizedMode === 'live') return [...LIVE_ENDPOINT_NAMES];
+        return hasCachedRacers ? [...BET_ENDPOINT_NAMES] : ['racers', ...BET_ENDPOINT_NAMES];
+    }
+
     function normalizeSnapshot(raw = {}) {
         const {racers, bySourceId} = normalizeRacers(raw.racers);
         const sessions = normalizeSessions(raw.sessions, bySourceId);
@@ -173,7 +188,7 @@
         const pendingRewards = normalizePendingRewards(raw.pendingRewards);
 
         return {
-            mode: raw.mode === 'live' ? 'live' : 'full',
+            mode: normalizeSnapshotMode(raw.mode),
             updatedAt: new Date().toISOString(),
             current: normalizeCurrent(raw.current, bySourceId),
             racers,
@@ -189,5 +204,5 @@
         };
     }
 
-    return Object.freeze({RACER_IDS, normalizeSnapshot});
+    return Object.freeze({RACER_IDS, getSnapshotEndpointNames, normalizeSnapshot});
 });

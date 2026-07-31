@@ -6,6 +6,7 @@
     const remoteActions = globalThis.SlimeRemoteActions;
     const dailyQuest = globalThis.SlimeDailyQuest;
     const requestPolicy = globalThis.SlimeRequestPolicy;
+    const MAX_RECOMMENDATION_AGE_MS = 5000;
     const endpointPaths = Object.freeze({
         current: '/api/slime-race/current',
         racers: '/api/slime-race/racers',
@@ -16,8 +17,6 @@
         myBets: '/api/slime-race/my-bets',
         myStats: '/api/slime-race/my-stats'
     });
-    const liveEndpoints = Object.freeze(['current', 'racers', 'bets', 'pendingRewards', 'account']);
-    const fullEndpoints = Object.freeze([...liveEndpoints, 'sessions', 'myBets', 'myStats']);
     const racerNames = Object.freeze({melon: '迷你哈密瓜', blueberry: '迷你蓝莓', dragonfruit: '迷你火龙果', lemon: '迷你柠檬'});
     const elements = {
         form: document.querySelector('#remoteLoginForm'),
@@ -103,6 +102,11 @@
         );
     }
 
+    function hasFreshRecommendation() {
+        const updatedAt = Date.parse(latestSnapshot?.updatedAt || '');
+        return hasCurrentRecommendation() && Number.isFinite(updatedAt) && Date.now() - updatedAt <= MAX_RECOMMENDATION_AGE_MS;
+    }
+
     function updateBetControls() {
         const busy = syncing || mutating;
         elements.betReview.disabled = busy || !authenticated;
@@ -127,6 +131,7 @@
     function getAndroidAdapter() {
         const http = globalThis.CapacitorHttp;
         const cookies = globalThis.CapacitorCookies;
+        let cachedRemoteRacers = null;
 
         if (!http || globalThis.Capacitor?.getPlatform?.() !== 'android') return null;
 
@@ -164,11 +169,16 @@
         }
 
         async function fetchSnapshot(mode) {
-            const normalizedMode = mode === 'live' ? 'live' : 'full';
-            const endpoints = normalizedMode === 'live' ? liveEndpoints : fullEndpoints;
-            const values = await requestPolicy.mapSequential(endpoints, name => request(endpointPaths[name]));
+            const normalizedMode = mode === 'bet' ? 'bet' : mode === 'live' ? 'live' : 'full';
+            const endpoints = remoteData.getSnapshotEndpointNames(normalizedMode, Boolean(cachedRemoteRacers));
+            const fetchEndpoint = name => request(endpointPaths[name]);
+            const values = normalizedMode === 'bet'
+                ? await Promise.all(endpoints.map(fetchEndpoint))
+                : await requestPolicy.mapSequential(endpoints, fetchEndpoint);
             const raw = Object.fromEntries(endpoints.map((name, index) => [name, values[index]]));
 
+            if (raw.racers) cachedRemoteRacers = raw.racers;
+            else raw.racers = cachedRemoteRacers;
             return remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
         }
 
@@ -182,6 +192,7 @@
         return {
             async login(credentials) {
                 await cookies?.clearAllCookies?.();
+                cachedRemoteRacers = null;
                 await request('/api/auth/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', Accept: 'application/json'},
@@ -193,7 +204,7 @@
             syncDailyQuest: fetchDailyQuest,
             async placeBets(intents) {
                 await requestPolicy.delay(800);
-                let snapshot = await fetchSnapshot('live');
+                let snapshot = await fetchSnapshot('bet');
                 const planned = remoteActions.validateBetBatch(snapshot, intents);
                 let completed = 0;
 
@@ -201,7 +212,7 @@
                     for (let index = 0; index < planned.length; index += 1) {
                         if (index > 0) {
                             await requestPolicy.delay(2000);
-                            snapshot = await fetchSnapshot('live');
+                            snapshot = await fetchSnapshot('bet');
                         }
 
                         const validated = remoteActions.validateBetIntent(snapshot, planned[index]);
@@ -211,7 +222,7 @@
                     }
 
                     await requestPolicy.delay(600);
-                    return await fetchSnapshot('live');
+                    return await fetchSnapshot('bet');
                 } catch (error) {
                     const message = String(error?.message || error);
                     if (completed === planned.length) throw new Error(`${completed} 笔下注已经提交，但结果同步失败：${message}`);
@@ -279,6 +290,7 @@
             },
             async logout() {
                 await cookies?.clearAllCookies?.();
+                cachedRemoteRacers = null;
             }
         };
     }
@@ -569,10 +581,12 @@
         elements.race.textContent = snapshot.current ? `第 ${snapshot.current.sessionId} 场 · ${raceStatus}` : '未取得比赛状态';
         elements.pool.textContent = `${phaseText} · ${formatChips(snapshot.pool?.total)} 碎片`;
         elements.balance.textContent = snapshot.account ? `${formatChips(snapshot.account.magicFragments)} 碎片` : '账户信息不可用';
-        elements.reward.textContent = snapshot.pendingRewards.length > 0
-            ? `${snapshot.pendingRewards.length} 笔 · ${formatChips(snapshot.pendingRewardTotal)} 碎片`
-            : '暂无待领取';
-        renderRewards(snapshot);
+        if (snapshot.mode !== 'bet') {
+            elements.reward.textContent = snapshot.pendingRewards.length > 0
+                ? `${snapshot.pendingRewards.length} 笔 · ${formatChips(snapshot.pendingRewardTotal)} 碎片`
+                : '暂无待领取';
+            renderRewards(snapshot);
+        }
         if (snapshot.mode === 'full') {
             elements.history.textContent = `最近 ${snapshot.sessions.length} 场已同步`;
             elements.account.textContent = snapshot.myStats
@@ -656,16 +670,17 @@
         const adapter = getAdapter();
         if (!adapter) return;
 
+        const needsRefresh = !hasFreshRecommendation();
         syncing = true;
-        setStatus(elements.betStatus, '正在刷新当前盘口并重新计算最优建议…');
+        setStatus(elements.betStatus, needsRefresh ? '正在轻量刷新当前盘口并重新计算最优建议…' : '正在核对最近 5 秒内的最优建议…');
         updateBetControls();
 
         try {
-            updateSnapshot(await adapter.sync('live'));
+            if (needsRefresh) updateSnapshot(await adapter.sync('bet'));
             if (!hasCurrentRecommendation()) throw new Error('当前策略建议等待或停止追加，没有可执行的一键下注方案');
             const planned = remoteActions.validateBetBatch(latestSnapshot, latestRecommendation.bets);
             showBetConfirmation(planned, '当前最优建议');
-            setStatus(elements.betStatus, '盘口已刷新；一次确认后将串行提交，任一失败都会停止剩余下注。');
+            setStatus(elements.betStatus, `${needsRefresh ? '盘口已轻量刷新' : '已复用最近同步结果'}；确认后仍会重新校验，任一失败都会停止剩余下注。`);
         } catch (error) {
             pendingBets = [];
             elements.betConfirm.hidden = true;
@@ -708,7 +723,7 @@
             if (!message.includes('请求过于频繁')) {
                 try {
                     await requestPolicy.delay(800);
-                    updateSnapshot(await adapter.sync('live'));
+                    updateSnapshot(await adapter.sync('bet'));
                 } catch {
                     // Preserve the original mutation error when reconciliation is unavailable.
                 }
@@ -716,7 +731,7 @@
         } finally {
             mutating = false;
             updateBetControls();
-            if (latestSnapshot) renderRewards(latestSnapshot);
+            if (latestSnapshot?.mode !== 'bet') renderRewards(latestSnapshot);
         }
     }
 

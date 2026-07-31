@@ -18,11 +18,10 @@ const endpointPaths = Object.freeze({
     myBets: '/api/slime-race/my-bets',
     myStats: '/api/slime-race/my-stats'
 });
-const liveEndpoints = Object.freeze(['current', 'racers', 'bets', 'pendingRewards', 'account']);
-const fullEndpoints = Object.freeze([...liveEndpoints, 'sessions', 'myBets', 'myStats']);
 const dailyEndpointPaths = Object.freeze({progress: '/api/quest/progress', text: '/api/quest/text'});
 let sessionCookie = '';
 let mutationInFlight = false;
+let cachedRemoteRacers = null;
 
 const captureArgument = process.argv.find(argument => argument.startsWith('--capture='));
 const capturePath = captureArgument ? captureArgument.slice('--capture='.length) : null;
@@ -142,6 +141,7 @@ async function loginRemote(credentials) {
 
     if (!username || !password || username.length > 160 || password.length > 512) throw new Error('账号或密码格式无效');
     sessionCookie = '';
+    cachedRemoteRacers = null;
     const result = await requestJson('/api/auth/login', {method: 'POST', data: {username, password}});
     sessionCookie = getSessionCookie(result.response);
     if (!sessionCookie) throw new Error('登录成功但没有取得会话');
@@ -163,13 +163,16 @@ async function autoLoginRemote() {
 
 async function syncRemote(mode) {
     if (!sessionCookie) throw new Error('请先登录');
-    const normalizedMode = mode === 'live' ? 'live' : 'full';
-    const endpoints = normalizedMode === 'live' ? liveEndpoints : fullEndpoints;
-    const values = await requestPolicy.mapSequential(
-        endpoints,
-        name => requestJson(endpointPaths[name]).then(result => result.data)
-    );
+    const normalizedMode = mode === 'bet' ? 'bet' : mode === 'live' ? 'live' : 'full';
+    const endpoints = remoteData.getSnapshotEndpointNames(normalizedMode, Boolean(cachedRemoteRacers));
+    const fetchEndpoint = name => requestJson(endpointPaths[name]).then(result => result.data);
+    const values = normalizedMode === 'bet'
+        ? await Promise.all(endpoints.map(fetchEndpoint))
+        : await requestPolicy.mapSequential(endpoints, fetchEndpoint);
     const raw = Object.fromEntries(endpoints.map((name, index) => [name, values[index]]));
+
+    if (raw.racers) cachedRemoteRacers = raw.racers;
+    else raw.racers = cachedRemoteRacers;
     return remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
 }
 
@@ -199,7 +202,7 @@ async function runMutation(action) {
 async function placeRemoteBets(intents) {
     return runMutation(async () => {
         await requestPolicy.delay(800);
-        let snapshot = await syncRemote('live');
+        let snapshot = await syncRemote('bet');
         const planned = remoteActions.validateBetBatch(snapshot, intents);
         let completed = 0;
 
@@ -207,7 +210,7 @@ async function placeRemoteBets(intents) {
             for (let index = 0; index < planned.length; index += 1) {
                 if (index > 0) {
                     await requestPolicy.delay(2000);
-                    snapshot = await syncRemote('live');
+                    snapshot = await syncRemote('bet');
                 }
 
                 const validated = remoteActions.validateBetIntent(snapshot, planned[index]);
@@ -220,7 +223,7 @@ async function placeRemoteBets(intents) {
             }
 
             await requestPolicy.delay(600);
-            return await syncRemote('live');
+            return await syncRemote('bet');
         } catch (error) {
             const message = String(error?.message || error);
             if (completed === planned.length) throw new Error(`${completed} 笔下注已经提交，但结果同步失败：${message}`);
@@ -366,6 +369,7 @@ ipcMain.handle('slime-remote:logout', event => {
     assertTrustedSender(event);
     sessionCookie = '';
     mutationInFlight = false;
+    cachedRemoteRacers = null;
     return {ok: true};
 });
 

@@ -42,6 +42,7 @@ function checkNetworkCode(violations) {
     if (forbiddenMutations.test(content)) violations.push('联网代码禁止包含自动领奖、开赛、奖金注入、重置或管理接口');
     if (!content.includes('/api/slime-race/bet')) violations.push('联网版必须只通过固定赌马下注接口提交用户确认的下注');
     if (!content.includes('/api/slime-race/claim-reward')) violations.push('联网版必须只通过固定赌马奖励接口领取用户确认的奖励');
+    if (!content.includes("syncRemote('bet')") || !content.includes('getSnapshotEndpointNames') || !content.includes('MAX_RECOMMENDATION_AGE_MS')) violations.push('一键下注必须使用可复用的轻量快照，并继续在提交前重新校验');
     if (!index.includes('确认远程下注')) violations.push('远程下注必须保留第二次确认界面');
     if (!content.includes('/api/quest/submit') || !content.includes('/api/quest/click-complete')) violations.push('日常自动化必须通过固定任务接口提交');
     if (!content.includes('autoSubmitDailyRecite')) violations.push('自动复述必须在远程层读取并提交同一份最新题目');

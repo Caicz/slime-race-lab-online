@@ -455,7 +455,7 @@
         marketState = marketMonitor.recordSnapshot(marketState, snapshot, getProbabilities());
         writeStoredJson(STORAGE_KEYS.market, marketState);
         renderMarketMonitor();
-        renderBetAnalysis();
+        renderBetAnalysis({includeRobustness: snapshot.mode === 'full'});
     }
 
     function disconnectRemoteStats() {
@@ -624,7 +624,8 @@
         });
     }
 
-    function renderBetAnalysis() {
+    function renderBetAnalysis(options = {}) {
+        const includeRobustness = options.includeRobustness !== false;
         const currentPool = getCurrentPool();
         const existingBets = getExistingBets();
         const currentTotal = Object.values(currentPool).reduce((sum, value) => sum + value, 0);
@@ -652,18 +653,20 @@
             maxLossRate,
             riskAversion: 0.75
         });
-        const robustness = betting.analyzePortfolioScenarios(probabilities, currentPool, existingBets, {
-            expectedTotal: requestedClosingTotal,
-            publicBias,
-            oddsShare,
-            maxBet,
-            bankroll,
-            unit,
-            strategy,
-            maxLossRate,
-            riskAversion: 0.75,
-            maxSteps: 80
-        });
+        const robustness = includeRobustness
+            ? betting.analyzePortfolioScenarios(probabilities, currentPool, existingBets, {
+                expectedTotal: requestedClosingTotal,
+                publicBias,
+                oddsShare,
+                maxBet,
+                bankroll,
+                unit,
+                strategy,
+                maxLossRate,
+                riskAversion: 0.75,
+                maxSteps: 80
+            })
+            : null;
         const projectionDescriptions = {
             popular: `按历史胜率的 ${publicBias.toFixed(2)} 次方追热门`,
             odds: `按当前池占比倒数的 ${publicBias.toFixed(2)} 次方追高赔率`,
@@ -685,7 +688,7 @@
         renderPoolTable(analysis);
         renderRecommendation(result);
         renderScenarios(result);
-        renderPortfolioRobustness(robustness);
+        if (robustness) renderPortfolioRobustness(robustness);
         savePoolAndSettings();
     }
 

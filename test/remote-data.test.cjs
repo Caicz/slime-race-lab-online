@@ -9,6 +9,16 @@ const racers = [
     {id: 14, name: '迷你柠檬', wins: 99}
 ];
 
+test('下注快照只读取必要接口并复用史莱姆映射', () => {
+    assert.deepEqual(remoteData.getSnapshotEndpointNames('bet', true), ['current', 'bets', 'account']);
+    assert.deepEqual(remoteData.getSnapshotEndpointNames('bet', false), ['racers', 'current', 'bets', 'account']);
+    assert.deepEqual(remoteData.getSnapshotEndpointNames('live', true), ['current', 'racers', 'bets', 'pendingRewards', 'account']);
+    assert.deepEqual(remoteData.getSnapshotEndpointNames('full', true), ['current', 'racers', 'bets', 'pendingRewards', 'account', 'sessions', 'myBets', 'myStats']);
+
+    const snapshot = remoteData.normalizeSnapshot({mode: 'bet', racers, bets: {bets: []}});
+    assert.equal(snapshot.mode, 'bet');
+});
+
 test('逐笔实盘押注会聚合并丢弃其他玩家标识', () => {
     const snapshot = remoteData.normalizeSnapshot({
         mode: 'full',
