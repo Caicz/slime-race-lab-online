@@ -83,8 +83,8 @@ npm run dist:mac
 
 产物位于 `release/`：
 
-- `史莱姆竞速实验室（联网版）-1.1.1-arm64.dmg`
-- `史莱姆竞速实验室（联网版）-1.1.1-arm64-mac.zip`
+- `史莱姆竞速实验室（联网版）-1.1.2-arm64.dmg`
+- `史莱姆竞速实验室（联网版）-1.1.2-arm64-mac.zip`
 
 当前本地包没有 Apple Developer ID 签名。在其他 Mac 首次打开时可能需要右键应用并选择“打开”。
 
@@ -96,8 +96,8 @@ npm run dist:win
 
 生成 x64 NSIS 安装器与免安装便携版：
 
-- `史莱姆竞速实验室（联网版） Setup 1.1.1.exe`
-- `史莱姆竞速实验室（联网版） 1.1.1.exe`
+- `史莱姆竞速实验室（联网版） Setup 1.1.2.exe`
+- `史莱姆竞速实验室（联网版） 1.1.2.exe`
 
 Android 需要 JDK 21 和 Android SDK 35：
 
@@ -114,7 +114,7 @@ npm run android:apk
 
 Android 调试 APK 默认位于 `android/app/build/outputs/apk/debug/app-debug.apk`。当前已验收的易识别副本位于：
 
-- `release/slime-race-lab-online-1.1.1-android-debug.apk`
+- `release/slime-race-lab-online-1.1.2-android-debug.apk`
 
 该 APK 使用 Android 调试证书签名，可以直接侧载安装，但不能直接提交应用商店；正式上架需要创建私有发布密钥并生成签名的 release AAB/APK。
 联网版 Android 清单只申请网络权限。调试 APK 只发布到指定的 private 仓库 Release，不发布到公共离线仓库或应用商店。

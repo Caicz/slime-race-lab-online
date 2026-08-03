@@ -6,6 +6,7 @@
     const remoteActions = globalThis.SlimeRemoteActions;
     const dailyQuest = globalThis.SlimeDailyQuest;
     const requestPolicy = globalThis.SlimeRequestPolicy;
+    const platformBridge = globalThis.SlimePlatformBridge;
     const MAX_RECOMMENDATION_AGE_MS = 5000;
     const endpointPaths = Object.freeze({
         current: '/api/slime-race/current',
@@ -129,11 +130,11 @@
     }
 
     function getAndroidAdapter() {
-        const http = globalThis.CapacitorHttp;
-        const cookies = globalThis.CapacitorCookies;
-        let cachedRemoteRacers = null;
+        const plugins = platformBridge?.getAndroidNetworkPlugins(globalThis);
+        if (!plugins) return null;
 
-        if (!http || globalThis.Capacitor?.getPlatform?.() !== 'android') return null;
+        const {http, cookies} = plugins;
+        let cachedRemoteRacers = null;
 
         async function request(endpoint, options = {}, attempt = 0) {
             const method = String(options.method || 'GET').toUpperCase();
@@ -780,7 +781,10 @@
         const adapter = getAdapter();
 
         if (!adapter) {
-            setStatus(elements.status, '当前预览环境不提供联网桥接，请在 macOS、Windows 或 Android App 中使用。', 'error');
+            const message = globalThis.Capacitor?.getPlatform?.() === 'android'
+                ? 'Android 网络桥接未初始化，请安装完整 APK 或重新启动应用。'
+                : '当前预览环境不提供联网桥接，请在 macOS、Windows 或 Android App 中使用。';
+            setStatus(elements.status, message, 'error');
             return;
         }
 

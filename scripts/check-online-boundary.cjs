@@ -7,7 +7,7 @@ const envName = '.env.slime-race.local';
 const envPath = path.join(projectRoot, envName);
 const expectedPrivateRemote = 'https://github.com/Caicz/slime-race-lab-online.git';
 const expectedPackagedFiles = ['app/**/*', 'electron/**/*', 'package.json'];
-const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/remote.js', 'scripts/run-timer-error-check.cjs'];
+const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/platform-bridge.js', 'app/scripts/remote.js', 'scripts/run-timer-error-check.cjs'];
 
 function read(relativePath) {
     return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
@@ -58,6 +58,7 @@ function checkNetworkCode(violations) {
     if (!index.includes('每次领取前都会再次读取进度并要求确认')) violations.push('小游戏奖励必须保留领取确认提示');
     if (sensitiveLogging.test(content)) violations.push('联网代码禁止记录密码、Cookie 或 Token');
     if (!content.includes('https://zouzou-princess-fan.replit.app')) violations.push('联网代码必须固定允许的目标站点');
+    if (!content.includes("resolveCapacitorPlugin(root, 'CapacitorHttp')")) violations.push('Android 联网版必须从 Capacitor 插件注册表解析原生 HTTP 桥接');
     if (!read('app/index.html').includes("connect-src 'none'")) violations.push('渲染层 CSP 必须继续禁止直接网络连接');
 }
 
