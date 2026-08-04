@@ -4,7 +4,7 @@ const dailyQuest = require('../app/scripts/daily-quest.js');
 
 const projectRoot = path.join(__dirname, '..');
 const envPath = path.join(projectRoot, '.env.slime-race.local');
-const targetOrigin = 'https://zouzou-princess-fan.replit.app';
+const targetOrigin = 'https://zouzou-princess-fan-2.replit.app';
 
 function parseEnv(text) {
     const values = {};

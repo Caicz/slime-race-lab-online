@@ -7,7 +7,7 @@ const envName = '.env.slime-race.local';
 const envPath = path.join(projectRoot, envName);
 const expectedPrivateRemote = 'https://github.com/Caicz/slime-race-lab-online.git';
 const expectedPackagedFiles = ['app/**/*', 'electron/**/*', 'package.json'];
-const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/platform-bridge.js', 'app/scripts/remote.js', 'scripts/run-timer-error-check.cjs'];
+const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'electron/race-archive.cjs', 'app/scripts/app.js', 'app/scripts/real-stats.js', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/platform-bridge.js', 'app/scripts/remote.js', 'scripts/run-timer-error-check.cjs', 'scripts/update-race-archive.cjs'];
 
 function read(relativePath) {
     return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
@@ -57,8 +57,14 @@ function checkNetworkCode(violations) {
     if (/SLIME_RACE_(?:USERNAME|PASSWORD)/.test(renderer + preload)) violations.push('账号密码环境变量禁止暴露给渲染层或 preload');
     if (!index.includes('每次领取前都会再次读取进度并要求确认')) violations.push('小游戏奖励必须保留领取确认提示');
     if (sensitiveLogging.test(content)) violations.push('联网代码禁止记录密码、Cookie 或 Token');
-    if (!content.includes('https://zouzou-princess-fan.replit.app')) violations.push('联网代码必须固定允许的目标站点');
+    if (!content.includes('https://zouzou-princess-fan-2.replit.app')) violations.push('联网代码必须固定允许的目标站点');
     if (!content.includes("resolveCapacitorPlugin(root, 'CapacitorHttp')")) violations.push('Android 联网版必须从 Capacitor 插件注册表解析原生 HTTP 桥接');
+    if (!content.includes('isFinishedSession') || !content.includes('slime-race-archive.json')) violations.push('本地比赛档案必须只重放已结束场次并使用固定本地文件');
+    if (!content.includes('MAX_POOL_CHECKPOINTS') || !content.includes('poolOpeningCaptured')) violations.push('紧凑比赛档案必须限制盘口检查点并记录盘口完整性');
+    if (!content.includes('updatePoolCapture') || !content.includes('slime-race-pool-state.json')) violations.push('现有同步必须把聚合盘口写入固定本地状态文件');
+    if (/JSON\.stringify\((?:rawPool|raw\.bets|bets)\)/.test(content)) violations.push('本地比赛档案禁止持久化原始下注列表');
+    if (!content.includes('slime-race-lab.remote-stats.v1') || !content.includes('mergeRemoteSnapshot')) violations.push('累计胜场必须在每次联网同步后保存最小本地快照');
+    if (index.includes('winnerImportInput') || index.includes('data-winner=')) violations.push('联网版禁止保留与权威胜场同步重复的手工冠军导入');
     if (!read('app/index.html').includes("connect-src 'none'")) violations.push('渲染层 CSP 必须继续禁止直接网络连接');
 }
 

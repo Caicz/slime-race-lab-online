@@ -10,7 +10,7 @@
     'use strict';
 
     const RACER_IDS = Object.freeze(['melon', 'blueberry', 'dragonfruit', 'lemon']);
-    const WINNER_ALIASES = Object.freeze({
+    const RACER_ALIASES = Object.freeze({
         melon: 'melon',
         '哈密瓜': 'melon',
         '迷你哈密瓜': 'melon',
@@ -49,44 +49,6 @@
         return Object.fromEntries(RACER_IDS.map(id => [id, probabilities[id] / total]));
     }
 
-    function parseWinnerInput(text) {
-        const tokens = String(text || '').split(/[\s,，、;；|/]+/).map(token => token.trim()).filter(Boolean);
-        const winnerIds = [];
-        const invalidTokens = [];
-
-        tokens.forEach(token => {
-            const normalized = token.replace(/[。.!！?？:：]+$/g, '');
-            const id = WINNER_ALIASES[normalized] || WINNER_ALIASES[normalized.toLowerCase()];
-
-            if (id) {
-                winnerIds.push(id);
-            } else {
-                invalidTokens.push(token);
-            }
-        });
-
-        return {winnerIds, invalidTokens};
-    }
-
-    function mergeRealStats(profiles, importedWinnerIds) {
-        const importedCounts = Object.fromEntries(RACER_IDS.map(id => [id, 0]));
-
-        importedWinnerIds.forEach(id => {
-            if (Object.hasOwn(importedCounts, id)) {
-                importedCounts[id] += 1;
-            }
-        });
-
-        const total = profiles.reduce((sum, profile) => sum + profile.observedWins, 0) + importedWinnerIds.length;
-        const racers = profiles.map(profile => {
-            const importedWins = importedCounts[profile.id] || 0;
-            const wins = profile.observedWins + importedWins;
-            return {...profile, importedWins, wins, rate: wins / total};
-        });
-
-        return {racers, total, importedTotal: importedWinnerIds.length};
-    }
-
     function parsePoolInput(text) {
         const entries = String(text || '').split(/[\n,，;；]+/).map(entry => entry.trim()).filter(Boolean);
         const stakes = {};
@@ -101,7 +63,7 @@
             }
 
             const name = match[1].trim();
-            const id = WINNER_ALIASES[name] || WINNER_ALIASES[name.toLowerCase()];
+            const id = RACER_ALIASES[name] || RACER_ALIASES[name.toLowerCase()];
 
             if (!id) {
                 invalidEntries.push(entry);
@@ -535,9 +497,7 @@
 
     return Object.freeze({
         RACER_IDS,
-        parseWinnerInput,
         parsePoolInput,
-        mergeRealStats,
         analyzePool,
         projectClosingPool,
         evaluateBet,

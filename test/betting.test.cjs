@@ -1,32 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const engine = require('../app/scripts/engine.js');
 const betting = require('../app/scripts/betting.js');
 
 const probabilities = {melon: 78, blueberry: 115, dragonfruit: 167, lemon: 99};
-
-test('可以解析单场和多场中文实盘冠军', () => {
-    const parsed = betting.parseWinnerInput('蓝莓，迷你火龙果\n柠檬 哈密瓜,未知');
-
-    assert.deepEqual(parsed.winnerIds, ['blueberry', 'dragonfruit', 'lemon', 'melon']);
-    assert.deepEqual(parsed.invalidTokens, ['未知']);
-});
 
 test('可以从带标签文本导入当前四项押注池', () => {
     const parsed = betting.parsePoolInput('哈密瓜: 5000，迷你蓝莓：9000\n火龙果=13000; 柠檬 4000');
 
     assert.deepEqual(parsed.stakes, {melon: 5000, blueberry: 9000, dragonfruit: 13000, lemon: 4000});
     assert.deepEqual(parsed.invalidEntries, []);
-});
-
-test('实盘新增记录会与 459 场基线合并', () => {
-    const stats = betting.mergeRealStats(engine.RACERS, ['blueberry', 'blueberry', 'lemon']);
-    const blueberry = stats.racers.find(racer => racer.id === 'blueberry');
-
-    assert.equal(stats.total, 462);
-    assert.equal(stats.importedTotal, 3);
-    assert.equal(blueberry.wins, 117);
-    assert.equal(blueberry.importedWins, 2);
 });
 
 test('奖池占比和无手续费毛返还倍数互为倒数', () => {

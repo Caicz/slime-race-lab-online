@@ -1,10 +1,11 @@
 (function startRemoteSync() {
     'use strict';
 
-    const TARGET_ORIGIN = 'https://zouzou-princess-fan.replit.app';
+    const TARGET_ORIGIN = 'https://zouzou-princess-fan-2.replit.app';
     const remoteData = globalThis.SlimeRemoteData;
     const remoteActions = globalThis.SlimeRemoteActions;
     const dailyQuest = globalThis.SlimeDailyQuest;
+    const heroAutomation = globalThis.SlimeHeroAutomation;
     const requestPolicy = globalThis.SlimeRequestPolicy;
     const platformBridge = globalThis.SlimePlatformBridge;
     const MAX_RECOMMENDATION_AGE_MS = 5000;
@@ -25,6 +26,7 @@
         password: document.querySelector('#remotePassword'),
         loginButton: document.querySelector('#remoteLoginButton'),
         syncButton: document.querySelector('#remoteSyncButton'),
+        archiveButton: document.querySelector('#remoteArchiveButton'),
         logoutButton: document.querySelector('#remoteLogoutButton'),
         autoSync: document.querySelector('#remoteAutoSyncToggle'),
         status: document.querySelector('#remoteStatus'),
@@ -66,7 +68,31 @@
         dailyTimerErrorTest: document.querySelector('#dailyTimerErrorTestButton'),
         dailyDodgeClaim: document.querySelector('#dailyDodgeClaimButton'),
         dailyTimerClaim: document.querySelector('#dailyTimerClaimButton'),
-        dailyStatus: document.querySelector('#dailyQuestStatus')
+        dailyStatus: document.querySelector('#dailyQuestStatus'),
+        heroRefresh: document.querySelector('#heroRefreshButton'),
+        heroMonster: document.querySelector('#heroMonsterSelect'),
+        heroOptimizationMode: document.querySelector('#heroOptimizationMode'),
+        heroMaxVictories: document.querySelector('#heroMaxVictories'),
+        heroMinWinRate: document.querySelector('#heroMinWinRate'),
+        heroSkillSwitch: document.querySelector('#heroSkillSwitchToggle'),
+        heroDefensePotions: document.querySelector('#heroDefensePotionToggle'),
+        heroHealing: document.querySelector('#heroHealingToggle'),
+        heroStart: document.querySelector('#heroStartButton'),
+        heroStop: document.querySelector('#heroStopButton'),
+        heroBattleCount: document.querySelector('#heroBattleCount'),
+        heroPotionStatus: document.querySelector('#heroPotionStatus'),
+        heroCurrentStep: document.querySelector('#heroCurrentStep'),
+        heroRunResult: document.querySelector('#heroRunResult'),
+        heroRecommendations: document.querySelector('#heroRecommendations'),
+        heroRunLog: document.querySelector('#heroRunLog'),
+        heroStatus: document.querySelector('#heroAutomationStatus'),
+        heroUnlock: document.querySelector('#heroUnlockButton'),
+        heroUnlockStatus: document.querySelector('#heroUnlockStatus'),
+        heroUnlockChallenge: document.querySelector('#heroUnlockChallenge'),
+        heroUnlockGrid: document.querySelector('#heroUnlockGrid'),
+        heroUnlockLetters: document.querySelector('#heroUnlockLetters'),
+        heroUnlockSubmit: document.querySelector('#heroUnlockSubmitButton'),
+        heroUnlockCancel: document.querySelector('#heroUnlockCancelButton')
     };
     let authenticated = false;
     let syncing = false;
@@ -80,6 +106,15 @@
     let dailyBusy = false;
     let dailyClickCount = 0;
     let dailyClickResetTimer = null;
+    let heroSnapshot = null;
+    let heroRecommendations = new Map();
+    let heroBusy = false;
+    let heroRunning = false;
+    let heroStopRequested = false;
+    let heroWins = 0;
+    let heroLosses = 0;
+    let heroUnlockData = null;
+    let heroUnlockSelection = new Set();
 
     function formatChips(value) {
         return Math.round(Number(value) || 0).toLocaleString('zh-CN');
@@ -114,6 +149,7 @@
         elements.optimalBet.disabled = busy || !authenticated || !hasCurrentRecommendation();
         elements.betSubmit.disabled = busy || pendingBets.length === 0;
         updateDailyControls();
+        updateHeroControls();
     }
 
     function showBetConfirmation(bets, label) {
@@ -188,6 +224,127 @@
             const endpoints = {progress: '/api/quest/progress', text: '/api/quest/text'};
             const values = await requestPolicy.mapSequential(names, name => request(endpoints[name]), 400);
             return dailyQuest.normalizeDailyQuest(Object.fromEntries(names.map((name, index) => [name, values[index]])));
+        }
+
+        async function fetchHeroAutomation() {
+            const endpoints = {
+                account: '/api/auth/me',
+                battleStatus: '/api/hero/battle-status',
+                skills: '/api/hero/skills',
+                rebornSkills: '/api/hero/reborn-skills'
+            };
+            const names = Object.keys(endpoints);
+            const values = await requestPolicy.mapSequential(names, name => request(endpoints[name]), 250);
+            return heroAutomation.createSnapshot(Object.fromEntries(names.map((name, index) => [name, values[index]])));
+        }
+
+        async function applyHeroAllocation(intent) {
+            const snapshot = await fetchHeroAutomation();
+            const targetAllocation = intent?.targetAllocation || intent;
+            const targetSkill = intent?.activeSkillKey;
+            if (intent?.guard) heroAutomation.validateBattleGuard(snapshot, intent.guard);
+            if (targetSkill != null && (!heroAutomation.ACTIVE_SKILLS[targetSkill] || Number(snapshot.skills[targetSkill]) <= 0)) {
+                throw new Error('推荐主动技能尚未解锁或无效');
+            }
+            const plan = heroAutomation.planAllocationChanges(snapshot.account, targetAllocation);
+
+            for (const change of plan.deallocate) {
+                await request('/api/hero/deallocate-stats', {method: 'POST', data: change});
+                await requestPolicy.delay(250);
+            }
+            for (const change of plan.allocate) {
+                await request('/api/hero/allocate-stats', {method: 'POST', data: change});
+                await requestPolicy.delay(250);
+            }
+            if (targetSkill != null && targetSkill !== snapshot.account.equippedActiveSkill) {
+                await request('/api/hero/skills/equip', {method: 'POST', data: {skillKey: targetSkill}});
+                await requestPolicy.delay(300);
+            }
+
+            const updated = await fetchHeroAutomation();
+            const actual = heroAutomation.getCurrentAllocation(updated.account);
+            if (JSON.stringify(actual) !== JSON.stringify(plan.target)) throw new Error('服务器返回的能力值方案与目标不一致，自动刷怪已停止');
+            if (targetSkill !== undefined && updated.account.equippedActiveSkill !== targetSkill) throw new Error('服务器返回的主动技能与推荐不一致，自动刷怪已停止');
+            if (intent?.guard) heroAutomation.validateBattleGuard(updated, {...intent.guard, expectedAllocation: plan.target});
+            return updated;
+        }
+
+        async function prepareHeroHealing() {
+            const before = await fetchHeroAutomation();
+            const currentRatio = Number(before.battleStatus.currentHp) / Math.max(1, Number(before.battleStatus.maxHp));
+            if (currentRatio >= 0.2) return {snapshot: before, consumed: [], triggered: false};
+            const inventory = await request('/api/inventory');
+            const plan = heroAutomation.planHealingConsumables(before, inventory);
+
+            for (const use of plan.uses) {
+                await request('/api/inventory/use', {
+                    method: 'POST',
+                    data: {inventoryEntryId: use.inventoryEntryId, quantity: use.quantity}
+                });
+                await requestPolicy.delay(350);
+            }
+
+            const snapshot = await fetchHeroAutomation();
+            const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
+            if (hpRatio < 0.95) throw new Error('恢复药水已经提交，但 HP 未达到 95%；禁止立即重复使用，请先核对官方面板');
+            return {snapshot, consumed: plan.uses.map(use => ({itemId: use.itemId, quantity: use.quantity})), triggered: true};
+        }
+
+        async function getHeroUnlockChallenge() {
+            return request('/api/hero/unlock-challenge');
+        }
+
+        async function submitHeroUnlock(letters) {
+            const selected = Array.isArray(letters) ? letters.map(letter => String(letter)).filter(Boolean) : [];
+            if (selected.length !== 2 || new Set(selected).size !== 2) throw new Error('请选择两个不同的字母');
+            const submission = await request('/api/hero/unlock-exp', {method: 'POST', data: {letters: selected}});
+            if (submission?.success !== true) return {success: false, challenge: await getHeroUnlockChallenge()};
+            const snapshot = await fetchHeroAutomation();
+            if (heroAutomation.getBattleCount(snapshot) >= 60) throw new Error('服务器已接受解锁请求，但 60 次限制尚未解除，请核对官方面板');
+            return {success: true, snapshot};
+        }
+
+        async function prepareHeroDefensePotions() {
+            const before = await fetchHeroAutomation();
+            const currentStacks = Math.max(0, Math.min(30, Number(before.battleStatus.defenseBuffStacks) || 0));
+            const needed = 30 - currentStacks;
+            if (needed === 0) return {snapshot: before, consumed: 0};
+            const inventory = await request('/api/inventory');
+            const entries = (Array.isArray(inventory) ? inventory : [])
+                .filter(entry => Number(entry?.itemId) === 7 && Number(entry.quantity) > 0 && (entry.id || entry._id))
+                .sort((left, right) => Number(right.quantity) - Number(left.quantity));
+            const available = entries.reduce((sum, entry) => sum + Number(entry.quantity), 0);
+            if (available < needed) throw new Error(`防御药水不足：补满 30 层还需要 ${needed} 瓶，当前只有 ${available} 瓶`);
+
+            let remaining = needed;
+            for (const entry of entries) {
+                if (remaining === 0) break;
+                const quantity = Math.min(remaining, Number(entry.quantity));
+                await request('/api/inventory/use', {method: 'POST', data: {inventoryEntryId: entry.id || entry._id, quantity}});
+                remaining -= quantity;
+                await requestPolicy.delay(400);
+            }
+
+            const snapshot = await fetchHeroAutomation();
+            if (Number(snapshot.battleStatus.defenseBuffStacks) !== 30) throw new Error('防御药水提交后未达到 30 层，请在官方面板核对，禁止立即重复使用');
+            return {snapshot, consumed: needed};
+        }
+
+        async function runHeroBattle(intent) {
+            const snapshot = await fetchHeroAutomation();
+            const monster = heroAutomation.validateBattleGuard(snapshot, intent);
+            const battleCount = heroAutomation.getBattleCount(snapshot);
+            if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
+
+            const result = heroAutomation.simulateBattle(snapshot, monster.id);
+            const payload = heroAutomation.createBattleResultPayload(monster.id, result);
+            await requestPolicy.delay(600);
+            const submission = await request('/api/hero/battle-result', {method: 'POST', data: payload});
+            await requestPolicy.delay(700);
+            const updated = await fetchHeroAutomation();
+            const nextLevel = heroAutomation.validateLevelTransition(monster.id, monster.level, updated, result.victory);
+            heroAutomation.validateBattleCountTransition(battleCount, updated);
+            return {snapshot: updated, result, nextLevel, message: String(submission?.message || '').slice(0, 180)};
         }
 
         return {
@@ -286,6 +443,13 @@
                 await requestPolicy.delay(600);
                 return fetchDailyQuest();
             },
+            syncHeroAutomation: fetchHeroAutomation,
+            applyHeroAllocation,
+            prepareHeroDefensePotions,
+            prepareHeroHealing,
+            getHeroUnlockChallenge,
+            submitHeroUnlock,
+            runHeroBattle,
             async openDailyQuest() {
                 globalThis.open(new URL('/daily-quest', TARGET_ORIGIN).href, '_blank', 'noopener,noreferrer');
             },
@@ -371,6 +535,27 @@
         elements.dailyTimerErrorTest.disabled = busy || !dailyState || timerAtLimit;
         elements.dailyDodgeClaim.disabled = busy || !dailyState || dailyState.dodge.unclaimed < 1;
         elements.dailyTimerClaim.disabled = busy || !dailyState || dailyState.timer.unclaimed < 1;
+    }
+
+    function updateHeroControls() {
+        const adapter = getAdapter();
+        const supported = Boolean(adapter?.syncHeroAutomation && adapter?.applyHeroAllocation && adapter?.prepareHeroHealing && adapter?.runHeroBattle);
+        const busy = syncing || mutating || heroBusy || heroRunning;
+        const atBattleLimit = Number(heroSnapshot?.battleStatus?.battleCount) >= 60;
+        elements.heroRefresh.disabled = busy || !authenticated || !supported;
+        elements.heroMonster.disabled = heroBusy || heroRunning;
+        elements.heroOptimizationMode.disabled = heroBusy || heroRunning;
+        elements.heroMaxVictories.disabled = heroBusy || heroRunning;
+        elements.heroMinWinRate.disabled = heroBusy || heroRunning;
+        elements.heroSkillSwitch.disabled = heroBusy || heroRunning;
+        elements.heroDefensePotions.disabled = heroBusy || heroRunning;
+        elements.heroHealing.disabled = heroBusy || heroRunning;
+        elements.heroStart.disabled = busy || !authenticated || !supported || !heroRecommendations.has(elements.heroMonster.value);
+        elements.heroStop.disabled = !heroRunning || heroStopRequested;
+        elements.heroUnlock.disabled = busy || !authenticated || !atBattleLimit || !adapter?.getHeroUnlockChallenge;
+        elements.heroUnlockSubmit.disabled = busy || heroUnlockSelection.size !== 2 || !adapter?.submitHeroUnlock;
+        elements.heroUnlockCancel.disabled = busy;
+        for (const button of elements.heroUnlockLetters.children) button.disabled = busy;
     }
 
     function resetDailyClicks(message = '') {
@@ -574,6 +759,390 @@
         }
     }
 
+    function renderHeroSnapshot(snapshot) {
+        heroSnapshot = snapshot;
+        const status = snapshot.battleStatus;
+        const stacks = Math.max(0, Number(status.defenseBuffStacks) || 0);
+        const expiry = status.defenseBuffExpiry ? new Date(status.defenseBuffExpiry) : null;
+        const expiryText = expiry && expiry.getTime() > Date.now()
+            ? ` · 至 ${expiry.toLocaleTimeString('zh-CN', {hour12: false})}`
+            : '';
+        elements.heroBattleCount.textContent = `${Number(status.battleCount) || 0} / 60`;
+        elements.heroPotionStatus.textContent = `${stacks} / 30 层${expiryText}`;
+        elements.heroRunResult.textContent = `${heroWins} 胜 / ${heroLosses} 负`;
+        if (Number(status.battleCount) >= 60 && !heroUnlockData) {
+            elements.heroUnlockStatus.textContent = '已达到 60 次，请点击按钮完成官方字母验证后继续。';
+        } else if (Number(status.battleCount) < 60 && !heroUnlockData) {
+            elements.heroUnlockStatus.textContent = '今日达到 60 次后，可在这里完成官方字母点击验证。';
+        }
+        updateHeroControls();
+    }
+
+    function closeHeroUnlockChallenge() {
+        heroUnlockData = null;
+        heroUnlockSelection = new Set();
+        elements.heroUnlockChallenge.hidden = true;
+        elements.heroUnlockGrid.replaceChildren();
+        elements.heroUnlockLetters.replaceChildren();
+        updateHeroControls();
+    }
+
+    function renderHeroUnlockChallenge(challenge) {
+        const grid = Array.isArray(challenge?.grid) ? challenge.grid.slice(0, 9) : [];
+        const letters = Array.isArray(challenge?.letters) ? challenge.letters.map(String).filter(Boolean) : [];
+        if (grid.length !== 9 || letters.length < 2) throw new Error('服务器返回的字母验证题格式无效');
+        heroUnlockData = {grid, letters};
+        heroUnlockSelection = new Set();
+        elements.heroUnlockGrid.replaceChildren();
+        elements.heroUnlockLetters.replaceChildren();
+        for (const value of grid) {
+            const cell = document.createElement('span');
+            cell.textContent = String(value || '');
+            elements.heroUnlockGrid.append(cell);
+        }
+        for (const letter of letters) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = letter;
+            button.addEventListener('click', () => {
+                if (heroUnlockSelection.has(letter)) heroUnlockSelection.delete(letter);
+                else if (heroUnlockSelection.size < 2) heroUnlockSelection.add(letter);
+                for (const candidate of elements.heroUnlockLetters.children) {
+                    candidate.classList.toggle('selected', heroUnlockSelection.has(candidate.textContent));
+                }
+                updateHeroControls();
+            });
+            elements.heroUnlockLetters.append(button);
+        }
+        elements.heroUnlockChallenge.hidden = false;
+        elements.heroUnlockStatus.textContent = '请人工查看九宫格并点击对应的两个字母；软件不会自动代答。';
+        updateHeroControls();
+    }
+
+    function renderHeroRecommendations() {
+        elements.heroRecommendations.replaceChildren();
+        if (heroRecommendations.size === 0) {
+            const empty = document.createElement('p');
+            empty.textContent = '点击“刷新六只方案”，读取当前怪物面板并计算每只怪物的推荐配点。';
+            elements.heroRecommendations.append(empty);
+            return;
+        }
+
+        for (const [monsterId, recommendation] of heroRecommendations) {
+            const card = document.createElement('article');
+            const header = document.createElement('header');
+            const title = document.createElement('strong');
+            const level = document.createElement('span');
+            const allocation = document.createElement('div');
+            const footer = document.createElement('footer');
+            const survival = document.createElement('span');
+            const timing = document.createElement('span');
+            card.className = `hero-recommendation${elements.heroMonster.value === monsterId ? ' selected' : ''}`;
+            title.textContent = recommendation.monster.name;
+            level.textContent = `Lv.${recommendation.monster.level}`;
+            header.append(title, level);
+            allocation.className = 'hero-allocation';
+            for (const [label, key] of [['HP', 'hp'], ['ATK', 'attack'], ['DEF', 'defense'], ['SPD', 'speed']]) {
+                const item = document.createElement('span');
+                item.textContent = `${label} ${recommendation.allocation[key]}`;
+                allocation.append(item);
+            }
+            survival.textContent = `胜率 ${(recommendation.winRate * 100).toFixed(1)}% · 均掉血 ${Math.round(recommendation.averageHpLost)} · 余血 ${(recommendation.averageRemainingHpRatio * 100).toFixed(1)}%`;
+            const victoryTime = Number.isFinite(recommendation.averageVictorySeconds) ? `${recommendation.averageVictorySeconds.toFixed(1)}s` : '无胜场';
+            timing.textContent = `${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'} · 均胜时 ${victoryTime}`;
+            footer.append(survival, timing);
+            card.append(header, allocation, footer);
+            card.addEventListener('click', () => {
+                elements.heroMonster.value = monsterId;
+                renderHeroRecommendations();
+                updateHeroControls();
+            });
+            elements.heroRecommendations.append(card);
+        }
+    }
+
+    function appendHeroLog(message) {
+        if (elements.heroRunLog.children.length === 1 && elements.heroRunLog.firstElementChild?.textContent === '自动循环尚未开始。') {
+            elements.heroRunLog.replaceChildren();
+        }
+        const line = document.createElement('p');
+        line.textContent = `[${new Date().toLocaleTimeString('zh-CN', {hour12: false})}] ${message}`;
+        elements.heroRunLog.append(line);
+        elements.heroRunLog.scrollTop = elements.heroRunLog.scrollHeight;
+    }
+
+    async function calculateHeroRecommendation(snapshot, monsterId, allMonsters = false) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
+        return heroAutomation.findOptimalAllocation(snapshot, monsterId, {
+            defensePotionStacks: elements.heroDefensePotions.checked ? 30 : undefined,
+            minimumHpRatio: elements.heroHealing.checked && hpRatio < 0.2 ? 0.95 : undefined,
+            optimizationMode: elements.heroOptimizationMode.value,
+            optimizeActiveSkill: elements.heroSkillSwitch.checked,
+            divisions: allMonsters ? 14 : 18,
+            coarseSamples: 8,
+            finalSamples: allMonsters ? 64 : 96
+        });
+    }
+
+    async function refreshHeroAnalysis() {
+        if (!authenticated || syncing || mutating || heroBusy || heroRunning) return;
+        const adapter = getAdapter();
+        if (!adapter?.syncHeroAutomation) return;
+        heroBusy = true;
+        heroRecommendations = new Map();
+        elements.heroCurrentStep.textContent = '读取勇者与怪物面板';
+        setStatus(elements.heroStatus, '正在读取当前面板并依次计算六只怪物；计算期间不会修改账户数据…');
+        renderHeroRecommendations();
+        updateBetControls();
+
+        try {
+            const snapshot = await adapter.syncHeroAutomation();
+            renderHeroSnapshot(snapshot);
+            for (const monsterId of Object.keys(heroAutomation.MONSTERS)) {
+                elements.heroCurrentStep.textContent = `计算 ${heroAutomation.MONSTERS[monsterId].name}`;
+                const recommendation = await calculateHeroRecommendation(snapshot, monsterId, true);
+                heroRecommendations.set(monsterId, recommendation);
+                renderHeroRecommendations();
+            }
+            elements.heroCurrentStep.textContent = '六只方案计算完成';
+            const modeName = heroAutomation.OPTIMIZATION_MODES[elements.heroOptimizationMode.value];
+            const skillText = elements.heroSkillSwitch.checked ? '并优化主动技能' : '并保持当前主动技能';
+            setStatus(elements.heroStatus, `已按“${modeName}”目标、${elements.heroDefensePotions.checked ? '30 层防御药水' : '当前药水状态'}${skillText}完成六只方案；点击卡片可选择目标。`, 'success');
+        } catch (error) {
+            elements.heroCurrentStep.textContent = '计算停止';
+            setStatus(elements.heroStatus, String(error.message || error), 'error');
+        } finally {
+            heroBusy = false;
+            updateBetControls();
+        }
+    }
+
+    function getHeroRunLimit(snapshot) {
+        const requested = Number(elements.heroMaxVictories.value);
+        if (!Number.isSafeInteger(requested) || requested < 1 || requested > 60) throw new Error('本轮最多胜场必须是 1–60 的整数');
+        const remaining = Math.max(0, 60 - (Number(snapshot.battleStatus.battleCount) || 0));
+        if (remaining === 0) throw new Error('今日战斗次数已经达到 60 次上限');
+        return Math.min(requested, remaining);
+    }
+
+    function getHeroMinimumWinRate() {
+        const percent = Number(elements.heroMinWinRate.value);
+        if (!Number.isFinite(percent) || percent < 50 || percent > 100) throw new Error('最低预测胜率必须在 50%–100% 之间');
+        return percent / 100;
+    }
+
+    async function startHeroAutomation() {
+        if (!authenticated || syncing || mutating || heroBusy || heroRunning) return;
+        const adapter = getAdapter();
+        if (!adapter?.syncHeroAutomation || !adapter?.applyHeroAllocation || !adapter?.prepareHeroHealing || !adapter?.runHeroBattle) return;
+        const monsterId = elements.heroMonster.value;
+        let initial;
+        let limit;
+        let minimumWinRate;
+
+        heroBusy = true;
+        elements.heroCurrentStep.textContent = '启动前重新读取面板';
+        setStatus(elements.heroStatus, '正在核对最新怪物面板、今日次数和药水状态…');
+        updateBetControls();
+        try {
+            initial = await adapter.syncHeroAutomation();
+            renderHeroSnapshot(initial);
+            limit = getHeroRunLimit(initial);
+            minimumWinRate = getHeroMinimumWinRate();
+        } catch (error) {
+            heroBusy = false;
+            elements.heroCurrentStep.textContent = '启动核对失败';
+            setStatus(elements.heroStatus, String(error.message || error), 'error');
+            updateBetControls();
+            return;
+        }
+
+        const monsterName = heroAutomation.MONSTERS[monsterId]?.name || monsterId;
+        const modeName = heroAutomation.OPTIMIZATION_MODES[elements.heroOptimizationMode.value];
+        const potionText = elements.heroDefensePotions.checked
+            ? '；开始时将把防御药水补足到30层，最多消耗30瓶，药效到期立即停止'
+            : '；不额外使用防御药水';
+        const skillText = elements.heroSkillSwitch.checked ? '；允许自动更换主动技能' : '；保持当前主动技能';
+        const healingText = elements.heroHealing.checked ? '；HP低于20%时自动使用恢复药水补到至少95%' : '；不自动使用恢复药水';
+        if (!window.confirm(`确认以“${modeName}”目标自动挑战${monsterName}，本轮最多 ${limit} 胜、最低预测胜率 ${(minimumWinRate * 100).toFixed(0)}%${skillText}${potionText}${healingText}？每轮都会重新配点并提交一次真实战斗结果。`)) {
+            heroBusy = false;
+            elements.heroCurrentStep.textContent = '已取消启动';
+            setStatus(elements.heroStatus, '已取消，账户未因本次启动执行配点、用药或战斗提交。');
+            updateBetControls();
+            return;
+        }
+
+        heroBusy = false;
+        heroRunning = true;
+        heroStopRequested = false;
+        heroWins = 0;
+        heroLosses = 0;
+        mutating = true;
+        elements.heroRunLog.replaceChildren();
+        renderHeroSnapshot(initial);
+        setStatus(elements.heroStatus, '自动循环已启动；实时比赛同步和其他远程操作已暂停。');
+        updateBetControls();
+
+        try {
+            let snapshot = initial;
+            if (elements.heroDefensePotions.checked) {
+                elements.heroCurrentStep.textContent = '补足30层防御药水';
+                const prepared = await adapter.prepareHeroDefensePotions();
+                snapshot = prepared.snapshot;
+                renderHeroSnapshot(snapshot);
+                appendHeroLog(`防御药水已达到30层，本轮消耗 ${prepared.consumed} 瓶。`);
+            }
+
+            while (heroWins < limit && !heroStopRequested) {
+                elements.heroCurrentStep.textContent = '重新读取怪物面板';
+                snapshot = await adapter.syncHeroAutomation();
+                renderHeroSnapshot(snapshot);
+                const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
+                if (elements.heroHealing.checked && hpRatio < 0.2) {
+                    elements.heroCurrentStep.textContent = 'HP低于20%，补血到至少95%';
+                    const healing = await adapter.prepareHeroHealing();
+                    snapshot = healing.snapshot;
+                    renderHeroSnapshot(snapshot);
+                    const consumed = healing.consumed.map(use => `${heroAutomation.HEALING_POTIONS[use.itemId]?.name || `物品${use.itemId}`}×${use.quantity}`).join('、');
+                    appendHeroLog(`恢复完成：${consumed || '无需消耗'}，当前 HP ${snapshot.battleStatus.currentHp} / ${snapshot.battleStatus.maxHp}。`);
+                }
+                const monster = heroAutomation.getMonster(snapshot, monsterId);
+                if (elements.heroDefensePotions.checked) {
+                    const expiry = Date.parse(snapshot.battleStatus.defenseBuffExpiry || '');
+                    if (Number(snapshot.battleStatus.defenseBuffStacks) !== 30 || !Number.isFinite(expiry) || expiry <= Date.now()) {
+                        throw new Error('30层防御药水已经失效，本轮按约定停止，不会再次消耗药水');
+                    }
+                }
+
+                elements.heroCurrentStep.textContent = `计算 ${monsterName} Lv.${monster.level} 最优配点`;
+                const recommendation = await calculateHeroRecommendation(snapshot, monsterId);
+                heroRecommendations.set(monsterId, recommendation);
+                renderHeroRecommendations();
+                appendHeroLog(`Lv.${monster.level}“${modeName}”推荐 HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%。`);
+                if (recommendation.winRate < minimumWinRate) {
+                    throw new Error(`Lv.${monster.level} 的最高预测胜率只有 ${(recommendation.winRate * 100).toFixed(1)}%，低于停止线 ${(minimumWinRate * 100).toFixed(0)}%`);
+                }
+                if (heroStopRequested) break;
+
+                elements.heroCurrentStep.textContent = `应用 Lv.${monster.level} 配点`;
+                const allocationGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
+                    requireDefensePotions: elements.heroDefensePotions.checked
+                });
+                snapshot = await adapter.applyHeroAllocation({
+                    targetAllocation: recommendation.allocation,
+                    activeSkillKey: recommendation.activeSkillKey,
+                    guard: allocationGuard
+                });
+                renderHeroSnapshot(snapshot);
+                if (heroStopRequested) break;
+
+                const allocatedHpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
+                if (elements.heroHealing.checked && allocatedHpRatio < 0.2) {
+                    elements.heroCurrentStep.textContent = '配点后HP低于20%，补血到至少95%';
+                    const healing = await adapter.prepareHeroHealing();
+                    snapshot = healing.snapshot;
+                    renderHeroSnapshot(snapshot);
+                    const consumed = healing.consumed.map(use => `${heroAutomation.HEALING_POTIONS[use.itemId]?.name || `物品${use.itemId}`}×${use.quantity}`).join('、');
+                    appendHeroLog(`配点后恢复：${consumed || '无需消耗'}，当前 HP ${snapshot.battleStatus.currentHp} / ${snapshot.battleStatus.maxHp}。`);
+                }
+                if (heroStopRequested) break;
+
+                elements.heroCurrentStep.textContent = `挑战 ${monsterName} Lv.${monster.level}`;
+                const battleGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
+                    requireDefensePotions: elements.heroDefensePotions.checked,
+                    lockHeroPanel: true
+                });
+                battleGuard.expectedAllocation = recommendation.allocation;
+                const response = await adapter.runHeroBattle(battleGuard);
+                snapshot = response.snapshot;
+                if (response.result.victory) {
+                    heroWins += 1;
+                    appendHeroLog(`胜利：${monsterName} Lv.${monster.level} → Lv.${response.nextLevel}，剩余 HP ${response.result.currentHp}，${response.message || '结算成功'}。`);
+                } else {
+                    heroLosses += 1;
+                    appendHeroLog(`败北：${monsterName}仍为 Lv.${response.nextLevel}，本轮立即停止。`);
+                    heroStopRequested = true;
+                }
+                renderHeroSnapshot(snapshot);
+            }
+
+            elements.heroCurrentStep.textContent = heroStopRequested ? '已安全停止' : '达到本轮目标';
+            setStatus(
+                elements.heroStatus,
+                heroStopRequested ? `自动循环已停止：${heroWins} 胜 / ${heroLosses} 负。` : `自动循环完成：${heroWins} 胜 / ${heroLosses} 负。`,
+                heroLosses === 0 ? 'success' : 'error'
+            );
+        } catch (error) {
+            elements.heroCurrentStep.textContent = '异常停机';
+            appendHeroLog(`停止原因：${String(error.message || error)}`);
+            setStatus(elements.heroStatus, `${String(error.message || error)}；不会自动重试，请先刷新官方面板核对。`, 'error');
+        } finally {
+            heroRunning = false;
+            heroStopRequested = false;
+            mutating = false;
+            updateBetControls();
+            sync('full');
+        }
+    }
+
+    function stopHeroAutomation() {
+        if (!heroRunning || heroStopRequested) return;
+        heroStopRequested = true;
+        elements.heroCurrentStep.textContent = '等待当前步骤完成后停止';
+        appendHeroLog('已收到停止请求；不会开始下一轮，当前在途 POST 不会被重复提交。');
+        updateHeroControls();
+    }
+
+    async function openHeroUnlockChallenge() {
+        if (!authenticated || heroBusy || heroRunning || Number(heroSnapshot?.battleStatus?.battleCount) < 60) return;
+        const adapter = getAdapter();
+        if (!adapter?.getHeroUnlockChallenge) return;
+        heroBusy = true;
+        elements.heroUnlockStatus.textContent = '正在读取官方字母验证题…';
+        updateBetControls();
+
+        try {
+            renderHeroUnlockChallenge(await adapter.getHeroUnlockChallenge());
+        } catch (error) {
+            elements.heroUnlockStatus.textContent = String(error.message || error);
+        } finally {
+            heroBusy = false;
+            updateBetControls();
+        }
+    }
+
+    async function submitHeroUnlock() {
+        if (!authenticated || heroBusy || heroRunning || heroUnlockSelection.size !== 2) return;
+        if (!window.confirm('确认提交当前选择的两个字母并解除本轮 60 次限制吗？本次 POST 不会自动重试。')) return;
+        const adapter = getAdapter();
+        if (!adapter?.submitHeroUnlock) return;
+        const letters = [...heroUnlockSelection];
+        heroBusy = true;
+        mutating = true;
+        elements.heroUnlockStatus.textContent = '正在提交一次字母验证；不会自动重试…';
+        updateBetControls();
+
+        try {
+            const result = await adapter.submitHeroUnlock(letters);
+            if (!result.success) {
+                renderHeroUnlockChallenge(result.challenge);
+                elements.heroUnlockStatus.textContent = '字母不正确，服务器已刷新题目；请重新人工选择。';
+                return;
+            }
+            closeHeroUnlockChallenge();
+            renderHeroSnapshot(result.snapshot);
+            elements.heroUnlockStatus.textContent = '60 次限制已经解除，可重新启动下一轮自动刷怪。';
+            setStatus(elements.heroStatus, '官方字母验证已通过；解锁请求只提交了一次。', 'success');
+        } catch (error) {
+            elements.heroUnlockStatus.textContent = `${String(error.message || error)}；结果不确定时请先刷新面板，禁止立即重复提交。`;
+        } finally {
+            heroBusy = false;
+            mutating = false;
+            updateBetControls();
+        }
+    }
+
     function updateSnapshot(snapshot) {
         latestSnapshot = snapshot;
         const raceStatus = snapshot.current?.status || '未知';
@@ -589,7 +1158,10 @@
             renderRewards(snapshot);
         }
         if (snapshot.mode === 'full') {
-            elements.history.textContent = `最近 ${snapshot.sessions.length} 场已同步`;
+            const archiveText = snapshot.archive?.error
+                ? ' · 本地档案写入失败'
+                : Number.isFinite(snapshot.archive?.total) ? ` · 本地累计 ${snapshot.archive.total} 场` : '';
+            elements.history.textContent = `最近 ${snapshot.sessions.length} 场已同步${archiveText}`;
             elements.account.textContent = snapshot.myStats
                 ? `${snapshot.myStats.totalBets} 次下注 · 净收益 ${formatChips(snapshot.myStats.netProfit)}`
                 : '个人统计不可用';
@@ -603,7 +1175,7 @@
     function isAutoSyncPaused() {
         const editingBet = document.activeElement === elements.betRacer || document.activeElement === elements.betAmount;
         const editingRecite = Boolean(elements.dailyReciteInput.value.trim());
-        return dailyBusy || editingBet || editingRecite || dailyClickCount > 0 || pendingBets.length > 0;
+        return dailyBusy || heroBusy || heroRunning || Boolean(heroUnlockData) || editingBet || editingRecite || dailyClickCount > 0 || pendingBets.length > 0;
     }
 
     async function sync(mode = 'live', automatic = false) {
@@ -766,6 +1338,7 @@
         authenticated = true;
         elements.actions.hidden = false;
         elements.syncButton.hidden = false;
+        elements.archiveButton.hidden = !getElectronAdapter()?.openRaceArchive;
         elements.logoutButton.hidden = false;
         elements.username.disabled = true;
         elements.password.disabled = true;
@@ -838,6 +1411,11 @@
     }
 
     async function logout() {
+        if (heroRunning) {
+            stopHeroAutomation();
+            setStatus(elements.status, '自动刷怪仍有当前步骤在执行，已请求安全停止；停止完成后再退出。');
+            return;
+        }
         clearInterval(timer);
         timer = null;
         authenticated = false;
@@ -846,6 +1424,14 @@
         pendingBets = [];
         dailyState = null;
         dailyBusy = false;
+        heroSnapshot = null;
+        heroRecommendations = new Map();
+        heroBusy = false;
+        heroStopRequested = false;
+        heroWins = 0;
+        heroLosses = 0;
+        heroUnlockData = null;
+        heroUnlockSelection = new Set();
         resetDailyClicks();
 
         try {
@@ -857,6 +1443,7 @@
             elements.password.value = '';
             elements.autoSync.disabled = true;
             elements.syncButton.hidden = true;
+            elements.archiveButton.hidden = true;
             elements.logoutButton.hidden = true;
             elements.actions.hidden = true;
             elements.betConfirm.hidden = true;
@@ -873,7 +1460,20 @@
             elements.dailyText.textContent = '刷新后显示当前题目';
             elements.dailyReciteInput.value = '';
             elements.dailyReciteInput.disabled = true;
+            elements.heroBattleCount.textContent = '等待读取';
+            elements.heroPotionStatus.textContent = '等待读取';
+            elements.heroCurrentStep.textContent = '尚未启动';
+            elements.heroRunResult.textContent = '0 胜 / 0 负';
+            elements.heroUnlockStatus.textContent = '今日达到 60 次后，可在这里完成官方字母点击验证。';
+            elements.heroUnlockChallenge.hidden = true;
+            elements.heroUnlockGrid.replaceChildren();
+            elements.heroUnlockLetters.replaceChildren();
+            const heroLogPlaceholder = document.createElement('p');
+            heroLogPlaceholder.textContent = '自动循环尚未开始。';
+            elements.heroRunLog.replaceChildren(heroLogPlaceholder);
+            renderHeroRecommendations();
             setStatus(elements.dailyStatus, '登录后低频同步一次；自动化操作每次只执行一轮，不会后台循环或自动领取。');
+            setStatus(elements.heroStatus, '每轮会重新选择目标方案、配点和主动技能；HP低于20%时可补到至少95%。任何 POST 都不会自动重试。');
             setStatus(elements.status, '已退出并清除本机会话；重新启动应用后会再次尝试环境文件自动登录。', 'success');
             window.dispatchEvent(new CustomEvent('slime-race-remote-disconnected'));
         }
@@ -881,6 +1481,13 @@
 
     elements.form.addEventListener('submit', login);
     elements.syncButton.addEventListener('click', () => sync('full'));
+    elements.archiveButton.addEventListener('click', async () => {
+        try {
+            await getElectronAdapter()?.openRaceArchive?.();
+        } catch (error) {
+            setStatus(elements.status, String(error.message || error), 'error');
+        }
+    });
     elements.autoSync.addEventListener('change', toggleAutoSync);
     elements.logoutButton.addEventListener('click', logout);
     elements.betReview.addEventListener('click', reviewBet);
@@ -899,6 +1506,43 @@
     elements.dailyDodgeClaim.addEventListener('click', () => claimDailyGameReward('dodge'));
     elements.dailyTimerClaim.addEventListener('click', () => claimDailyGameReward('timer'));
     elements.dailyReciteInput.addEventListener('input', updateDailyControls);
+    elements.heroRefresh.addEventListener('click', refreshHeroAnalysis);
+    elements.heroStart.addEventListener('click', startHeroAutomation);
+    elements.heroStop.addEventListener('click', stopHeroAutomation);
+    elements.heroUnlock.addEventListener('click', openHeroUnlockChallenge);
+    elements.heroUnlockSubmit.addEventListener('click', submitHeroUnlock);
+    elements.heroUnlockCancel.addEventListener('click', () => {
+        closeHeroUnlockChallenge();
+        elements.heroUnlockStatus.textContent = '验证已取消；需要时可重新读取题目。';
+    });
+    elements.heroMonster.addEventListener('change', () => {
+        renderHeroRecommendations();
+        updateHeroControls();
+    });
+    elements.heroDefensePotions.addEventListener('change', () => {
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
+        setStatus(elements.heroStatus, '防御药水计算条件已经变化，请重新刷新六只方案。');
+        updateHeroControls();
+    });
+    elements.heroOptimizationMode.addEventListener('change', () => {
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
+        setStatus(elements.heroStatus, '配点目标已经变化，请重新刷新六只方案。');
+        updateHeroControls();
+    });
+    elements.heroSkillSwitch.addEventListener('change', () => {
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
+        setStatus(elements.heroStatus, '主动技能优化条件已经变化，请重新刷新六只方案。');
+        updateHeroControls();
+    });
+    elements.heroHealing.addEventListener('change', () => {
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
+        setStatus(elements.heroStatus, '恢复药水条件已经变化，请重新刷新六只方案。');
+        updateHeroControls();
+    });
     [elements.betRacer, elements.betAmount].forEach(input => input.addEventListener('change', () => {
         pendingBets = [];
         elements.betConfirm.hidden = true;
@@ -915,6 +1559,7 @@
         updateBetControls();
     });
     window.addEventListener('beforeunload', () => {
+        heroStopRequested = true;
         clearInterval(timer);
         clearTimeout(dailyClickResetTimer);
     });

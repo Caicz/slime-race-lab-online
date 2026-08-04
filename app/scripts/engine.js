@@ -11,10 +11,10 @@
 
     const TAU = Math.PI * 2;
     const RACERS = Object.freeze([
-        Object.freeze({id: 'melon', name: '迷你哈密瓜', shortName: '哈密瓜', color: '#42e695', baseSpeed: 85, stumble: [0.65, 0.7], burst: [1.55, 1.6], observedWins: 78}),
-        Object.freeze({id: 'blueberry', name: '迷你蓝莓', shortName: '蓝莓', color: '#4c8dff', baseSpeed: 87, stumble: [0.55, 0.7], burst: [1.45, 1.6], observedWins: 115}),
-        Object.freeze({id: 'dragonfruit', name: '迷你火龙果', shortName: '火龙果', color: '#ff5f6d', baseSpeed: 88, stumble: [0.5, 0.7], burst: [1.4, 1.6], observedWins: 167}),
-        Object.freeze({id: 'lemon', name: '迷你柠檬', shortName: '柠檬', color: '#ffd84d', baseSpeed: 86, stumble: [0.6, 0.7], burst: [1.5, 1.6], observedWins: 99})
+        Object.freeze({id: 'melon', name: '迷你哈密瓜', shortName: '哈密瓜', color: '#42e695', baseSpeed: 85, stumble: [0.65, 0.7], burst: [1.55, 1.6]}),
+        Object.freeze({id: 'blueberry', name: '迷你蓝莓', shortName: '蓝莓', color: '#4c8dff', baseSpeed: 87, stumble: [0.55, 0.7], burst: [1.45, 1.6]}),
+        Object.freeze({id: 'dragonfruit', name: '迷你火龙果', shortName: '火龙果', color: '#ff5f6d', baseSpeed: 88, stumble: [0.5, 0.7], burst: [1.4, 1.6]}),
+        Object.freeze({id: 'lemon', name: '迷你柠檬', shortName: '柠檬', color: '#ffd84d', baseSpeed: 86, stumble: [0.6, 0.7], burst: [1.5, 1.6]})
     ]);
     const EVENTS = Object.freeze({normal: '正常', stumble: '绊倒', burst: '疾冲', ready: '准备'});
     const DEFAULT_CONFIG = Object.freeze({
@@ -205,10 +205,5 @@
         });
     }
 
-    function getObservedStats() {
-        const total = RACERS.reduce((sum, racer) => sum + racer.observedWins, 0);
-        return RACERS.map(racer => ({...racer, rate: racer.observedWins / total}));
-    }
-
-    return Object.freeze({RACERS, EVENTS, DEFAULT_CONFIG, createRace, stepRace, runRace, getStandings, getObservedStats, createRandom, normalizeConfig});
+    return Object.freeze({RACERS, EVENTS, DEFAULT_CONFIG, createRace, stepRace, runRace, getStandings, createRandom, normalizeConfig});
 });

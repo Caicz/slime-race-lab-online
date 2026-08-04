@@ -4,9 +4,11 @@ const path = require('node:path');
 const remoteData = require('../app/scripts/remote-data.js');
 const remoteActions = require('../app/scripts/remote-actions.js');
 const dailyQuest = require('../app/scripts/daily-quest.js');
+const heroAutomation = require('../app/scripts/hero-automation.js');
 const requestPolicy = require('../app/scripts/request-policy.js');
+const raceArchive = require('./race-archive.cjs');
 
-const targetOrigin = 'https://zouzou-princess-fan.replit.app';
+const targetOrigin = 'https://zouzou-princess-fan-2.replit.app';
 const localEnvPath = path.join(__dirname, '..', '.env.slime-race.local');
 const endpointPaths = Object.freeze({
     current: '/api/slime-race/current',
@@ -22,11 +24,25 @@ const dailyEndpointPaths = Object.freeze({progress: '/api/quest/progress', text:
 let sessionCookie = '';
 let mutationInFlight = false;
 let cachedRemoteRacers = null;
+let archiveWriteQueue = Promise.resolve();
 
 const captureArgument = process.argv.find(argument => argument.startsWith('--capture='));
 const capturePath = captureArgument ? captureArgument.slice('--capture='.length) : null;
 const captureScrollArgument = process.argv.find(argument => argument.startsWith('--capture-scroll='));
 const captureScroll = captureScrollArgument ? Math.max(0, Number(captureScrollArgument.slice('--capture-scroll='.length)) || 0) : 0;
+
+function getRaceArchiveDirectory() {
+    return app.isPackaged
+        ? path.join(app.getPath('userData'), 'race-archive')
+        : path.join(__dirname, '..', '.local-data', 'race-archive');
+}
+
+function enqueueArchiveWrite(action) {
+    const writeTask = archiveWriteQueue.catch(() => {}).then(action);
+    archiveWriteQueue = writeTask;
+    writeTask.catch(() => {});
+    return writeTask;
+}
 
 function getSessionCookie(response) {
     const setCookies = typeof response.headers.getSetCookie === 'function'
@@ -173,7 +189,44 @@ async function syncRemote(mode) {
 
     if (raw.racers) cachedRemoteRacers = raw.racers;
     else raw.racers = cachedRemoteRacers;
-    return remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
+    const snapshot = remoteData.normalizeSnapshot({...raw, mode: normalizedMode});
+    const archiveDirectory = getRaceArchiveDirectory();
+
+    if (raw.bets && raw.racers) {
+        enqueueArchiveWrite(() => raceArchive.updatePoolCapture(
+            archiveDirectory,
+            raw.bets,
+            raw.racers,
+            raw.account?.id,
+            snapshot.updatedAt
+        ));
+    }
+
+    if (normalizedMode === 'full') {
+        const writeTask = enqueueArchiveWrite(() => raceArchive.updateArchive(
+            archiveDirectory,
+            raw.sessions,
+            raw.racers,
+            snapshot.updatedAt
+        ));
+
+        try {
+            const result = await writeTask;
+            snapshot.archive = {
+                supported: true,
+                total: result.total,
+                added: result.added,
+                winnerMismatches: result.winnerMismatches,
+                lap1LastMismatches: result.lap1LastMismatches,
+                durationMismatches: result.durationMismatches,
+                incompleteReplays: result.incompleteReplays
+            };
+        } catch (error) {
+            snapshot.archive = {supported: true, error: String(error.message || error).slice(0, 180)};
+        }
+    }
+
+    return snapshot;
 }
 
 async function syncDailyQuest() {
@@ -186,6 +239,23 @@ async function syncDailyQuest() {
     );
 
     return dailyQuest.normalizeDailyQuest(Object.fromEntries(names.map((name, index) => [name, values[index]])));
+}
+
+async function syncHeroAutomation() {
+    if (!sessionCookie) throw new Error('请先登录');
+    const endpoints = {
+        account: '/api/auth/me',
+        battleStatus: '/api/hero/battle-status',
+        skills: '/api/hero/skills',
+        rebornSkills: '/api/hero/reborn-skills'
+    };
+    const names = Object.keys(endpoints);
+    const values = await requestPolicy.mapSequential(
+        names,
+        name => requestJson(endpoints[name]).then(result => result.data),
+        250
+    );
+    return heroAutomation.createSnapshot(Object.fromEntries(names.map((name, index) => [name, values[index]])));
 }
 
 async function runMutation(action) {
@@ -313,6 +383,130 @@ async function claimDailyGameReward(type) {
     });
 }
 
+async function applyHeroAllocation(intent) {
+    return runMutation(async () => {
+        const snapshot = await syncHeroAutomation();
+        const targetAllocation = intent?.targetAllocation || intent;
+        const targetSkill = intent?.activeSkillKey;
+        if (intent?.guard) heroAutomation.validateBattleGuard(snapshot, intent.guard);
+        if (targetSkill != null && (!heroAutomation.ACTIVE_SKILLS[targetSkill] || Number(snapshot.skills[targetSkill]) <= 0)) {
+            throw new Error('推荐主动技能尚未解锁或无效');
+        }
+        const plan = heroAutomation.planAllocationChanges(snapshot.account, targetAllocation);
+
+        for (const change of plan.deallocate) {
+            await requestJson('/api/hero/deallocate-stats', {method: 'POST', data: change});
+            await requestPolicy.delay(250);
+        }
+        for (const change of plan.allocate) {
+            await requestJson('/api/hero/allocate-stats', {method: 'POST', data: change});
+            await requestPolicy.delay(250);
+        }
+        if (targetSkill != null && targetSkill !== snapshot.account.equippedActiveSkill) {
+            await requestJson('/api/hero/skills/equip', {method: 'POST', data: {skillKey: targetSkill}});
+            await requestPolicy.delay(300);
+        }
+
+        const updated = await syncHeroAutomation();
+        const actual = heroAutomation.getCurrentAllocation(updated.account);
+        if (JSON.stringify(actual) !== JSON.stringify(plan.target)) throw new Error('服务器返回的能力值方案与目标不一致，自动刷怪已停止');
+        if (targetSkill !== undefined && updated.account.equippedActiveSkill !== targetSkill) throw new Error('服务器返回的主动技能与推荐不一致，自动刷怪已停止');
+        if (intent?.guard) heroAutomation.validateBattleGuard(updated, {...intent.guard, expectedAllocation: plan.target});
+        return updated;
+    });
+}
+
+async function prepareHeroHealing() {
+    return runMutation(async () => {
+        const before = await syncHeroAutomation();
+        const currentRatio = Number(before.battleStatus.currentHp) / Math.max(1, Number(before.battleStatus.maxHp));
+        if (currentRatio >= 0.2) return {snapshot: before, consumed: [], triggered: false};
+        const inventory = await requestJson('/api/inventory').then(result => result.data);
+        const plan = heroAutomation.planHealingConsumables(before, inventory);
+
+        for (const use of plan.uses) {
+            await requestJson('/api/inventory/use', {
+                method: 'POST',
+                data: {inventoryEntryId: use.inventoryEntryId, quantity: use.quantity}
+            });
+            await requestPolicy.delay(350);
+        }
+
+        const snapshot = await syncHeroAutomation();
+        const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
+        if (hpRatio < 0.95) throw new Error('恢复药水已经提交，但 HP 未达到 95%；禁止立即重复使用，请先核对官方面板');
+        return {snapshot, consumed: plan.uses.map(use => ({itemId: use.itemId, quantity: use.quantity})), triggered: true};
+    });
+}
+
+async function getHeroUnlockChallenge() {
+    if (!sessionCookie) throw new Error('请先登录');
+    return requestJson('/api/hero/unlock-challenge').then(result => result.data);
+}
+
+async function submitHeroUnlock(letters) {
+    return runMutation(async () => {
+        const selected = Array.isArray(letters) ? letters.map(letter => String(letter)).filter(Boolean) : [];
+        if (selected.length !== 2 || new Set(selected).size !== 2) throw new Error('请选择两个不同的字母');
+        const submission = await requestJson('/api/hero/unlock-exp', {method: 'POST', data: {letters: selected}});
+        if (submission.data?.success !== true) return {success: false, challenge: await getHeroUnlockChallenge()};
+        const snapshot = await syncHeroAutomation();
+        if (heroAutomation.getBattleCount(snapshot) >= 60) throw new Error('服务器已接受解锁请求，但 60 次限制尚未解除，请核对官方面板');
+        return {success: true, snapshot};
+    });
+}
+
+async function prepareHeroDefensePotions() {
+    return runMutation(async () => {
+        const before = await syncHeroAutomation();
+        const currentStacks = Math.max(0, Math.min(30, Number(before.battleStatus.defenseBuffStacks) || 0));
+        const needed = 30 - currentStacks;
+        if (needed === 0) return {snapshot: before, consumed: 0};
+
+        const inventory = await requestJson('/api/inventory').then(result => result.data);
+        const entries = (Array.isArray(inventory) ? inventory : [])
+            .filter(entry => Number(entry?.itemId) === 7 && Number(entry.quantity) > 0 && (entry.id || entry._id))
+            .sort((left, right) => Number(right.quantity) - Number(left.quantity));
+        const available = entries.reduce((sum, entry) => sum + Number(entry.quantity), 0);
+        if (available < needed) throw new Error(`防御药水不足：补满 30 层还需要 ${needed} 瓶，当前只有 ${available} 瓶`);
+
+        let remaining = needed;
+        for (const entry of entries) {
+            if (remaining === 0) break;
+            const quantity = Math.min(remaining, Number(entry.quantity));
+            await requestJson('/api/inventory/use', {
+                method: 'POST',
+                data: {inventoryEntryId: entry.id || entry._id, quantity}
+            });
+            remaining -= quantity;
+            await requestPolicy.delay(400);
+        }
+
+        const snapshot = await syncHeroAutomation();
+        if (Number(snapshot.battleStatus.defenseBuffStacks) !== 30) throw new Error('防御药水提交后未达到 30 层，请在官方面板核对，禁止立即重复使用');
+        return {snapshot, consumed: needed};
+    });
+}
+
+async function runHeroBattle(intent) {
+    return runMutation(async () => {
+        const snapshot = await syncHeroAutomation();
+        const monster = heroAutomation.validateBattleGuard(snapshot, intent);
+        const battleCount = heroAutomation.getBattleCount(snapshot);
+        if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
+
+        const result = heroAutomation.simulateBattle(snapshot, monster.id);
+        const payload = heroAutomation.createBattleResultPayload(monster.id, result);
+        await requestPolicy.delay(600);
+        const submission = await requestJson('/api/hero/battle-result', {method: 'POST', data: payload});
+        await requestPolicy.delay(700);
+        const updated = await syncHeroAutomation();
+        const nextLevel = heroAutomation.validateLevelTransition(monster.id, monster.level, updated, result.victory);
+        heroAutomation.validateBattleCountTransition(battleCount, updated);
+        return {snapshot: updated, result, nextLevel, message: String(submission.data?.message || '').slice(0, 180)};
+    });
+}
+
 ipcMain.handle('slime-remote:login', (event, credentials) => {
     assertTrustedSender(event);
     return loginRemote(credentials);
@@ -364,6 +558,43 @@ ipcMain.handle('slime-remote:daily-claim', (event, type) => {
 ipcMain.handle('slime-remote:daily-open', event => {
     assertTrustedSender(event);
     return shell.openExternal(new URL('/daily-quest', targetOrigin).href);
+});
+ipcMain.handle('slime-remote:hero-sync', event => {
+    assertTrustedSender(event);
+    return syncHeroAutomation();
+});
+ipcMain.handle('slime-remote:hero-allocate', (event, targetAllocation) => {
+    assertTrustedSender(event);
+    return applyHeroAllocation(targetAllocation);
+});
+ipcMain.handle('slime-remote:hero-defense-potions', event => {
+    assertTrustedSender(event);
+    return prepareHeroDefensePotions();
+});
+ipcMain.handle('slime-remote:hero-heal', event => {
+    assertTrustedSender(event);
+    return prepareHeroHealing();
+});
+ipcMain.handle('slime-remote:hero-unlock-challenge', event => {
+    assertTrustedSender(event);
+    return getHeroUnlockChallenge();
+});
+ipcMain.handle('slime-remote:hero-unlock-submit', (event, letters) => {
+    assertTrustedSender(event);
+    return submitHeroUnlock(letters);
+});
+ipcMain.handle('slime-remote:hero-battle', (event, intent) => {
+    assertTrustedSender(event);
+    return runHeroBattle(intent);
+});
+ipcMain.handle('slime-remote:archive-open', async event => {
+    assertTrustedSender(event);
+    const directory = getRaceArchiveDirectory();
+    await fs.mkdir(directory, {recursive: true, mode: 0o700});
+    if (process.platform !== 'win32') await fs.chmod(directory, 0o700);
+    const message = await shell.openPath(directory);
+    if (message) throw new Error(`无法打开本地比赛档案：${message}`);
+    return {ok: true};
 });
 ipcMain.handle('slime-remote:logout', event => {
     assertTrustedSender(event);

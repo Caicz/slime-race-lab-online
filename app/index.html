@@ -99,7 +99,7 @@
                             <p class="section-kicker">PRE-RACE PICK</p>
                             <h2>赛前预测</h2>
                         </div>
-                        <span class="sample-badge" id="sampleBadge">459 场实盘</span>
+                        <span class="sample-badge" id="sampleBadge">等待同步</span>
                     </div>
                     <div class="pick-pair" id="realPickPair"></div>
                     <div class="coverage-card">
@@ -189,6 +189,7 @@
                     <label><span>密码</span><input id="remotePassword" type="password" maxlength="512" autocomplete="off"></label>
                     <button class="primary-button" id="remoteLoginButton" type="submit">登录并同步</button>
                     <button class="secondary-button" id="remoteSyncButton" type="button" hidden>立即全量同步</button>
+                    <button class="quiet-button" id="remoteArchiveButton" type="button" hidden>打开本地比赛档案</button>
                     <button class="quiet-button" id="remoteLogoutButton" type="button" hidden>退出当前账号</button>
                 </form>
                 <div class="remote-metrics">
@@ -256,6 +257,42 @@
                     </div>
                     <p class="form-status" id="dailyQuestStatus">登录后低频同步一次；自动化操作每次只执行一轮，不会后台循环或自动领取奖励。</p>
                 </section>
+                <section class="remote-action-card hero-automation-card">
+                    <div class="remote-action-heading hero-automation-heading">
+                        <div><strong>勇者最优配点与自动刷怪</strong><span>每次胜利后读取新面板、按 Lv.+0.5 重新计算并配点</span></div>
+                        <button class="secondary-button" id="heroRefreshButton" type="button">刷新六只方案</button>
+                    </div>
+                    <div class="hero-automation-controls">
+                        <label><span>自动挑战怪物</span><select id="heroMonsterSelect"><option value="slime">史莱姆</option><option value="hilichurl">野生咕隆</option><option value="ruin_guard">重磁护卫</option><option value="familiar">奏咪使魔</option><option value="debt_collector">极乐盗贼</option><option value="firefly_mage">大雷精灵</option></select></label>
+                        <label><span>配点目标</span><select id="heroOptimizationMode"><option value="balanced">均衡</option><option value="minimum_loss">最少掉血</option><option value="fastest">最快速度</option></select></label>
+                        <label><span>本轮最多胜场</span><input id="heroMaxVictories" type="number" min="1" max="60" step="1" value="10"></label>
+                        <label><span>最低预测胜率</span><input id="heroMinWinRate" type="number" min="50" max="100" step="1" value="95"></label>
+                        <label class="hero-potion-toggle"><input id="heroSkillSwitchToggle" type="checkbox" checked><span>把四种主动技能一起纳入优化，并在挑战前自动更换</span></label>
+                        <label class="hero-potion-toggle"><input id="heroDefensePotionToggle" type="checkbox"><span>开始时补足 30 层防御药水（最多消耗 30 瓶；10 分钟到期即停）</span></label>
+                        <label class="hero-potion-toggle"><input id="heroHealingToggle" type="checkbox" checked><span>HP 低于 20% 时使用恢复药水，补到至少 95%</span></label>
+                        <button class="primary-button" id="heroStartButton" type="button" disabled>开始自动循环</button>
+                        <button class="quiet-button" id="heroStopButton" type="button" disabled>完成当前步骤后停止</button>
+                    </div>
+                    <div class="hero-automation-summary">
+                        <div><span>今日战斗</span><strong id="heroBattleCount">等待读取</strong></div>
+                        <div><span>防御药水</span><strong id="heroPotionStatus">等待读取</strong></div>
+                        <div><span>当前步骤</span><strong id="heroCurrentStep">尚未启动</strong></div>
+                        <div><span>本轮结果</span><strong id="heroRunResult">0 胜 / 0 负</strong></div>
+                    </div>
+                    <div class="hero-unlock-panel">
+                        <button class="secondary-button" id="heroUnlockButton" type="button" disabled>点击解锁 60 次限制</button>
+                        <span id="heroUnlockStatus">今日达到 60 次后，可在这里完成官方字母点击验证。</span>
+                        <div class="hero-unlock-challenge" id="heroUnlockChallenge" hidden>
+                            <p>找出九宫格中的字母，再从下方选择对应的两个字母：</p>
+                            <div class="hero-unlock-grid" id="heroUnlockGrid"></div>
+                            <div class="hero-unlock-letters" id="heroUnlockLetters"></div>
+                            <div class="hero-unlock-actions"><button class="primary-button" id="heroUnlockSubmitButton" type="button" disabled>提交两个字母</button><button class="quiet-button" id="heroUnlockCancelButton" type="button">取消</button></div>
+                        </div>
+                    </div>
+                    <div class="hero-recommendations" id="heroRecommendations"><p>点击“刷新六只方案”，读取当前怪物面板并计算每只怪物的推荐配点。</p></div>
+                    <div class="hero-run-log" id="heroRunLog" aria-live="polite"><p>自动循环尚未开始。</p></div>
+                    <p class="form-status" id="heroAutomationStatus">每轮会重新选择目标方案、配点和主动技能；HP低于20%时可补到至少95%。任何 POST 都不会自动重试。</p>
+                </section>
             </div>
             <p class="form-status" id="remoteStatus">密码不会保存；开启自动实时更新后，账户余额、奖励和盘口每 4 秒刷新，历史与个人统计每 40 秒刷新。</p>
         </section>
@@ -265,26 +302,11 @@
                 <div class="panel-heading compact-heading">
                     <div>
                         <p class="section-kicker">REAL RACE HISTORY</p>
-                        <h2>实盘冠军导入</h2>
+                        <h2>实盘胜场统计</h2>
                     </div>
-                    <span class="sample-badge" id="importedCountBadge">新增 0 场</span>
+                    <span class="sample-badge" id="statsSourceBadge">等待同步</span>
                 </div>
-                <div class="quick-winners" aria-label="快速追加一场实盘冠军">
-                    <button type="button" data-winner="melon" style="--racer-color: var(--green)"><i></i>哈密瓜</button>
-                    <button type="button" data-winner="blueberry" style="--racer-color: var(--blue)"><i></i>蓝莓</button>
-                    <button type="button" data-winner="dragonfruit" style="--racer-color: var(--red)"><i></i>火龙果</button>
-                    <button type="button" data-winner="lemon" style="--racer-color: var(--yellow)"><i></i>柠檬</button>
-                </div>
-                <label class="stacked-field">
-                    <span>批量粘贴实盘冠军</span>
-                    <textarea id="winnerImportInput" rows="3" placeholder="例如：蓝莓，火龙果，柠檬&#10;支持简称、全名、空格、逗号或换行"></textarea>
-                </label>
-                <div class="action-row">
-                    <button class="secondary-button" id="importWinnersButton" type="button">导入新增结果</button>
-                    <button class="quiet-button" id="undoWinnerButton" type="button">撤销最后一场</button>
-                    <button class="quiet-button danger" id="clearWinnersButton" type="button">清空新增</button>
-                </div>
-                <p class="form-status" id="winnerImportStatus">只导入 459 场基线之后的新赛果，避免重复计数。</p>
+                <p class="form-status" id="statsCacheStatus">首次联网同步后保存四只史莱姆的最新累计胜场；离线时读取本地缓存。</p>
                 <div class="real-summary" id="realSummary"></div>
                 <div class="recent-strip" id="recentRealWinners"></div>
             </article>
@@ -397,9 +419,11 @@
 
     <script src="scripts/engine.js"></script>
     <script src="scripts/betting.js"></script>
+    <script src="scripts/real-stats.js"></script>
     <script src="scripts/remote-data.js"></script>
     <script src="scripts/remote-actions.js"></script>
     <script src="scripts/daily-quest.js"></script>
+    <script src="scripts/hero-automation.js"></script>
     <script src="scripts/request-policy.js"></script>
     <script src="scripts/platform-bridge.js"></script>
     <script src="scripts/market-monitor.js"></script>

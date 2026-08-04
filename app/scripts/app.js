@@ -3,9 +3,11 @@
 
     const engine = globalThis.SlimeRaceEngine;
     const betting = globalThis.SlimeBetting;
+    const realStatsData = globalThis.SlimeRealStats;
     const marketMonitor = globalThis.SlimeMarketMonitor;
     const STORAGE_KEYS = Object.freeze({
-        winners: 'slime-race-lab.real-winners.v1',
+        stats: 'slime-race-lab.remote-stats.v1',
+        legacyWinners: 'slime-race-lab.real-winners.v1',
         pool: 'slime-race-lab.live-pool.v1',
         betting: 'slime-race-lab.betting-settings.v1',
         market: 'slime-race-lab.market-monitor.v1'
@@ -54,12 +56,8 @@
         initialDelay: document.querySelector('#initialDelayInput'),
         initialDelayOutput: document.querySelector('#initialDelayOutput'),
         defaultSettings: document.querySelector('#defaultSettingsButton'),
-        winnerImportInput: document.querySelector('#winnerImportInput'),
-        importWinnersButton: document.querySelector('#importWinnersButton'),
-        undoWinnerButton: document.querySelector('#undoWinnerButton'),
-        clearWinnersButton: document.querySelector('#clearWinnersButton'),
-        winnerImportStatus: document.querySelector('#winnerImportStatus'),
-        importedCountBadge: document.querySelector('#importedCountBadge'),
+        statsSourceBadge: document.querySelector('#statsSourceBadge'),
+        statsCacheStatus: document.querySelector('#statsCacheStatus'),
         realSummary: document.querySelector('#realSummary'),
         recentRealWinners: document.querySelector('#recentRealWinners'),
         poolInputs: [...document.querySelectorAll('[data-pool-id]')],
@@ -114,12 +112,11 @@
     let accumulatedTime = 0;
     let animationFrame = 0;
     let batchRunId = 0;
-    let importedWinners = [];
-    let syncedObservedWins = null;
-    let syncedRecentWinners = [];
+    let statsSnapshot = null;
+    let statsSource = 'none';
     let remoteBetPoolKey = null;
     let marketState = {};
-    let realStats = betting.mergeRealStats(engine.RACERS, importedWinners);
+    let realStats = realStatsData.calculateStats(engine.RACERS, statsSnapshot);
 
     function getConfig() {
         return engine.normalizeConfig({
@@ -160,12 +157,26 @@
         }
     }
 
+    function removeStoredValue(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch {
+            // Legacy data can remain when storage is unavailable.
+        }
+    }
+
     function getProfile(id) {
         return engine.RACERS.find(profile => profile.id === id);
     }
 
     function getProbabilities() {
         return Object.fromEntries(realStats.racers.map(profile => [profile.id, profile.rate]));
+    }
+
+    function formatSyncTime(value) {
+        const milliseconds = Date.parse(String(value || ''));
+        if (!Number.isFinite(milliseconds)) return '时间未知';
+        return new Date(milliseconds).toLocaleString('zh-CN', {hour12: false});
     }
 
     function getCurrentPool() {
@@ -239,67 +250,79 @@
     }
 
     function renderRealStats() {
-        const observedProfiles = syncedObservedWins
-            ? engine.RACERS.map(profile => ({...profile, observedWins: syncedObservedWins[profile.id] ?? profile.observedWins}))
-            : engine.RACERS;
-        const effectiveImportedWinners = syncedObservedWins ? [] : importedWinners;
-        realStats = betting.mergeRealStats(observedProfiles, effectiveImportedWinners);
+        realStats = realStatsData.calculateStats(engine.RACERS, statsSnapshot);
         const ranked = [...realStats.racers].sort((left, right) => right.rate - left.rate);
         const topPair = ranked.slice(0, 2);
         const coverage = topPair.reduce((total, profile) => total + profile.rate, 0);
+        const hasStats = realStats.total > 0;
+        const sourceLabel = statsSource === 'remote' ? '联网最新' : statsSource === 'cache' ? '本地缓存' : '等待同步';
 
-        elements.sampleBadge.textContent = `${realStats.total} 场实盘`;
-        elements.importedCountBadge.textContent = syncedObservedWins ? '联网同步' : `新增 ${realStats.importedTotal} 场`;
-        elements.realCoverage.textContent = formatPercent(coverage);
-        elements.realCoverageBar.style.width = `${coverage * 100}%`;
-        elements.realCoverageNote.textContent = syncedObservedWins
-            ? `已使用网站累计 ${realStats.total} 场实盘；本地手工记录不会重复计入。`
-            : realStats.importedTotal > 0
-            ? `已合并 ${realStats.importedTotal} 场新增实盘；模拟盘结果不会计入。`
-            : '当前使用 459 场实盘基线；模拟盘结果不会计入。';
-        elements.realPickPair.replaceChildren(createPickCard(topPair[0], 1));
-        const plus = document.createElement('span');
-        plus.className = 'pair-plus';
-        plus.textContent = '+';
-        elements.realPickPair.append(plus, createPickCard(topPair[1], 2));
+        elements.sampleBadge.textContent = hasStats ? `${realStats.total} 场实盘` : '等待同步';
+        elements.statsSourceBadge.textContent = sourceLabel;
+        elements.realCoverage.textContent = hasStats ? formatPercent(coverage) : '—';
+        elements.realCoverageBar.style.width = `${hasStats ? coverage * 100 : 0}%`;
+        elements.realCoverageNote.textContent = hasStats
+            ? `${sourceLabel}累计胜场；模拟盘结果不会计入。`
+            : '首次联网同步后才会生成实盘概率和下注建议。';
+        elements.realPickPair.replaceChildren();
+        if (hasStats) {
+            const plus = document.createElement('span');
+            plus.className = 'pair-plus';
+            plus.textContent = '+';
+            elements.realPickPair.append(createPickCard(topPair[0], 1), plus, createPickCard(topPair[1], 2));
+        } else {
+            const empty = document.createElement('span');
+            empty.className = 'form-status';
+            empty.textContent = '等待实盘数据';
+            elements.realPickPair.append(empty);
+        }
         elements.centerPrediction.replaceChildren();
-        topPair.forEach((profile, index) => {
-            const dot = document.createElement('i');
-            dot.className = 'mini-dot';
-            dot.style.background = profile.color;
-            elements.centerPrediction.append(dot, document.createTextNode(` ${profile.shortName} `));
+        if (hasStats) {
+            topPair.forEach((profile, index) => {
+                const dot = document.createElement('i');
+                dot.className = 'mini-dot';
+                dot.style.background = profile.color;
+                elements.centerPrediction.append(dot, document.createTextNode(` ${profile.shortName} `));
 
-            if (index === 0) {
-                const separator = document.createElement('b');
-                separator.textContent = '+';
-                elements.centerPrediction.append(separator);
-            }
-        });
-        elements.centerCoverage.textContent = `实盘覆盖率 ${formatPercent(coverage)}`;
+                if (index === 0) {
+                    const separator = document.createElement('b');
+                    separator.textContent = '+';
+                    elements.centerPrediction.append(separator);
+                }
+            });
+        } else {
+            elements.centerPrediction.textContent = '等待联网同步';
+        }
+        elements.centerCoverage.textContent = hasStats ? `实盘覆盖率 ${formatPercent(coverage)}` : '暂无本地胜场缓存';
         elements.realSummary.replaceChildren();
         realStats.racers.forEach(profile => {
             const card = document.createElement('div');
             card.className = 'real-stat';
             card.style.setProperty('--racer-color', profile.color);
-            const source = syncedObservedWins ? '联网同步' : `新增 ${profile.importedWins}`;
-            card.innerHTML = `<span>${profile.shortName}</span><strong>${profile.wins} 胜</strong><small>${formatPercent(profile.rate)} · ${source}</small>`;
+            card.innerHTML = `<span>${profile.shortName}</span><strong>${hasStats ? `${profile.wins} 胜` : '—'}</strong><small>${hasStats ? formatPercent(profile.rate) : '等待同步'}</small>`;
             elements.realSummary.append(card);
         });
 
         renderObservedBars();
         renderRecentWinners();
-        elements.undoWinnerButton.disabled = importedWinners.length === 0;
-        elements.clearWinnersButton.disabled = importedWinners.length === 0;
+        const sessionText = statsSnapshot?.lastSessionId ? ` · 最近场次 #${statsSnapshot.lastSessionId}` : '';
+        if (statsSource === 'remote') {
+            setFormStatus(elements.statsCacheStatus, `联网胜场已保存到本机 · ${formatSyncTime(statsSnapshot?.updatedAt)}${sessionText}`, 'success');
+        } else if (statsSource === 'cache') {
+            setFormStatus(elements.statsCacheStatus, `当前使用本地缓存 · ${formatSyncTime(statsSnapshot?.updatedAt)}${sessionText}`);
+        } else {
+            setFormStatus(elements.statsCacheStatus, '尚无胜场缓存；登录并完成首次同步后自动保存。');
+        }
     }
 
     function renderRecentWinners() {
         elements.recentRealWinners.replaceChildren();
-        const recentWinners = syncedObservedWins ? syncedRecentWinners : importedWinners.slice(-12).reverse();
+        const recentWinners = statsSnapshot?.recentWinnerIds || [];
 
         if (recentWinners.length === 0) {
             const empty = document.createElement('span');
             empty.className = 'form-status';
-            empty.textContent = syncedObservedWins ? '网站最近场次暂时没有可用冠军。' : '尚未导入 459 场基线之后的新实盘赛果。';
+            empty.textContent = statsSnapshot ? '本地缓存暂时没有最近冠军记录。' : '全量同步后显示最近冠军。';
             elements.recentRealWinners.append(empty);
             return;
         }
@@ -317,48 +340,6 @@
     function setFormStatus(element, message, type = '') {
         element.textContent = message;
         element.className = `form-status${type ? ` ${type}` : ''}`;
-    }
-
-    function saveWinners() {
-        writeStoredJson(STORAGE_KEYS.winners, importedWinners);
-        renderRealStats();
-        renderBetAnalysis();
-    }
-
-    function appendWinner(id) {
-        importedWinners.push(id);
-        saveWinners();
-        setFormStatus(elements.winnerImportStatus, `已追加 1 场实盘冠军：${getProfile(id).shortName}。`, 'success');
-    }
-
-    function importWinners() {
-        const parsed = betting.parseWinnerInput(elements.winnerImportInput.value);
-
-        if (parsed.winnerIds.length === 0) {
-            setFormStatus(elements.winnerImportStatus, parsed.invalidTokens.length > 0 ? `未识别：${parsed.invalidTokens.join('、')}` : '请先输入至少一场实盘冠军。', 'error');
-            return;
-        }
-
-        importedWinners.push(...parsed.winnerIds);
-        elements.winnerImportInput.value = '';
-        saveWinners();
-        const invalidNote = parsed.invalidTokens.length > 0 ? `；忽略未识别项：${parsed.invalidTokens.join('、')}` : '';
-        setFormStatus(elements.winnerImportStatus, `成功导入 ${parsed.winnerIds.length} 场新增实盘${invalidNote}。`, parsed.invalidTokens.length > 0 ? 'error' : 'success');
-    }
-
-    function undoWinner() {
-        const id = importedWinners.pop();
-
-        if (!id) return;
-        saveWinners();
-        setFormStatus(elements.winnerImportStatus, `已撤销最近一场：${getProfile(id).shortName}。`, 'success');
-    }
-
-    function clearWinners() {
-        if (importedWinners.length === 0 || !window.confirm('确定清空所有新增实盘记录吗？459 场基线不会受影响。')) return;
-        importedWinners = [];
-        saveWinners();
-        setFormStatus(elements.winnerImportStatus, '已清空新增实盘记录，恢复为 459 场基线。', 'success');
     }
 
     function updateSettingsLabels() {
@@ -418,12 +399,11 @@
     }
 
     function applyRemoteSnapshot(snapshot) {
-        if (Array.isArray(snapshot?.racers) && snapshot.racers.length === engine.RACERS.length) {
-            syncedObservedWins = Object.fromEntries(snapshot.racers.map(racer => [racer.id, Math.max(0, Number(racer.wins) || 0)]));
-        }
-
-        if (snapshot?.mode === 'full' && Array.isArray(snapshot.recentWinnerIds)) {
-            syncedRecentWinners = snapshot.recentWinnerIds.filter(id => betting.RACER_IDS.includes(id));
+        const nextStatsSnapshot = realStatsData.mergeRemoteSnapshot(statsSnapshot, snapshot);
+        if (nextStatsSnapshot) {
+            statsSnapshot = nextStatsSnapshot;
+            statsSource = 'remote';
+            writeStoredJson(STORAGE_KEYS.stats, statsSnapshot);
         }
 
         if (snapshot?.pool?.stakes) {
@@ -459,8 +439,7 @@
     }
 
     function disconnectRemoteStats() {
-        syncedObservedWins = null;
-        syncedRecentWinners = [];
+        statsSource = statsSnapshot ? 'cache' : 'none';
         remoteBetPoolKey = null;
         elements.existingBetStatus.textContent = '联网已断开；保留当前显示值供核对，可手动修改。';
         renderRealStats();
@@ -624,11 +603,33 @@
         });
     }
 
+    function renderMissingStatsAnalysis(currentTotal) {
+        elements.currentPoolBadge.textContent = `${formatChips(currentTotal)} 筹码`;
+        elements.poolAnalysisBody.innerHTML = '<tr><td colspan="6">等待首次联网同步，暂不估算实盘概率。</td></tr>';
+        elements.projectionNote.textContent = '胜场统计尚不可用；当前池和设置会继续保存在本机。';
+        elements.recommendationLabel.textContent = '等待权威胜场数据';
+        elements.recommendationTitle.textContent = '暂不生成下注建议';
+        elements.recommendedBets.innerHTML = '<div class="recommended-bet">登录并完成一次同步后自动计算</div>';
+        elements.recommendationMetrics.replaceChildren();
+        elements.recommendationNote.textContent = '不会使用硬编码基线或已移除的手工冠军记录替代联网数据。';
+        elements.scenarioBody.innerHTML = '<tr><td colspan="5">胜场统计同步后显示四种赛果。</td></tr>';
+        elements.portfolioRobustTitle.textContent = '稳健组合：等待胜场同步';
+        elements.portfolioRobustNote.textContent = '没有权威概率时不会生成远程一键下注建议。';
+        window.dispatchEvent(new CustomEvent('slime-race-bet-recommendation', {
+            detail: {poolKey: remoteBetPoolKey, strategy: elements.betStrategy.value, bets: [], additionalBet: 0, deltaExpectedProfit: 0, invalid: true}
+        }));
+        savePoolAndSettings();
+    }
+
     function renderBetAnalysis(options = {}) {
         const includeRobustness = options.includeRobustness !== false;
         const currentPool = getCurrentPool();
         const existingBets = getExistingBets();
         const currentTotal = Object.values(currentPool).reduce((sum, value) => sum + value, 0);
+        if (realStats.total <= 0) {
+            renderMissingStatsAnalysis(currentTotal);
+            return;
+        }
         const probabilities = getProbabilities();
         const requestedClosingTotal = Math.max(0, Number(elements.closingPool.value) || 0);
         const publicStrategy = elements.publicStrategy.value;
@@ -1002,12 +1003,13 @@
     }
 
     function loadPersistentState() {
-        const storedWinners = readStoredJson(STORAGE_KEYS.winners, []);
+        statsSnapshot = realStatsData.normalizeStoredSnapshot(readStoredJson(STORAGE_KEYS.stats, null));
+        statsSource = statsSnapshot ? 'cache' : 'none';
         const storedPool = readStoredJson(STORAGE_KEYS.pool, {});
         const storedBetting = readStoredJson(STORAGE_KEYS.betting, {});
         marketState = readStoredJson(STORAGE_KEYS.market, {});
 
-        importedWinners = Array.isArray(storedWinners) ? storedWinners.filter(id => betting.RACER_IDS.includes(id)) : [];
+        removeStoredValue(STORAGE_KEYS.legacyWinners);
         setPoolInputs(storedPool);
         if (Number.isFinite(Number(storedBetting.closingPool))) elements.closingPool.value = Math.max(0, Number(storedBetting.closingPool));
         if (['popular', 'odds', 'mixed', 'uniform'].includes(storedBetting.publicStrategy)) elements.publicStrategy.value = storedBetting.publicStrategy;
@@ -1025,12 +1027,6 @@
         elements.seedInput.addEventListener('change', () => resetRace());
         elements.batchButton.addEventListener('click', runBatchSimulation);
         elements.defaultSettings.addEventListener('click', restoreDefaultSettings);
-        elements.importWinnersButton.addEventListener('click', importWinners);
-        elements.undoWinnerButton.addEventListener('click', undoWinner);
-        elements.clearWinnersButton.addEventListener('click', clearWinners);
-        document.querySelectorAll('[data-winner]').forEach(button => {
-            button.addEventListener('click', () => appendWinner(button.dataset.winner));
-        });
         elements.importPoolButton.addEventListener('click', importPool);
         elements.clearPoolButton.addEventListener('click', clearPool);
         elements.applyMarketMonitor.addEventListener('click', applyMarketSuggestion);

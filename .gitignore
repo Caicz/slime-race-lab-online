@@ -7,3 +7,4 @@ build/electron-win32-x64/
 *.log
 .DS_Store
 .env.slime-race.local
+.local-data/
