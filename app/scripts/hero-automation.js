@@ -545,6 +545,7 @@
             victory: state.phase === 'victory',
             currentHp: Math.max(0, Math.round(state.playerHp)),
             hpLost: Math.max(0, Math.round(player.hp - state.playerHp)),
+            hpLossRatio: Math.max(0, (player.hp - state.playerHp) / Math.max(1, player.hp)),
             remainingHpRatio: Math.max(0, state.playerHp / Math.max(1, state.playerMaxHp)),
             elapsedSeconds: Number((state.ticks / 10).toFixed(1)),
             actions: state.actions,
@@ -564,7 +565,14 @@
             const normalized = validateAllocation(allocation, totalPoints);
             candidates.set(getAllocationKey(normalized), normalized);
         };
-        add(currentAllocation);
+        const allocatedPoints = STAT_KEYS.reduce((sum, key) => sum + toNonNegativeInteger(currentAllocation?.[key], `${key} 点数`), 0);
+        if (allocatedPoints > totalPoints) throw new Error(`当前已分配能力点 ${allocatedPoints} 超过总能力点 ${totalPoints}`);
+        const unallocatedPoints = totalPoints - allocatedPoints;
+        if (unallocatedPoints === 0) {
+            add(currentAllocation);
+        } else {
+            for (const key of STAT_KEYS) add({...currentAllocation, [key]: currentAllocation[key] + unallocatedPoints});
+        }
 
         for (let hp = 0; hp <= divisions; hp += 1) {
             for (let attack = 0; attack <= divisions - hp; attack += 1) {
@@ -588,6 +596,7 @@
         const monster = getMonster(snapshot, monsterId);
         let victories = 0;
         let hpLost = 0;
+        let hpLossRatio = 0;
         let remainingHp = 0;
         let elapsedSeconds = 0;
         let victorySeconds = 0;
@@ -604,12 +613,14 @@
                 victorySeconds += result.elapsedSeconds;
             }
             hpLost += result.hpLost;
+            hpLossRatio += result.hpLossRatio;
             remainingHp += result.remainingHpRatio;
             elapsedSeconds += result.elapsedSeconds;
         }
 
         const winRate = victories / sampleCount;
         const averageHpLost = hpLost / sampleCount;
+        const averageHpLossRatio = hpLossRatio / sampleCount;
         const averageRemainingHpRatio = remainingHp / sampleCount;
         const averageSeconds = elapsedSeconds / sampleCount;
         const averageVictorySeconds = victories > 0 ? victorySeconds / victories : Number.POSITIVE_INFINITY;
@@ -618,6 +629,7 @@
             activeSkillKey: options.activeSkillKey ?? snapshot.account.equippedActiveSkill ?? null,
             winRate,
             averageHpLost,
+            averageHpLossRatio,
             averageRemainingHpRatio,
             averageSeconds,
             averageVictorySeconds
@@ -654,7 +666,7 @@
         evaluations.sort((left, right) => {
             if (right.winRate !== left.winRate) return right.winRate - left.winRate;
             if (optimizationMode === 'minimum_loss') {
-                return left.averageHpLost - right.averageHpLost
+                return left.averageHpLossRatio - right.averageHpLossRatio
                     || right.averageRemainingHpRatio - left.averageRemainingHpRatio
                     || left.averageVictorySeconds - right.averageVictorySeconds;
             }
@@ -745,6 +757,50 @@
         return actual;
     }
 
+    function reconcileBattleAttempt(attempt, snapshot) {
+        const monsterId = attempt?.monsterId;
+        const previousCount = toNonNegativeInteger(attempt?.battleCount, '提交前战斗次数');
+        const previousLevel = toFiniteNumber(attempt?.monsterLevel, -1);
+        if (!MONSTERS[monsterId] || previousLevel <= 0) throw new Error('待对账战斗信息无效');
+
+        const currentCount = getBattleCount(snapshot);
+        const currentLevel = getMonster(snapshot, monsterId).level;
+        const countChange = currentCount - previousCount;
+        const levelChange = currentLevel - previousLevel;
+        if (countChange === 0 && Math.abs(levelChange) <= 1e-9) return {status: 'pending', currentCount, currentLevel};
+        if (countChange === 1 && Math.abs(levelChange - 0.5) <= 1e-9) return {status: 'victory', currentCount, currentLevel};
+        if (countChange === 1 && Math.abs(levelChange) <= 1e-9) return {status: 'defeat', currentCount, currentLevel};
+        return {status: 'invalid', currentCount, currentLevel};
+    }
+
+    function isRetryableHeroError(error) {
+        const message = String(error?.message || error);
+        const nonRetryable = [
+            '低于停止线',
+            '达到 60 次',
+            '超过服务器上限',
+            '药水不足',
+            '已经失效',
+            '禁止立即重复使用',
+            '转生技能',
+            '请选择有效',
+            '必须是',
+            '尚未解锁或无效',
+            '主动技能方案无效',
+            'HP 不足',
+            '本地战斗结果无效',
+            '对账异常',
+            '请先登录'
+        ];
+        return !nonRetryable.some(pattern => message.includes(pattern));
+    }
+
+    function getHeroRetryDelayMilliseconds(retryNumber) {
+        const normalized = toNonNegativeInteger(retryNumber, '重试次数');
+        if (normalized < 1 || normalized > 3) throw new Error('重试次数必须是 1–3');
+        return normalized * 5000;
+    }
+
     return Object.freeze({
         STAT_KEYS,
         STAT_RULES,
@@ -763,10 +819,14 @@
         validateBattleGuard,
         getProjectedStats,
         simulateBattle,
+        sortEvaluations,
         findOptimalAllocation,
         planAllocationChanges,
         createBattleResultPayload,
         validateLevelTransition,
-        validateBattleCountTransition
+        validateBattleCountTransition,
+        reconcileBattleAttempt,
+        isRetryableHeroError,
+        getHeroRetryDelayMilliseconds
     });
 });

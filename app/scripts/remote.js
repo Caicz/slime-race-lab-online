@@ -847,7 +847,7 @@
                 item.textContent = `${label} ${recommendation.allocation[key]}`;
                 allocation.append(item);
             }
-            survival.textContent = `胜率 ${(recommendation.winRate * 100).toFixed(1)}% · 均掉血 ${Math.round(recommendation.averageHpLost)} · 余血 ${(recommendation.averageRemainingHpRatio * 100).toFixed(1)}%`;
+            survival.textContent = `胜率 ${(recommendation.winRate * 100).toFixed(1)}% · 均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}% · 余血 ${(recommendation.averageRemainingHpRatio * 100).toFixed(1)}%`;
             const victoryTime = Number.isFinite(recommendation.averageVictorySeconds) ? `${recommendation.averageVictorySeconds.toFixed(1)}s` : '无胜场';
             timing.textContent = `${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'} · 均胜时 ${victoryTime}`;
             footer.append(survival, timing);
@@ -932,6 +932,17 @@
         return percent / 100;
     }
 
+    async function waitForHeroRetry(retryNumber) {
+        const delayMilliseconds = heroAutomation.getHeroRetryDelayMilliseconds(retryNumber);
+        const deadline = Date.now() + delayMilliseconds;
+        elements.heroCurrentStep.textContent = `异常恢复：${delayMilliseconds / 1000} 秒后重试 ${retryNumber}/3`;
+        appendHeroLog(`${delayMilliseconds / 1000} 秒后执行第 ${retryNumber}/3 次重试；重试前会重新同步并对账。`);
+
+        while (!heroStopRequested && Date.now() < deadline) {
+            await requestPolicy.delay(Math.min(250, deadline - Date.now()));
+        }
+    }
+
     async function startHeroAutomation() {
         if (!authenticated || syncing || mutating || heroBusy || heroRunning) return;
         const adapter = getAdapter();
@@ -986,85 +997,130 @@
 
         try {
             let snapshot = initial;
-            if (elements.heroDefensePotions.checked) {
-                elements.heroCurrentStep.textContent = '补足30层防御药水';
-                const prepared = await adapter.prepareHeroDefensePotions();
-                snapshot = prepared.snapshot;
-                renderHeroSnapshot(snapshot);
-                appendHeroLog(`防御药水已达到30层，本轮消耗 ${prepared.consumed} 瓶。`);
-            }
+            let defensePotionsPrepared = !elements.heroDefensePotions.checked;
+            let pendingBattle = null;
+            let retryCount = 0;
 
             while (heroWins < limit && !heroStopRequested) {
-                elements.heroCurrentStep.textContent = '重新读取怪物面板';
-                snapshot = await adapter.syncHeroAutomation();
-                renderHeroSnapshot(snapshot);
-                const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
-                if (elements.heroHealing.checked && hpRatio < 0.2) {
-                    elements.heroCurrentStep.textContent = 'HP低于20%，补血到至少95%';
-                    const healing = await adapter.prepareHeroHealing();
-                    snapshot = healing.snapshot;
-                    renderHeroSnapshot(snapshot);
-                    const consumed = healing.consumed.map(use => `${heroAutomation.HEALING_POTIONS[use.itemId]?.name || `物品${use.itemId}`}×${use.quantity}`).join('、');
-                    appendHeroLog(`恢复完成：${consumed || '无需消耗'}，当前 HP ${snapshot.battleStatus.currentHp} / ${snapshot.battleStatus.maxHp}。`);
-                }
-                const monster = heroAutomation.getMonster(snapshot, monsterId);
-                if (elements.heroDefensePotions.checked) {
-                    const expiry = Date.parse(snapshot.battleStatus.defenseBuffExpiry || '');
-                    if (Number(snapshot.battleStatus.defenseBuffStacks) !== 30 || !Number.isFinite(expiry) || expiry <= Date.now()) {
-                        throw new Error('30层防御药水已经失效，本轮按约定停止，不会再次消耗药水');
+                try {
+                    if (!defensePotionsPrepared) {
+                        elements.heroCurrentStep.textContent = '补足30层防御药水';
+                        const prepared = await adapter.prepareHeroDefensePotions();
+                        snapshot = prepared.snapshot;
+                        defensePotionsPrepared = true;
+                        renderHeroSnapshot(snapshot);
+                        appendHeroLog(`防御药水已达到30层，本轮消耗 ${prepared.consumed} 瓶。`);
                     }
-                }
 
-                elements.heroCurrentStep.textContent = `计算 ${monsterName} Lv.${monster.level} 最优配点`;
-                const recommendation = await calculateHeroRecommendation(snapshot, monsterId);
-                heroRecommendations.set(monsterId, recommendation);
-                renderHeroRecommendations();
-                appendHeroLog(`Lv.${monster.level}“${modeName}”推荐 HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%。`);
-                if (recommendation.winRate < minimumWinRate) {
-                    throw new Error(`Lv.${monster.level} 的最高预测胜率只有 ${(recommendation.winRate * 100).toFixed(1)}%，低于停止线 ${(minimumWinRate * 100).toFixed(0)}%`);
-                }
-                if (heroStopRequested) break;
-
-                elements.heroCurrentStep.textContent = `应用 Lv.${monster.level} 配点`;
-                const allocationGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
-                    requireDefensePotions: elements.heroDefensePotions.checked
-                });
-                snapshot = await adapter.applyHeroAllocation({
-                    targetAllocation: recommendation.allocation,
-                    activeSkillKey: recommendation.activeSkillKey,
-                    guard: allocationGuard
-                });
-                renderHeroSnapshot(snapshot);
-                if (heroStopRequested) break;
-
-                const allocatedHpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
-                if (elements.heroHealing.checked && allocatedHpRatio < 0.2) {
-                    elements.heroCurrentStep.textContent = '配点后HP低于20%，补血到至少95%';
-                    const healing = await adapter.prepareHeroHealing();
-                    snapshot = healing.snapshot;
+                    elements.heroCurrentStep.textContent = pendingBattle ? '同步并对账上一场战斗' : '重新读取怪物面板';
+                    snapshot = await adapter.syncHeroAutomation();
                     renderHeroSnapshot(snapshot);
-                    const consumed = healing.consumed.map(use => `${heroAutomation.HEALING_POTIONS[use.itemId]?.name || `物品${use.itemId}`}×${use.quantity}`).join('、');
-                    appendHeroLog(`配点后恢复：${consumed || '无需消耗'}，当前 HP ${snapshot.battleStatus.currentHp} / ${snapshot.battleStatus.maxHp}。`);
-                }
-                if (heroStopRequested) break;
+                    if (pendingBattle) {
+                        const reconciliation = heroAutomation.reconcileBattleAttempt(pendingBattle, snapshot);
+                        if (reconciliation.status === 'victory') {
+                            heroWins += 1;
+                            appendHeroLog(`重试对账确认上一场胜利已结算：${monsterName} Lv.${pendingBattle.monsterLevel} → Lv.${reconciliation.currentLevel}；未重复提交。`);
+                            pendingBattle = null;
+                            retryCount = 0;
+                            continue;
+                        }
+                        if (reconciliation.status === 'defeat') {
+                            heroLosses += 1;
+                            appendHeroLog(`重试对账确认上一场败北已结算：${monsterName}仍为 Lv.${reconciliation.currentLevel}；未重复提交，本轮停止。`);
+                            pendingBattle = null;
+                            heroStopRequested = true;
+                            continue;
+                        }
+                        if (reconciliation.status === 'invalid') {
+                            throw new Error(`战斗对账异常：今日次数 ${pendingBattle.battleCount} → ${reconciliation.currentCount}，怪物等级 Lv.${pendingBattle.monsterLevel} → Lv.${reconciliation.currentLevel}`);
+                        }
+                        appendHeroLog('对账确认上一场尚未结算，可以安全重新执行本轮。');
+                        pendingBattle = null;
+                    }
 
-                elements.heroCurrentStep.textContent = `挑战 ${monsterName} Lv.${monster.level}`;
-                const battleGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
-                    requireDefensePotions: elements.heroDefensePotions.checked,
-                    lockHeroPanel: true
-                });
-                battleGuard.expectedAllocation = recommendation.allocation;
-                const response = await adapter.runHeroBattle(battleGuard);
-                snapshot = response.snapshot;
-                if (response.result.victory) {
-                    heroWins += 1;
-                    appendHeroLog(`胜利：${monsterName} Lv.${monster.level} → Lv.${response.nextLevel}，剩余 HP ${response.result.currentHp}，${response.message || '结算成功'}。`);
-                } else {
-                    heroLosses += 1;
-                    appendHeroLog(`败北：${monsterName}仍为 Lv.${response.nextLevel}，本轮立即停止。`);
-                    heroStopRequested = true;
+                    const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
+                    if (elements.heroHealing.checked && hpRatio < 0.2) {
+                        elements.heroCurrentStep.textContent = 'HP低于20%，补血到至少95%';
+                        const healing = await adapter.prepareHeroHealing();
+                        snapshot = healing.snapshot;
+                        renderHeroSnapshot(snapshot);
+                        const consumed = healing.consumed.map(use => `${heroAutomation.HEALING_POTIONS[use.itemId]?.name || `物品${use.itemId}`}×${use.quantity}`).join('、');
+                        appendHeroLog(`恢复完成：${consumed || '无需消耗'}，当前 HP ${snapshot.battleStatus.currentHp} / ${snapshot.battleStatus.maxHp}。`);
+                    }
+                    const monster = heroAutomation.getMonster(snapshot, monsterId);
+                    if (elements.heroDefensePotions.checked) {
+                        const expiry = Date.parse(snapshot.battleStatus.defenseBuffExpiry || '');
+                        if (Number(snapshot.battleStatus.defenseBuffStacks) !== 30 || !Number.isFinite(expiry) || expiry <= Date.now()) {
+                            throw new Error('30层防御药水已经失效，本轮按约定停止，不会再次消耗药水');
+                        }
+                    }
+
+                    const unallocatedPoints = Number(snapshot.account.statPoints) || 0;
+                    if (unallocatedPoints > 0) appendHeroLog(`检测到 ${unallocatedPoints} 个升级未分配点，将并入本轮最优方案自动分配。`);
+                    elements.heroCurrentStep.textContent = `计算 ${monsterName} Lv.${monster.level} 最优配点`;
+                    const recommendation = await calculateHeroRecommendation(snapshot, monsterId);
+                    heroRecommendations.set(monsterId, recommendation);
+                    renderHeroRecommendations();
+                    appendHeroLog(`Lv.${monster.level}“${modeName}”推荐 HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%。`);
+                    if (recommendation.winRate < minimumWinRate) {
+                        throw new Error(`Lv.${monster.level} 的最高预测胜率只有 ${(recommendation.winRate * 100).toFixed(1)}%，低于停止线 ${(minimumWinRate * 100).toFixed(0)}%`);
+                    }
+                    if (heroStopRequested) break;
+
+                    elements.heroCurrentStep.textContent = `应用 Lv.${monster.level} 配点`;
+                    const allocationGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
+                        requireDefensePotions: elements.heroDefensePotions.checked
+                    });
+                    snapshot = await adapter.applyHeroAllocation({
+                        targetAllocation: recommendation.allocation,
+                        activeSkillKey: recommendation.activeSkillKey,
+                        guard: allocationGuard
+                    });
+                    renderHeroSnapshot(snapshot);
+                    if (heroStopRequested) break;
+
+                    const allocatedHpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
+                    if (elements.heroHealing.checked && allocatedHpRatio < 0.2) {
+                        elements.heroCurrentStep.textContent = '配点后HP低于20%，补血到至少95%';
+                        const healing = await adapter.prepareHeroHealing();
+                        snapshot = healing.snapshot;
+                        renderHeroSnapshot(snapshot);
+                        const consumed = healing.consumed.map(use => `${heroAutomation.HEALING_POTIONS[use.itemId]?.name || `物品${use.itemId}`}×${use.quantity}`).join('、');
+                        appendHeroLog(`配点后恢复：${consumed || '无需消耗'}，当前 HP ${snapshot.battleStatus.currentHp} / ${snapshot.battleStatus.maxHp}。`);
+                    }
+                    if (heroStopRequested) break;
+
+                    elements.heroCurrentStep.textContent = `挑战 ${monsterName} Lv.${monster.level}`;
+                    const battleGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
+                        requireDefensePotions: elements.heroDefensePotions.checked,
+                        lockHeroPanel: true
+                    });
+                    battleGuard.expectedAllocation = recommendation.allocation;
+                    pendingBattle = {
+                        monsterId,
+                        monsterLevel: monster.level,
+                        battleCount: heroAutomation.getBattleCount(snapshot)
+                    };
+                    const response = await adapter.runHeroBattle(battleGuard);
+                    pendingBattle = null;
+                    snapshot = response.snapshot;
+                    if (response.result.victory) {
+                        heroWins += 1;
+                        appendHeroLog(`胜利：${monsterName} Lv.${monster.level} → Lv.${response.nextLevel}，剩余 HP ${response.result.currentHp}，${response.message || '结算成功'}。`);
+                    } else {
+                        heroLosses += 1;
+                        appendHeroLog(`败北：${monsterName}仍为 Lv.${response.nextLevel}，本轮立即停止。`);
+                        heroStopRequested = true;
+                    }
+                    retryCount = 0;
+                    renderHeroSnapshot(snapshot);
+                } catch (error) {
+                    if (heroStopRequested) break;
+                    appendHeroLog(`异常：${String(error.message || error)}`);
+                    if (!heroAutomation.isRetryableHeroError(error) || retryCount >= 3) throw error;
+                    retryCount += 1;
+                    await waitForHeroRetry(retryCount);
                 }
-                renderHeroSnapshot(snapshot);
             }
 
             elements.heroCurrentStep.textContent = heroStopRequested ? '已安全停止' : '达到本轮目标';
@@ -1076,7 +1132,7 @@
         } catch (error) {
             elements.heroCurrentStep.textContent = '异常停机';
             appendHeroLog(`停止原因：${String(error.message || error)}`);
-            setStatus(elements.heroStatus, `${String(error.message || error)}；不会自动重试，请先刷新官方面板核对。`, 'error');
+            setStatus(elements.heroStatus, `${String(error.message || error)}；已完成安全重试或该错误不可重试，请刷新官方面板核对。`, 'error');
         } finally {
             heroRunning = false;
             heroStopRequested = false;

@@ -110,6 +110,36 @@ test('最优配点完整使用能力点并产生稳定的胜率优先方案', ()
     assert.ok(first.winRate >= 0 && first.winRate <= 1);
 });
 
+test('升级后的未分配能力点会并入完整推荐并由配点计划自动分配', () => {
+    const raw = createRawSnapshot();
+    raw.account.statPoints = 3;
+    const snapshot = heroAutomation.createSnapshot(raw);
+    const result = heroAutomation.findOptimalAllocation(snapshot, 'hilichurl', {
+        divisions: 4,
+        coarseSamples: 2,
+        finalSamples: 4
+    });
+    const plan = heroAutomation.planAllocationChanges(snapshot.account, result.allocation);
+
+    assert.equal(result.totalPoints, 103);
+    assert.equal(Object.values(result.allocation).reduce((sum, value) => sum + value, 0), 103);
+    assert.equal(plan.allocate.reduce((sum, change) => sum + change.points, 0) - plan.deallocate.reduce((sum, change) => sum + change.points, 0), 3);
+});
+
+test('最少掉血策略按掉血百分比而非具体血量排序', () => {
+    const evaluations = [
+        {winRate: 1, averageHpLost: 100, averageHpLossRatio: 0.1, averageRemainingHpRatio: 0.9, averageVictorySeconds: 10},
+        {winRate: 1, averageHpLost: 80, averageHpLossRatio: 0.2, averageRemainingHpRatio: 0.8, averageVictorySeconds: 8}
+    ];
+
+    heroAutomation.sortEvaluations(evaluations, 'minimum_loss');
+    assert.equal(evaluations[0].averageHpLost, 100);
+
+    const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
+    const result = heroAutomation.simulateBattle(snapshot, 'hilichurl', {random: () => 0.99});
+    assert.equal(result.hpLossRatio, result.hpLost / 1120);
+});
+
 test('三种优化目标都可选择且会把已解锁主动技能纳入候选', () => {
     const raw = createRawSnapshot();
     raw.skills.push({skillKey: 'shield', level: 3}, {skillKey: 'speed', level: 4}, {skillKey: 'weaken', level: 2});
@@ -228,4 +258,28 @@ test('战斗提交后今日次数必须精确增加一次且零血禁止挑战',
         () => heroAutomation.validateBattleCountTransition(0, heroAutomation.createSnapshot(raw)),
         /战斗次数变化异常/
     );
+});
+
+test('异常恢复会根据战斗次数和怪物半级变化安全对账', () => {
+    const raw = createRawSnapshot();
+    const attempt = {monsterId: 'slime', monsterLevel: 5, battleCount: 0};
+
+    assert.equal(heroAutomation.reconcileBattleAttempt(attempt, heroAutomation.createSnapshot(raw)).status, 'pending');
+    raw.battleStatus.battleCount = 1;
+    raw.battleStatus.slimeLevel = 5.5;
+    assert.equal(heroAutomation.reconcileBattleAttempt(attempt, heroAutomation.createSnapshot(raw)).status, 'victory');
+    raw.battleStatus.slimeLevel = 5;
+    assert.equal(heroAutomation.reconcileBattleAttempt(attempt, heroAutomation.createSnapshot(raw)).status, 'defeat');
+    raw.battleStatus.battleCount = 2;
+    assert.equal(heroAutomation.reconcileBattleAttempt(attempt, heroAutomation.createSnapshot(raw)).status, 'invalid');
+});
+
+test('异常重试仅跳过明确业务停机', () => {
+    assert.deepEqual([1, 2, 3].map(heroAutomation.getHeroRetryDelayMilliseconds), [5000, 10000, 15000]);
+    assert.throws(() => heroAutomation.getHeroRetryDelayMilliseconds(4), /重试次数必须是 1–3/);
+    assert.equal(heroAutomation.isRetryableHeroError(new Error('远程请求超时')), true);
+    assert.equal(heroAutomation.isRetryableHeroError(new Error('史莱姆面板已经变化，请重新计算配点')), true);
+    assert.equal(heroAutomation.isRetryableHeroError(new Error('预测胜率低于停止线')), false);
+    assert.equal(heroAutomation.isRetryableHeroError(new Error('恢复药水不足')), false);
+    assert.equal(heroAutomation.isRetryableHeroError(new Error('战斗对账异常')), false);
 });
