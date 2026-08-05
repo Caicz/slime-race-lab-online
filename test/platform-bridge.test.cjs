@@ -48,3 +48,18 @@ test('requires the Capacitor HTTP request method', () => {
 
     assert.equal(platformBridge.getAndroidNetworkPlugins(root), null);
 });
+
+test('resolves Android background execution only when start and stop are available', () => {
+    const backgroundExecution = {start() {}, stop() {}, delay() {}};
+    const root = {
+        Capacitor: {
+            getPlatform: () => 'android',
+            Plugins: {BackgroundExecution: backgroundExecution}
+        }
+    };
+
+    assert.equal(platformBridge.isAndroidPlatform(root), true);
+    assert.equal(platformBridge.getBackgroundExecutionPlugin(root), backgroundExecution);
+    root.Capacitor.Plugins.BackgroundExecution = {start() {}};
+    assert.equal(platformBridge.getBackgroundExecutionPlugin(root), null);
+});

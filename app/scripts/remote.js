@@ -115,6 +115,8 @@
     let heroLosses = 0;
     let heroUnlockData = null;
     let heroUnlockSelection = new Set();
+    let backgroundExecutionActive = false;
+    let pollingGeneration = 0;
 
     function formatChips(value) {
         return Math.round(Number(value) || 0).toLocaleString('zh-CN');
@@ -462,6 +464,17 @@
 
     function getAdapter() {
         return getElectronAdapter() || getAndroidAdapter();
+    }
+
+    async function updateBackgroundExecution() {
+        const plugin = platformBridge?.getBackgroundExecutionPlugin(globalThis);
+        if (!plugin) return;
+        const shouldRun = heroRunning || (authenticated && elements.autoSync.checked);
+        if (shouldRun === backgroundExecutionActive) return;
+
+        if (shouldRun) await plugin.start();
+        else await plugin.stop();
+        backgroundExecutionActive = shouldRun;
     }
 
     function renderRewards(snapshot) {
@@ -872,7 +885,7 @@
     }
 
     async function calculateHeroRecommendation(snapshot, monsterId, allMonsters = false) {
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await requestPolicy.delay(0);
         const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
         return heroAutomation.findOptimalAllocation(snapshot, monsterId, {
             defensePotionStacks: elements.heroDefensePotions.checked ? 30 : undefined,
@@ -996,6 +1009,7 @@
         updateBetControls();
 
         try {
+            await updateBackgroundExecution();
             let snapshot = initial;
             let defensePotionsPrepared = !elements.heroDefensePotions.checked;
             let pendingBattle = null;
@@ -1137,6 +1151,11 @@
             heroRunning = false;
             heroStopRequested = false;
             mutating = false;
+            try {
+                await updateBackgroundExecution();
+            } catch (error) {
+                appendHeroLog(`后台持续运行服务停止失败：${String(error.message || error)}`);
+            }
             updateBetControls();
             sync('full');
         }
@@ -1254,25 +1273,56 @@
         }
     }
 
-    function startPolling() {
-        clearInterval(timer);
+    function stopPolling() {
+        pollingGeneration += 1;
         timer = null;
-        liveTicks = 0;
-        if (!authenticated || !elements.autoSync.checked) return;
-        timer = setInterval(() => {
-            if (document.hidden) return;
-            liveTicks += 1;
-            sync(liveTicks % 10 === 0 ? 'full' : 'live', true);
-        }, 4000);
     }
 
-    function toggleAutoSync() {
+    function startPolling() {
+        stopPolling();
+        liveTicks = 0;
+        if (!authenticated || !elements.autoSync.checked) return;
+
+        const generation = pollingGeneration;
+        timer = generation;
+        void (async () => {
+            while (timer === generation && authenticated && elements.autoSync.checked) {
+                await requestPolicy.delay(4000);
+                if (timer !== generation || !authenticated || !elements.autoSync.checked) break;
+                if (isAutoSyncPaused()) continue;
+
+                await sync(++liveTicks % 10 === 0 ? 'full' : 'live', true);
+            }
+        })().catch(error => {
+            if (timer === generation) setStatus(elements.status, `后台同步停止：${String(error.message || error)}`, 'error');
+        });
+    }
+
+    async function toggleAutoSync() {
         if (!authenticated) return;
+        let activationError = null;
+        try {
+            await updateBackgroundExecution();
+        } catch (error) {
+            elements.autoSync.checked = false;
+            activationError = error;
+        }
         startPolling();
+        if (!elements.autoSync.checked) {
+            try {
+                await updateBackgroundExecution();
+            } catch {
+                // The native service also stops when the Android task is removed.
+            }
+        }
+        if (activationError) {
+            setStatus(elements.status, `无法启用 Android 后台持续运行：${String(activationError.message || activationError)}`, 'error');
+            return;
+        }
         setStatus(
             elements.status,
             elements.autoSync.checked
-                ? '自动实时更新已开启；日常任务和下注操作期间会自动暂停。'
+                ? '自动实时更新已开启；切换到后台后仍会持续，日常任务和下注操作期间会自动暂停。'
                 : '自动实时更新已关闭；仍可使用“立即全量同步”。',
             'success'
         );
@@ -1400,6 +1450,12 @@
         elements.password.disabled = true;
         elements.autoSync.disabled = false;
         updateSnapshot(snapshot);
+        try {
+            await updateBackgroundExecution();
+        } catch (error) {
+            elements.autoSync.checked = false;
+            setStatus(elements.status, `登录成功，但 Android 后台持续运行无法启动：${String(error.message || error)}`, 'error');
+        }
         await requestPolicy.delay(900);
         await refreshDailyQuest(false);
         startPolling();
@@ -1472,8 +1528,7 @@
             setStatus(elements.status, '自动刷怪仍有当前步骤在执行，已请求安全停止；停止完成后再退出。');
             return;
         }
-        clearInterval(timer);
-        timer = null;
+        stopPolling();
         authenticated = false;
         latestSnapshot = null;
         latestRecommendation = null;
@@ -1491,6 +1546,7 @@
         resetDailyClicks();
 
         try {
+            await updateBackgroundExecution();
             await getAdapter()?.logout();
         } finally {
             elements.username.disabled = false;
@@ -1616,8 +1672,9 @@
     });
     window.addEventListener('beforeunload', () => {
         heroStopRequested = true;
-        clearInterval(timer);
+        stopPolling();
         clearTimeout(dailyClickResetTimer);
+        void platformBridge?.getBackgroundExecutionPlugin(globalThis)?.stop();
     });
     autoLogin();
 })();

@@ -1,10 +1,10 @@
 (function createRequestPolicy(root, factory) {
     'use strict';
 
-    const api = factory();
+    const api = factory(root);
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root) root.SlimeRequestPolicy = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function requestPolicyFactory() {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function requestPolicyFactory(root) {
     'use strict';
 
     const defaultRetryDelay = 1500;
@@ -12,7 +12,14 @@
     const maximumRetryDelay = 5000;
 
     function delay(milliseconds) {
-        return new Promise(resolve => setTimeout(resolve, milliseconds));
+        const duration = Math.max(0, Math.round(Number(milliseconds) || 0));
+        const backgroundExecution = root?.Capacitor?.getPlatform?.() === 'android'
+            ? root?.Capacitor?.Plugins?.BackgroundExecution || root?.BackgroundExecution
+            : null;
+        if (typeof backgroundExecution?.delay === 'function') {
+            return backgroundExecution.delay({milliseconds: duration}).then(() => undefined);
+        }
+        return new Promise(resolve => setTimeout(resolve, duration));
     }
 
     function getHeaderValue(headers, name) {

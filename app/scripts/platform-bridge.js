@@ -9,8 +9,12 @@
         return root?.Capacitor?.Plugins?.[name] || root?.[name] || null;
     }
 
+    function isAndroidPlatform(root) {
+        return root?.Capacitor?.getPlatform?.() === 'android';
+    }
+
     function getAndroidNetworkPlugins(root) {
-        if (root?.Capacitor?.getPlatform?.() !== 'android') return null;
+        if (!isAndroidPlatform(root)) return null;
 
         const http = resolveCapacitorPlugin(root, 'CapacitorHttp');
         if (typeof http?.request !== 'function') return null;
@@ -21,5 +25,11 @@
         };
     }
 
-    return {resolveCapacitorPlugin, getAndroidNetworkPlugins};
+    function getBackgroundExecutionPlugin(root) {
+        if (!isAndroidPlatform(root)) return null;
+        const plugin = resolveCapacitorPlugin(root, 'BackgroundExecution');
+        return typeof plugin?.start === 'function' && typeof plugin?.stop === 'function' ? plugin : null;
+    }
+
+    return {resolveCapacitorPlugin, isAndroidPlatform, getAndroidNetworkPlugins, getBackgroundExecutionPlugin};
 });
