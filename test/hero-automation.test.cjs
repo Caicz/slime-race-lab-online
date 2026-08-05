@@ -52,6 +52,9 @@ function createRawSnapshot() {
             familiarCurrentHp: 120,
             familiarMaxHp: 120,
             familiarStats: {hp: 120, atk: 20, def: 16, spd: 32},
+            familiarDroppedLevels: [1, 2, 2, 5, 4000],
+            familiarExpReward: 20,
+            familiarSweepLevel: 2,
             debtCollectorLevel: 2,
             debtCollectorCurrentHp: 80,
             debtCollectorMaxHp: 80,
@@ -97,6 +100,48 @@ test('六只常规怪物都从当前半级面板读取并生成正确结算字�
         assert.equal(typeof result.victory, 'boolean');
         assert.ok(result.elapsedSeconds > 0);
     }
+
+    const familiar = heroAutomation.getMonster(snapshot, 'familiar');
+    assert.equal(familiar.expReward, 20);
+    assert.equal(familiar.sweepLevel, 2);
+    assert.equal(familiar.eligibleDropLevels, 2);
+    assert.equal(familiar.recordedDropLevels, 2);
+});
+
+test('奏咪使魔快感抗性默认开启且关闭后每十次有效攻击完成一次循环', () => {
+    const raw = createRawSnapshot();
+    raw.account.equippedActiveSkill = null;
+    Object.assign(raw.battleStatus, {
+        currentHp: 1000,
+        maxHp: 1000,
+        attack: 100,
+        defense: 100,
+        speed: 100,
+        familiarCurrentHp: 1000000,
+        familiarMaxHp: 1000000,
+        familiarStats: {hp: 1000000, atk: 100, def: 1000000, spd: 100}
+    });
+    const snapshot = heroAutomation.createSnapshot(raw);
+    const resisted = heroAutomation.simulateBattle(snapshot, 'familiar', {random: () => 0.99});
+    const unresisted = heroAutomation.simulateBattle(snapshot, 'familiar', {pleasureResist: false, random: () => 0.99});
+
+    assert.equal(resisted.pleasureResist, true);
+    assert.equal(resisted.pleasureClimaxes, 0);
+    assert.equal(resisted.wallClockSeconds, resisted.elapsedSeconds);
+    assert.equal(unresisted.pleasureResist, false);
+    assert.equal(unresisted.pleasureClimaxes, 1);
+    assert.equal(unresisted.pleasureValue, 90);
+    assert.equal(unresisted.climaxExperienceLost, 0);
+    assert.ok(Math.abs(unresisted.wallClockSeconds - unresisted.elapsedSeconds - 1.2) < 1e-9);
+    assert.equal(unresisted.currentHp, resisted.currentHp);
+    assert.equal(unresisted.monsterRemainingHp, resisted.monsterRemainingHp);
+});
+
+test('战斗守卫保留奏咪使魔快感抗性选择供桌面与 Android 执行器使用', () => {
+    const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
+
+    assert.equal(heroAutomation.createBattleGuard(snapshot, 'familiar').pleasureResist, true);
+    assert.equal(heroAutomation.createBattleGuard(snapshot, 'familiar', {pleasureResist: false}).pleasureResist, false);
 });
 
 test('最优配点完整使用能力点并产生稳定的胜率优先方案', () => {

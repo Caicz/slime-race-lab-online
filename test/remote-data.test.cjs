@@ -42,6 +42,7 @@ test('逐笔实盘押注会聚合并丢弃其他玩家标识', () => {
     assert.equal(snapshot.pool.total, 25000);
     assert.equal(snapshot.pool.phase, 'unbound');
     assert.equal(snapshot.account.magicFragments, 12345);
+    assert.match(snapshot.account.storageKey, /^u-[a-z0-9]+$/);
     assert.equal(snapshot.currentUserPool.total, 17000);
     assert.deepEqual(snapshot.currentUserPool.selectedIds, ['blueberry', 'dragonfruit']);
     assert.deepEqual(snapshot.pendingRewards, [{rewardId: 81, amount: 600}]);

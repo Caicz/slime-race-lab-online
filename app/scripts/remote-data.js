@@ -1,12 +1,13 @@
 (function exposeRemoteData(root, factory) {
-    const remoteData = factory();
+    const betLedger = root?.SlimeBetLedger || (typeof module === 'object' && module.exports ? require('./bet-ledger.js') : null);
+    const remoteData = factory(betLedger);
 
     if (typeof module === 'object' && module.exports) {
         module.exports = remoteData;
     }
 
     root.SlimeRemoteData = remoteData;
-})(typeof globalThis === 'object' ? globalThis : this, function createRemoteData() {
+})(typeof globalThis === 'object' ? globalThis : this, function createRemoteData(betLedger) {
     'use strict';
 
     const RACER_IDS = Object.freeze(['melon', 'blueberry', 'dragonfruit', 'lemon']);
@@ -137,6 +138,7 @@
         if (!rawAccount || typeof rawAccount !== 'object') return null;
 
         return {
+            storageKey: betLedger?.getAccountStorageKey(rawAccount) || null,
             magicFragments: Math.max(0, toNumber(rawAccount.magicFragments)),
             checkinEnabled: rawAccount.checkinEnabled === true
         };

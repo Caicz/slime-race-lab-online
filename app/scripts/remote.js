@@ -6,9 +6,11 @@
     const remoteActions = globalThis.SlimeRemoteActions;
     const dailyQuest = globalThis.SlimeDailyQuest;
     const heroAutomation = globalThis.SlimeHeroAutomation;
+    const betLedger = globalThis.SlimeBetLedger;
     const requestPolicy = globalThis.SlimeRequestPolicy;
     const platformBridge = globalThis.SlimePlatformBridge;
     const MAX_RECOMMENDATION_AGE_MS = 5000;
+    const HERO_PLEASURE_RESIST_STORAGE_KEY = 'slime-race-lab.hero-pleasure-resist.v1';
     const endpointPaths = Object.freeze({
         current: '/api/slime-race/current',
         racers: '/api/slime-race/racers',
@@ -49,6 +51,12 @@
         rewardSummary: document.querySelector('#remoteRewardSummary'),
         rewardList: document.querySelector('#remoteRewardList'),
         claimStatus: document.querySelector('#remoteClaimStatus'),
+        betLedgerStatus: document.querySelector('#betLedgerStatus'),
+        betLedgerSpent: document.querySelector('#betLedgerSpent'),
+        betLedgerReturned: document.querySelector('#betLedgerReturned'),
+        betLedgerProfit: document.querySelector('#betLedgerProfit'),
+        betLedgerSessions: document.querySelector('#betLedgerSessions'),
+        betLedgerDays: document.querySelector('#betLedgerDays'),
         dailyRefresh: document.querySelector('#dailyQuestRefreshButton'),
         dailyOpen: document.querySelector('#dailyQuestOpenButton'),
         dailyReciteProgress: document.querySelector('#dailyReciteProgress'),
@@ -77,6 +85,7 @@
         heroSkillSwitch: document.querySelector('#heroSkillSwitchToggle'),
         heroDefensePotions: document.querySelector('#heroDefensePotionToggle'),
         heroHealing: document.querySelector('#heroHealingToggle'),
+        heroPleasureResist: document.querySelector('#heroPleasureResistToggle'),
         heroStart: document.querySelector('#heroStartButton'),
         heroStop: document.querySelector('#heroStopButton'),
         heroBattleCount: document.querySelector('#heroBattleCount'),
@@ -117,6 +126,15 @@
     let heroUnlockSelection = new Set();
     let backgroundExecutionActive = false;
     let pollingGeneration = 0;
+    let betLedgerState = null;
+    let observedSettlementSessionId = null;
+    let settlementRefreshSessionId = null;
+    try {
+        const storedPleasureResist = localStorage.getItem(HERO_PLEASURE_RESIST_STORAGE_KEY);
+        if (storedPleasureResist !== null) elements.heroPleasureResist.checked = storedPleasureResist === 'true';
+    } catch {
+        // Keep the safe checked default when local application storage is unavailable.
+    }
 
     function formatChips(value) {
         return Math.round(Number(value) || 0).toLocaleString('zh-CN');
@@ -338,9 +356,11 @@
             const battleCount = heroAutomation.getBattleCount(snapshot);
             if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
 
-            const result = heroAutomation.simulateBattle(snapshot, monster.id);
+            const result = heroAutomation.simulateBattle(snapshot, monster.id, {
+                pleasureResist: intent?.pleasureResist !== false
+            });
             const payload = heroAutomation.createBattleResultPayload(monster.id, result);
-            await requestPolicy.delay(600);
+            await requestPolicy.delay(600 + result.pleasureClimaxes * heroAutomation.FAMILIAR_MECHANIC.promptDelaySeconds * 1000);
             const submission = await request('/api/hero/battle-result', {method: 'POST', data: payload});
             await requestPolicy.delay(700);
             const updated = await fetchHeroAutomation();
@@ -505,6 +525,123 @@
         });
     }
 
+    function formatSignedChips(value) {
+        const amount = Math.round(Number(value) || 0);
+        return `${amount > 0 ? '+' : ''}${amount.toLocaleString('zh-CN')}`;
+    }
+
+    function setProfitStyle(element, value) {
+        element.classList.remove('profit', 'loss');
+        if (value > 0) element.classList.add('profit');
+        if (value < 0) element.classList.add('loss');
+    }
+
+    function formatLedgerDay(dateKey, index) {
+        if (index === 0) return '今天';
+        if (index === 1) return '昨天';
+        const [, month, day] = dateKey.split('-');
+        return `${Number(month)}月${Number(day)}日`;
+    }
+
+    function renderBetLedger() {
+        const summary = betLedger.getRecentDailySummaries(
+            betLedgerState || betLedger.createEmptyLedger('u-pending'),
+            new Date().toISOString(),
+            3
+        );
+        elements.betLedgerSpent.textContent = formatChips(summary.spent);
+        elements.betLedgerReturned.textContent = formatChips(summary.returned);
+        elements.betLedgerProfit.textContent = formatSignedChips(summary.netProfit);
+        elements.betLedgerSessions.textContent = `${summary.sessions} 场 · ${summary.bets} 笔`;
+        setProfitStyle(elements.betLedgerProfit, summary.netProfit);
+        elements.betLedgerStatus.textContent = betLedgerState?.updatedAt
+            ? `本机累计 ${betLedgerState.records.length} 场 · 更新 ${new Date(betLedgerState.updatedAt).toLocaleTimeString('zh-CN', {hour12: false})}`
+            : '结算后更新 · 按账号保存在本机';
+        elements.betLedgerDays.replaceChildren();
+
+        summary.days.forEach((day, index) => {
+            const card = document.createElement('article');
+            const header = document.createElement('header');
+            const title = document.createElement('strong');
+            const profit = document.createElement('span');
+            card.className = 'bet-ledger-day';
+            title.textContent = `${formatLedgerDay(day.dateKey, index)} · ${day.sessions} 场`;
+            profit.className = 'bet-ledger-profit';
+            profit.textContent = formatSignedChips(day.netProfit);
+            setProfitStyle(profit, day.netProfit);
+            header.append(title, profit);
+            card.append(header);
+
+            if (day.records.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'bet-ledger-empty';
+                empty.textContent = '没有已结算下注';
+                card.append(empty);
+            }
+
+            day.records.forEach(record => {
+                const row = document.createElement('section');
+                const rowHeader = document.createElement('header');
+                const session = document.createElement('strong');
+                const time = document.createElement('span');
+                const bets = document.createElement('div');
+                const footer = document.createElement('footer');
+                const totals = document.createElement('span');
+                const net = document.createElement('strong');
+                row.className = 'bet-ledger-record';
+                session.textContent = `#${record.sessionId} · 冠军 ${racerNames[record.winnerId] || '未知'}`;
+                time.textContent = new Date(record.settledAt).toLocaleTimeString('zh-CN', {
+                    timeZone: betLedger.TIME_ZONE,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+                rowHeader.append(session, time);
+                bets.className = 'bet-ledger-bets';
+                record.bets.forEach(bet => {
+                    const item = document.createElement('span');
+                    item.textContent = `${racerNames[bet.racerId]} ${formatChips(bet.amount)} · ${bet.won ? `赢，返还 ${formatChips(bet.rewardAmount)}` : '未中'}`;
+                    bets.append(item);
+                });
+                totals.textContent = `投入 ${formatChips(record.spent)} · 返还 ${formatChips(record.returned)}`;
+                net.className = 'bet-ledger-profit';
+                net.textContent = formatSignedChips(record.netProfit);
+                setProfitStyle(net, record.netProfit);
+                footer.append(totals, net);
+                row.append(rowHeader, bets, footer);
+                card.append(row);
+            });
+            elements.betLedgerDays.append(card);
+        });
+    }
+
+    function updateBetLedger(snapshot) {
+        const accountKey = snapshot?.account?.storageKey;
+        if (!accountKey) return;
+        if (betLedgerState?.accountKey !== accountKey) betLedgerState = betLedger.loadLedger(localStorage, accountKey);
+        let saveError = null;
+
+        if (snapshot.mode === 'full') {
+            const result = betLedger.mergeSettledBets(betLedgerState, snapshot, snapshot.updatedAt);
+            betLedgerState = result.ledger;
+            if (result.changed) {
+                try {
+                    betLedger.saveLedger(localStorage, betLedgerState);
+                } catch (error) {
+                    saveError = error;
+                }
+            }
+        }
+        renderBetLedger();
+        if (saveError) elements.betLedgerStatus.textContent = `本地账本保存失败：${String(saveError.message || saveError)}`;
+
+        const sessionId = Number(snapshot.current?.sessionId);
+        const settled = snapshot.current?.status === 'finished' && Number.isSafeInteger(sessionId) && sessionId > 0;
+        if (!settled || observedSettlementSessionId === sessionId) return;
+        observedSettlementSessionId = sessionId;
+        if (snapshot.mode !== 'full') settlementRefreshSessionId = sessionId;
+    }
+
     function formatDailyCount(task) {
         const maximum = task.maxDaily > 0 ? ` / ${task.maxDaily}` : '';
         return `${task.completionCount}${maximum} 次 · ${formatChips(task.fragmentsEarned)} 碎片`;
@@ -563,6 +700,7 @@
         elements.heroSkillSwitch.disabled = heroBusy || heroRunning;
         elements.heroDefensePotions.disabled = heroBusy || heroRunning;
         elements.heroHealing.disabled = heroBusy || heroRunning;
+        elements.heroPleasureResist.disabled = heroBusy || heroRunning;
         elements.heroStart.disabled = busy || !authenticated || !supported || !heroRecommendations.has(elements.heroMonster.value);
         elements.heroStop.disabled = !heroRunning || heroStopRequested;
         elements.heroUnlock.disabled = busy || !authenticated || !atBattleLimit || !adapter?.getHeroUnlockChallenge;
@@ -850,6 +988,7 @@
             const footer = document.createElement('footer');
             const survival = document.createElement('span');
             const timing = document.createElement('span');
+            const progress = document.createElement('div');
             card.className = `hero-recommendation${elements.heroMonster.value === monsterId ? ' selected' : ''}`;
             title.textContent = recommendation.monster.name;
             level.textContent = `Lv.${recommendation.monster.level}`;
@@ -862,9 +1001,20 @@
             }
             survival.textContent = `胜率 ${(recommendation.winRate * 100).toFixed(1)}% · 均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}% · 余血 ${(recommendation.averageRemainingHpRatio * 100).toFixed(1)}%`;
             const victoryTime = Number.isFinite(recommendation.averageVictorySeconds) ? `${recommendation.averageVictorySeconds.toFixed(1)}s` : '无胜场';
-            timing.textContent = `${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'} · 均胜时 ${victoryTime}`;
+            const activeTime = Number.isFinite(recommendation.averageActiveVictorySeconds)
+                && Math.abs(recommendation.averageVictorySeconds - recommendation.averageActiveVictorySeconds) >= 0.05
+                ? `（战斗 ${recommendation.averageActiveVictorySeconds.toFixed(1)}s）`
+                : '';
+            const pleasureText = monsterId === 'familiar'
+                ? recommendation.pleasureResist
+                    ? ' · 快感抗性'
+                    : ` · 均高潮 ${recommendation.averageVictoryPleasureClimaxes.toFixed(1)} 次`
+                : '';
+            timing.textContent = `${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'}${pleasureText} · 均胜时 ${victoryTime}${activeTime}`;
+            progress.className = 'hero-monster-progress';
+            progress.textContent = `经验 ${formatChips(recommendation.monster.expReward)} · ${recommendation.monster.sweepLevel ? `扫荡 Lv.${recommendation.monster.sweepLevel}` : '扫荡未解锁'} · 掉落 ${recommendation.monster.recordedDropLevels}/${recommendation.monster.eligibleDropLevels}`;
             footer.append(survival, timing);
-            card.append(header, allocation, footer);
+            card.append(header, allocation, progress, footer);
             card.addEventListener('click', () => {
                 elements.heroMonster.value = monsterId;
                 renderHeroRecommendations();
@@ -892,6 +1042,7 @@
             minimumHpRatio: elements.heroHealing.checked && hpRatio < 0.2 ? 0.95 : undefined,
             optimizationMode: elements.heroOptimizationMode.value,
             optimizeActiveSkill: elements.heroSkillSwitch.checked,
+            pleasureResist: elements.heroPleasureResist.checked,
             divisions: allMonsters ? 14 : 18,
             coarseSamples: 8,
             finalSamples: allMonsters ? 64 : 96
@@ -921,7 +1072,8 @@
             elements.heroCurrentStep.textContent = '六只方案计算完成';
             const modeName = heroAutomation.OPTIMIZATION_MODES[elements.heroOptimizationMode.value];
             const skillText = elements.heroSkillSwitch.checked ? '并优化主动技能' : '并保持当前主动技能';
-            setStatus(elements.heroStatus, `已按“${modeName}”目标、${elements.heroDefensePotions.checked ? '30 层防御药水' : '当前药水状态'}${skillText}完成六只方案；点击卡片可选择目标。`, 'success');
+            const familiarText = elements.heroPleasureResist.checked ? '、奏咪快感抗性开启' : '、奏咪快感循环开启';
+            setStatus(elements.heroStatus, `已按“${modeName}”目标、${elements.heroDefensePotions.checked ? '30 层防御药水' : '当前药水状态'}${skillText}${familiarText}完成六只方案；点击卡片可选择目标。`, 'success');
         } catch (error) {
             elements.heroCurrentStep.textContent = '计算停止';
             setStatus(elements.heroStatus, String(error.message || error), 'error');
@@ -989,7 +1141,10 @@
             : '；不额外使用防御药水';
         const skillText = elements.heroSkillSwitch.checked ? '；允许自动更换主动技能' : '；保持当前主动技能';
         const healingText = elements.heroHealing.checked ? '；HP低于20%时自动使用恢复药水补到至少95%' : '；不自动使用恢复药水';
-        if (!window.confirm(`确认以“${modeName}”目标自动挑战${monsterName}，本轮最多 ${limit} 胜、最低预测胜率 ${(minimumWinRate * 100).toFixed(0)}%${skillText}${potionText}${healingText}？每轮都会重新配点并提交一次真实战斗结果。`)) {
+        const pleasureText = monsterId === 'familiar'
+            ? elements.heroPleasureResist.checked ? '；开启官方快感抗性' : '；关闭快感抗性并模拟每100点快感归零'
+            : '';
+        if (!window.confirm(`确认以“${modeName}”目标自动挑战${monsterName}，本轮最多 ${limit} 胜、最低预测胜率 ${(minimumWinRate * 100).toFixed(0)}%${skillText}${potionText}${healingText}${pleasureText}？每轮都会重新配点并提交一次真实战斗结果。`)) {
             heroBusy = false;
             elements.heroCurrentStep.textContent = '已取消启动';
             setStatus(elements.heroStatus, '已取消，账户未因本次启动执行配点、用药或战斗提交。');
@@ -1075,7 +1230,10 @@
                     const recommendation = await calculateHeroRecommendation(snapshot, monsterId);
                     heroRecommendations.set(monsterId, recommendation);
                     renderHeroRecommendations();
-                    appendHeroLog(`Lv.${monster.level}“${modeName}”推荐 HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%。`);
+                    const familiarLog = monsterId === 'familiar'
+                        ? recommendation.pleasureResist ? '，快感抗性开启' : `，平均胜场高潮 ${recommendation.averageVictoryPleasureClimaxes.toFixed(1)} 次`
+                        : '';
+                    appendHeroLog(`Lv.${monster.level}“${modeName}”推荐 HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%${familiarLog}。`);
                     if (recommendation.winRate < minimumWinRate) {
                         throw new Error(`Lv.${monster.level} 的最高预测胜率只有 ${(recommendation.winRate * 100).toFixed(1)}%，低于停止线 ${(minimumWinRate * 100).toFixed(0)}%`);
                     }
@@ -1107,7 +1265,8 @@
                     elements.heroCurrentStep.textContent = `挑战 ${monsterName} Lv.${monster.level}`;
                     const battleGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
                         requireDefensePotions: elements.heroDefensePotions.checked,
-                        lockHeroPanel: true
+                        lockHeroPanel: true,
+                        pleasureResist: elements.heroPleasureResist.checked
                     });
                     battleGuard.expectedAllocation = recommendation.allocation;
                     pendingBattle = {
@@ -1241,6 +1400,11 @@
                 ? `${snapshot.myStats.totalBets} 次下注 · 净收益 ${formatChips(snapshot.myStats.netProfit)}`
                 : '个人统计不可用';
         }
+        try {
+            updateBetLedger(snapshot);
+        } catch (error) {
+            elements.betLedgerStatus.textContent = `本地账本更新失败：${String(error.message || error)}`;
+        }
 
         window.dispatchEvent(new CustomEvent('slime-race-remote-snapshot', {detail: snapshot}));
         setStatus(elements.status, `已同步 · ${new Date(snapshot.updatedAt).toLocaleTimeString('zh-CN', {hour12: false})}`, 'success');
@@ -1291,7 +1455,9 @@
                 if (timer !== generation || !authenticated || !elements.autoSync.checked) break;
                 if (isAutoSyncPaused()) continue;
 
-                await sync(++liveTicks % 10 === 0 ? 'full' : 'live', true);
+                const settlementRefresh = settlementRefreshSessionId !== null;
+                if (settlementRefresh) settlementRefreshSessionId = null;
+                await sync((settlementRefresh || ++liveTicks % 10 === 0) ? 'full' : 'live', true);
             }
         })().catch(error => {
             if (timer === generation) setStatus(elements.status, `后台同步停止：${String(error.message || error)}`, 'error');
@@ -1543,6 +1709,9 @@
         heroLosses = 0;
         heroUnlockData = null;
         heroUnlockSelection = new Set();
+        betLedgerState = null;
+        observedSettlementSessionId = null;
+        settlementRefreshSessionId = null;
         resetDailyClicks();
 
         try {
@@ -1583,6 +1752,7 @@
             const heroLogPlaceholder = document.createElement('p');
             heroLogPlaceholder.textContent = '自动循环尚未开始。';
             elements.heroRunLog.replaceChildren(heroLogPlaceholder);
+            renderBetLedger();
             renderHeroRecommendations();
             setStatus(elements.dailyStatus, '登录后低频同步一次；自动化操作每次只执行一轮，不会后台循环或自动领取。');
             setStatus(elements.heroStatus, '每轮会重新选择目标方案、配点和主动技能；HP低于20%时可补到至少95%。任何 POST 都不会自动重试。');
@@ -1655,6 +1825,24 @@
         setStatus(elements.heroStatus, '恢复药水条件已经变化，请重新刷新六只方案。');
         updateHeroControls();
     });
+    elements.heroPleasureResist.addEventListener('change', () => {
+        let saveError = null;
+        try {
+            localStorage.setItem(HERO_PLEASURE_RESIST_STORAGE_KEY, String(elements.heroPleasureResist.checked));
+        } catch (error) {
+            saveError = error;
+        }
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
+        setStatus(
+            elements.heroStatus,
+            saveError
+                ? `快感抗性设置无法保存到本机：${String(saveError.message || saveError)}`
+                : '奏咪使魔快感机制条件已经变化，请重新刷新六只方案。',
+            saveError ? 'error' : undefined
+        );
+        updateHeroControls();
+    });
     [elements.betRacer, elements.betAmount].forEach(input => input.addEventListener('change', () => {
         pendingBets = [];
         elements.betConfirm.hidden = true;
@@ -1676,5 +1864,6 @@
         clearTimeout(dailyClickResetTimer);
         void platformBridge?.getBackgroundExecutionPlugin(globalThis)?.stop();
     });
+    renderBetLedger();
     autoLogin();
 })();

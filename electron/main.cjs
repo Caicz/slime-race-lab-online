@@ -495,9 +495,11 @@ async function runHeroBattle(intent) {
         const battleCount = heroAutomation.getBattleCount(snapshot);
         if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
 
-        const result = heroAutomation.simulateBattle(snapshot, monster.id);
+        const result = heroAutomation.simulateBattle(snapshot, monster.id, {
+            pleasureResist: intent?.pleasureResist !== false
+        });
         const payload = heroAutomation.createBattleResultPayload(monster.id, result);
-        await requestPolicy.delay(600);
+        await requestPolicy.delay(600 + result.pleasureClimaxes * heroAutomation.FAMILIAR_MECHANIC.promptDelaySeconds * 1000);
         const submission = await requestJson('/api/hero/battle-result', {method: 'POST', data: payload});
         await requestPolicy.delay(700);
         const updated = await syncHeroAutomation();

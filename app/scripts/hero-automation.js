@@ -28,6 +28,13 @@
         4: {name: 'HP回复药水 (20%)', ratio: 0.2},
         5: {name: 'HP回复药水 (100%)', ratio: 1}
     });
+    const FAMILIAR_MECHANIC = Object.freeze({
+        pleasureStep: 10,
+        pleasureLimit: 100,
+        promptDelaySeconds: 1.2,
+        climaxExperienceLoss: 0,
+        dropRecordLevelLimit: 3000
+    });
     const MONSTERS = Object.freeze({
         slime: {name: '史莱姆', prefix: 'slime', minDamage: 5, dodgeChance: 0.25, clientLevelField: 'clientSlimeLevel'},
         hilichurl: {name: '野生咕隆', prefix: 'hilichurl', minDamage: 10, critChance: 0.2, poisonChance: 0.15, clientLevelField: 'clientHilichurlLevel'},
@@ -88,6 +95,20 @@
             battleStatus: status,
             skills: getSkillLevels(raw.skills),
             rebornSkills: getRebornSkillLevels(raw.rebornSkills),
+            monsterProgress: Object.fromEntries(Object.entries(MONSTERS).map(([monsterId, definition]) => {
+                const level = Math.max(0, toFiniteNumber(status[`${definition.prefix}Level`]));
+                const eligibleDropLevels = Math.min(Math.floor(level), FAMILIAR_MECHANIC.dropRecordLevelLimit);
+                const recordedDropLevels = new Set((Array.isArray(status[`${definition.prefix}DroppedLevels`])
+                    ? status[`${definition.prefix}DroppedLevels`]
+                    : []).map(Number).filter(value => Number.isSafeInteger(value) && value >= 1 && value <= eligibleDropLevels));
+                const sweepLevel = toFiniteNumber(status[`${definition.prefix}SweepLevel`], -1);
+                return [monsterId, {
+                    expReward: Math.max(0, Math.round(toFiniteNumber(status[`${definition.prefix}ExpReward`]))),
+                    sweepLevel: sweepLevel > 0 ? sweepLevel : null,
+                    eligibleDropLevels,
+                    recordedDropLevels: recordedDropLevels.size
+                }];
+            })),
             updatedAt: new Date().toISOString()
         };
     }
@@ -99,6 +120,7 @@
         const level = toFiniteNumber(status?.[`${definition.prefix}Level`], -1);
         const stats = status?.[`${definition.prefix}Stats`];
         if (level <= 0 || !stats) throw new Error(`${definition.name}面板尚未同步`);
+        const progress = snapshot?.monsterProgress?.[monsterId] || {};
 
         return {
             id: monsterId,
@@ -113,7 +135,11 @@
             dodgeChance: definition.dodgeChance || 0,
             critChance: definition.critChance || 0,
             poisonChance: definition.poisonChance || 0,
-            clientLevelField: definition.clientLevelField
+            clientLevelField: definition.clientLevelField,
+            expReward: Math.max(0, toFiniteNumber(progress.expReward)),
+            sweepLevel: progress.sweepLevel || null,
+            eligibleDropLevels: Math.max(0, toFiniteNumber(progress.eligibleDropLevels)),
+            recordedDropLevels: Math.max(0, toFiniteNumber(progress.recordedDropLevels))
         };
     }
 
@@ -200,6 +226,7 @@
             expectedMonster: getMonsterPanel(monster),
             expectedBattleCount: getBattleCount(snapshot),
             requireDefensePotions: options.requireDefensePotions === true,
+            pleasureResist: options.pleasureResist !== false,
             ...(options.lockHeroPanel === true ? {expectedHero: getHeroPanel(snapshot)} : {})
         };
     }
@@ -321,6 +348,7 @@
         const random = typeof options.random === 'function' ? options.random : Math.random;
         const activeLevel = Math.max(0, toFiniteNumber(player.skills[player.activeSkillKey]));
         const rebornLevel = Math.max(0, toFiniteNumber(player.rebornSkills[player.equippedRebornSkill]));
+        const pleasureResist = options.pleasureResist !== false;
         if (player.equippedRebornSkill && rebornLevel > 0) throw new Error('当前已装备转生技能，自动战斗模型暂不支持，请先切回基础模式');
 
         const state = {
@@ -347,6 +375,8 @@
             monsterAtb: 0,
             monsterActionCount: 0,
             monsterReviveCount: 0,
+            pleasureValue: 0,
+            pleasureClimaxes: 0,
             monsterStealthed: false,
             magneticFieldUsed: false,
             shieldActive: false,
@@ -488,6 +518,13 @@
                 state.paralysisTimer = Math.min(2, state.paralysisTimer + 0.5);
             }
             if (forcedHug) state.paralysisTimer = Math.min(2, state.paralysisTimer + 1);
+            if (monsterId === 'familiar' && !pleasureResist && state.playerHp > 0) {
+                state.pleasureValue = Math.min(FAMILIAR_MECHANIC.pleasureLimit, state.pleasureValue + FAMILIAR_MECHANIC.pleasureStep);
+                if (state.pleasureValue >= FAMILIAR_MECHANIC.pleasureLimit) {
+                    state.pleasureClimaxes += 1;
+                    state.pleasureValue = 0;
+                }
+            }
             state.monsterActionCount += 1;
             state.monsterAtb = 0;
             state.phase = state.playerHp <= 0 ? 'defeat' : 'fighting';
@@ -541,13 +578,19 @@
         }
 
         if (state.phase === 'fighting') state.phase = 'defeat';
+        const elapsedSeconds = Number((state.ticks / 10).toFixed(1));
         return {
             victory: state.phase === 'victory',
             currentHp: Math.max(0, Math.round(state.playerHp)),
             hpLost: Math.max(0, Math.round(player.hp - state.playerHp)),
             hpLossRatio: Math.max(0, (player.hp - state.playerHp) / Math.max(1, player.hp)),
             remainingHpRatio: Math.max(0, state.playerHp / Math.max(1, state.playerMaxHp)),
-            elapsedSeconds: Number((state.ticks / 10).toFixed(1)),
+            elapsedSeconds,
+            wallClockSeconds: Number((elapsedSeconds + state.pleasureClimaxes * FAMILIAR_MECHANIC.promptDelaySeconds).toFixed(1)),
+            pleasureResist,
+            pleasureValue: state.pleasureValue,
+            pleasureClimaxes: state.pleasureClimaxes,
+            climaxExperienceLost: state.pleasureClimaxes * FAMILIAR_MECHANIC.climaxExperienceLoss,
             actions: state.actions,
             monsterRemainingHp: Math.max(0, Math.round(state.monsterHp)),
             monsterLevel: monster.level,
@@ -599,7 +642,10 @@
         let hpLossRatio = 0;
         let remainingHp = 0;
         let elapsedSeconds = 0;
+        let wallClockSeconds = 0;
+        let victoryActiveSeconds = 0;
         let victorySeconds = 0;
+        let victoryPleasureClimaxes = 0;
         const baseSeed = hashText(`${monsterId}:${monster.level}`);
 
         for (let index = 0; index < sampleCount; index += 1) {
@@ -610,12 +656,15 @@
             });
             if (result.victory) {
                 victories += 1;
-                victorySeconds += result.elapsedSeconds;
+                victoryActiveSeconds += result.elapsedSeconds;
+                victorySeconds += result.wallClockSeconds;
+                victoryPleasureClimaxes += result.pleasureClimaxes;
             }
             hpLost += result.hpLost;
             hpLossRatio += result.hpLossRatio;
             remainingHp += result.remainingHpRatio;
             elapsedSeconds += result.elapsedSeconds;
+            wallClockSeconds += result.wallClockSeconds;
         }
 
         const winRate = victories / sampleCount;
@@ -623,7 +672,10 @@
         const averageHpLossRatio = hpLossRatio / sampleCount;
         const averageRemainingHpRatio = remainingHp / sampleCount;
         const averageSeconds = elapsedSeconds / sampleCount;
+        const averageWallClockSeconds = wallClockSeconds / sampleCount;
+        const averageActiveVictorySeconds = victories > 0 ? victoryActiveSeconds / victories : Number.POSITIVE_INFINITY;
         const averageVictorySeconds = victories > 0 ? victorySeconds / victories : Number.POSITIVE_INFINITY;
+        const averageVictoryPleasureClimaxes = victories > 0 ? victoryPleasureClimaxes / victories : 0;
         return {
             allocation,
             activeSkillKey: options.activeSkillKey ?? snapshot.account.equippedActiveSkill ?? null,
@@ -632,7 +684,11 @@
             averageHpLossRatio,
             averageRemainingHpRatio,
             averageSeconds,
-            averageVictorySeconds
+            averageWallClockSeconds,
+            averageActiveVictorySeconds,
+            averageVictorySeconds,
+            averageVictoryPleasureClimaxes,
+            pleasureResist: options.pleasureResist !== false
         };
     }
 
@@ -807,6 +863,7 @@
         ACTIVE_SKILLS,
         OPTIMIZATION_MODES,
         HEALING_POTIONS,
+        FAMILIAR_MECHANIC,
         MONSTERS,
         createSnapshot,
         getCurrentAllocation,

@@ -222,6 +222,19 @@
                     <div class="remote-reward-list" id="remoteRewardList"><p>同步后在这里显示逐笔奖励。</p></div>
                     <p class="form-status" id="remoteClaimStatus">每笔奖励需手动确认领取，不会自动领取。</p>
                 </section>
+                <section class="remote-action-card bet-ledger-card">
+                    <div class="remote-action-heading">
+                        <strong>最近三日押注盈亏</strong>
+                        <span id="betLedgerStatus">结算后更新 · 按账号保存在本机</span>
+                    </div>
+                    <div class="bet-ledger-summary">
+                        <div><span>三日投入</span><strong id="betLedgerSpent">0</strong></div>
+                        <div><span>三日返还</span><strong id="betLedgerReturned">0</strong></div>
+                        <div><span>三日净盈亏</span><strong id="betLedgerProfit">0</strong></div>
+                        <div><span>已结算</span><strong id="betLedgerSessions">0 场 · 0 笔</strong></div>
+                    </div>
+                    <div class="bet-ledger-days" id="betLedgerDays"><p>登录后读取当前账号的本地押注账本。</p></div>
+                </section>
                 <section class="remote-action-card daily-quest-card">
                     <div class="remote-action-heading daily-quest-heading">
                         <div><strong>日常任务自动化</strong><span>站点所有者模式 · 单次执行 · 不自动领取</span></div>
@@ -270,6 +283,7 @@
                         <label class="hero-potion-toggle"><input id="heroSkillSwitchToggle" type="checkbox" checked><span>把四种主动技能一起纳入优化，并在挑战前自动更换</span></label>
                         <label class="hero-potion-toggle"><input id="heroDefensePotionToggle" type="checkbox"><span>开始时补足 30 层防御药水（最多消耗 30 瓶；10 分钟到期即停）</span></label>
                         <label class="hero-potion-toggle"><input id="heroHealingToggle" type="checkbox" checked><span>HP 低于 20% 时使用恢复药水，补到至少 95%</span></label>
+                        <label class="hero-potion-toggle"><input id="heroPleasureResistToggle" type="checkbox" checked><span>奏咪使魔快感抗性（推荐；关闭后每次命中 +10，达到 100 后归零）</span></label>
                         <button class="primary-button" id="heroStartButton" type="button" disabled>开始自动循环</button>
                         <button class="quiet-button" id="heroStopButton" type="button" disabled>完成当前步骤后停止</button>
                     </div>
@@ -420,6 +434,7 @@
     <script src="scripts/engine.js"></script>
     <script src="scripts/betting.js"></script>
     <script src="scripts/real-stats.js"></script>
+    <script src="scripts/bet-ledger.js"></script>
     <script src="scripts/remote-data.js"></script>
     <script src="scripts/remote-actions.js"></script>
     <script src="scripts/daily-quest.js"></script>
