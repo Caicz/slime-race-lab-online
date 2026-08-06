@@ -179,7 +179,7 @@ npm run android:apk
 
 Android 调试 APK 默认位于 `android/app/build/outputs/apk/debug/app-debug.apk`。当前已验收的易识别副本位于：
 
-- `release/slime-race-lab-online-1.1.6-android-debug.apk`
+- `release/slime-race-lab-online-1.1.7-android-debug.apk`
 
 该 APK 使用 Android 调试证书签名，可以直接侧载安装，但不能直接提交应用商店；正式上架需要创建私有发布密钥并生成签名的 release AAB/APK。
 联网版 Android 清单只申请网络权限。调试 APK 只发布到指定的 private 仓库 Release，不发布到公共离线仓库或应用商店。

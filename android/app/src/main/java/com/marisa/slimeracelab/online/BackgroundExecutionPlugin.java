@@ -52,12 +52,13 @@ public class BackgroundExecutionPlugin extends Plugin {
 
     @PluginMethod
     public void delay(PluginCall call) {
-        Long milliseconds = call.getLong("milliseconds");
-        if (milliseconds == null || milliseconds < 0 || milliseconds > 60000) {
+        // Capacitor decodes ordinary JavaScript integer literals as Integer, which getLong() rejects.
+        Double milliseconds = call.getDouble("milliseconds");
+        if (milliseconds == null || !Double.isFinite(milliseconds) || milliseconds < 0 || milliseconds > 60000) {
             call.reject("等待时间必须在 0–60000 毫秒之间");
             return;
         }
 
-        handler.postDelayed(() -> call.resolve(new JSObject()), milliseconds);
+        handler.postDelayed(() -> call.resolve(new JSObject()), Math.round(milliseconds));
     }
 }
