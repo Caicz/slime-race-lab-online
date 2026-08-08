@@ -73,6 +73,19 @@ function createRawSnapshot() {
     };
 }
 
+function createSequenceRandom(values, fallback = 0.99) {
+    let index = 0;
+    return () => index < values.length ? values[index++] : fallback;
+}
+
+function disableHeroSkills(raw) {
+    raw.account.equippedActiveSkill = null;
+    raw.account.equippedRebornSkill = null;
+    raw.skills = [];
+    raw.rebornSkills = {skills: []};
+    return raw;
+}
+
 test('当前配点可以还原勇者面板最终属性并选择30层防御药水', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
     const allocation = heroAutomation.getCurrentAllocation(snapshot.account);
@@ -327,4 +340,278 @@ test('异常重试仅跳过明确业务停机', () => {
     assert.equal(heroAutomation.isRetryableHeroError(new Error('预测胜率低于停止线')), false);
     assert.equal(heroAutomation.isRetryableHeroError(new Error('恢复药水不足')), false);
     assert.equal(heroAutomation.isRetryableHeroError(new Error('战斗对账异常')), false);
+});
+
+test('史莱姆按官方概率分支闪避并最多连续复活五次', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {currentHp: 5000, maxHp: 5000, attack: 1000, defense: 500, speed: 1000});
+    Object.assign(raw.battleStatus, {
+        slimeCurrentHp: 100,
+        slimeMaxHp: 100,
+        slimeStats: {hp: 100, atk: 1, def: 1, spd: 1}
+    });
+    const random = createSequenceRandom([
+        0,
+        0.99, 0.99, 0,
+        0.99, 0.99, 0,
+        0.99, 0.99, 0,
+        0.99, 0.99, 0,
+        0.99, 0.99, 0,
+        0.99, 0.99
+    ]);
+    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'slime', {random});
+
+    assert.equal(result.victory, true);
+    assert.equal(result.mechanics.monsterDodges, 1);
+    assert.equal(result.mechanics.monsterReviveCount, 5);
+});
+
+test('野生咕隆暴击无视防御并在命中后施加持续中毒', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {currentHp: 1000, maxHp: 1000, attack: 100, defense: 1, speed: 100});
+    Object.assign(raw.battleStatus, {
+        hilichurlCurrentHp: 100000,
+        hilichurlMaxHp: 100000,
+        hilichurlStats: {hp: 100000, atk: 500, def: 1000, spd: 200}
+    });
+    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'hilichurl', {
+        random: createSequenceRandom([0, 0])
+    });
+
+    assert.equal(result.mechanics.monsterCriticalHits, 1);
+    assert.equal(result.mechanics.poisonApplications, 1);
+    assert.ok(result.mechanics.poisonTicks >= 1);
+});
+
+test('重磁护卫先释放磁场再生成护盾并在无法破盾时反伤', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {currentHp: 1000, maxHp: 1000, attack: 100, defense: 500, speed: 100});
+    Object.assign(raw.battleStatus, {
+        ruinGuardCurrentHp: 10000,
+        ruinGuardMaxHp: 10000,
+        ruinGuardStats: {hp: 10000, atk: 1, def: 80, spd: 1}
+    });
+    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'ruin_guard', {
+        random: createSequenceRandom([0.99, 0, 0.99])
+    });
+
+    assert.equal(result.mechanics.magneticFieldUsed, true);
+    assert.equal(result.mechanics.shieldActivations, 1);
+    assert.equal(result.mechanics.shieldReflections, 1);
+});
+
+test('奏咪使魔首次行动偷取一半攻击且后续按攻击伤害回血', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {currentHp: 40, maxHp: 40, attack: 200, defense: 100, speed: 100});
+    Object.assign(raw.battleStatus, {
+        familiarCurrentHp: 1000,
+        familiarMaxHp: 1000,
+        familiarStats: {hp: 1000, atk: 50, def: 100, spd: 200}
+    });
+    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'familiar', {random: () => 0.99});
+
+    assert.equal(result.mechanics.familiarStolenAttack, 100);
+    assert.equal(result.mechanics.familiarHealing, 1);
+    assert.equal(result.currentHp, 0);
+});
+
+test('极乐盗贼默认拒绝装备并按行动条50切换隐身', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {
+        debtCollectorCurrentHp: 100,
+        debtCollectorMaxHp: 100,
+        debtCollectorStats: {hp: 100, atk: 1, def: 20, spd: 1}
+    });
+    const snapshot = heroAutomation.createSnapshot(raw);
+    const refused = heroAutomation.simulateBattle(snapshot, 'debt_collector', {random: () => 0.99});
+    const submitted = heroAutomation.simulateBattle(snapshot, 'debt_collector', {
+        battleOptions: {submitEquipment: true},
+        random: () => 0.99
+    });
+
+    assert.equal(refused.equipmentSubmitted, false);
+    assert.equal(refused.finalPlayerAtk, 610);
+    assert.equal(refused.finalPlayerDef, 365);
+    assert.equal(refused.finalPlayerSpd, 165);
+    assert.equal(refused.mechanics.debtStealthToggles, 2);
+    assert.equal(submitted.equipmentSubmitted, true);
+    assert.equal(submitted.finalPlayerAtk, 500);
+    assert.equal(submitted.finalPlayerDef, 350);
+    assert.equal(submitted.finalPlayerSpd, 150);
+});
+
+test('大雷精灵每第三次行动强制拥抱且闪避后仍追加麻痹', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    raw.skills = [{skillKey: 'dodge', level: 34}];
+    Object.assign(raw.battleStatus, {currentHp: 1000, maxHp: 1000, attack: 1, defense: 1000, speed: 1});
+    Object.assign(raw.battleStatus, {
+        fireflyMageCurrentHp: 10000,
+        fireflyMageMaxHp: 10000,
+        fireflyMageStats: {hp: 10000, atk: 1, def: 10000, spd: 100}
+    });
+    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'firefly_mage', {random: () => 0});
+
+    assert.ok(result.mechanics.forcedHugs >= 1);
+    assert.ok(result.mechanics.paralysisApplications >= result.mechanics.forcedHugs);
+});
+
+test('account route and monster battle defaults are normalized', () => {
+    const raw = createRawSnapshot();
+    raw.account.defaultMonsterRoute = ['debt_collector', 'slime', 'debt_collector', 'unknown'];
+    const snapshot = heroAutomation.createSnapshot(raw);
+
+    assert.deepEqual(heroAutomation.getDefaultRoute(snapshot), ['debt_collector', 'slime']);
+    assert.deepEqual(snapshot.defaultRoute, ['debt_collector', 'slime']);
+    assert.equal(heroAutomation.getDefaultBattleOptions('debt_collector').submitEquipment, false);
+    assert.equal(heroAutomation.getDefaultBattleOptions('debt_collector').surrenderEquipment, false);
+    assert.equal(heroAutomation.getDefaultBattleOptions('familiar').pleasureResist, true);
+    const result = heroAutomation.simulateBattle(snapshot, 'debt_collector', {random: () => 0.99});
+    assert.equal(result.equipmentSubmitted, false);
+    assert.equal(Object.hasOwn(heroAutomation.createBattleResultPayload('debt_collector', result), 'submitEquipment'), false);
+});
+
+test('official reborn skills are recognized without fabricated generic stat effects', () => {
+    const raw = createRawSnapshot();
+    raw.account.equippedRebornSkill = 'star_curse';
+    raw.account.rebornMode = 'reborn';
+    raw.account.faithLevel = 28;
+    raw.rebornSkills = {
+        soulFragments: 12,
+        skills: [
+            {skillKey: 'holy_judgment', level: 0},
+            {skillKey: 'mirror_shield', level: 0},
+            {skillKey: 'star_curse', level: 2},
+            {skillKey: 'blood_pact', level: 0}
+        ]
+    };
+    const snapshot = heroAutomation.createSnapshot(raw);
+    const projected = heroAutomation.getProjectedStats(snapshot, heroAutomation.getCurrentAllocation(snapshot.account), {
+        rebornSkillKey: 'star_curse'
+    });
+
+    assert.equal(heroAutomation.getDefaultRebornSkill(snapshot), 'star_curse');
+    assert.equal(projected.atk, 610);
+    assert.equal(projected.equippedRebornSkill, 'star_curse');
+    assert.deepEqual(projected.rebornModifiers, {
+        element: 'dark', kind: 'attack', skillKey: 'star_curse', level: 2
+    });
+    assert.equal(snapshot.soulFragments, 12);
+});
+
+test('base mode disables stored reborn skill while reborn mode applies the official attack multiplier', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    raw.account.equippedRebornSkill = 'star_curse';
+    raw.rebornSkills = {skills: [{skillKey: 'star_curse', level: 2}]};
+    Object.assign(raw.battleStatus, {currentHp: 100, maxHp: 100, attack: 610, defense: 100, speed: 100});
+    Object.assign(raw.battleStatus, {
+        hilichurlCurrentHp: 2000,
+        hilichurlMaxHp: 2000,
+        hilichurlStats: {hp: 2000, atk: 10000, def: 120, spd: 100}
+    });
+
+    raw.account.rebornMode = 'base';
+    const base = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'hilichurl', {random: () => 0.99});
+    raw.account.rebornMode = 'reborn';
+    const reborn = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'hilichurl', {random: () => 0.99});
+
+    assert.equal(base.rebornSkillKey, null);
+    assert.equal(base.monsterRemainingHp, 1510);
+    assert.equal(reborn.rebornSkillKey, 'star_curse');
+    assert.equal(reborn.monsterRemainingHp, 1449);
+    assert.equal(heroAutomation.REBORN_SKILLS.holy_judgment.element, 'light');
+    assert.equal(heroAutomation.REBORN_SKILLS.star_curse.element, 'dark');
+});
+
+test('mirror shield and blood pact follow the official charge and delayed damage formulas', () => {
+    const mirrorRaw = disableHeroSkills(createRawSnapshot());
+    mirrorRaw.account.rebornMode = 'reborn';
+    mirrorRaw.account.equippedRebornSkill = 'mirror_shield';
+    mirrorRaw.rebornSkills = {skills: [{skillKey: 'mirror_shield', level: 2}]};
+    Object.assign(mirrorRaw.battleStatus, {currentHp: 100, maxHp: 100, attack: 100, defense: 500, speed: 100});
+    Object.assign(mirrorRaw.battleStatus, {
+        hilichurlCurrentHp: 50,
+        hilichurlMaxHp: 50,
+        hilichurlStats: {hp: 50, atk: 100, def: 1000, spd: 100}
+    });
+    const mirror = heroAutomation.simulateBattle(heroAutomation.createSnapshot(mirrorRaw), 'hilichurl', {random: () => 0.99});
+
+    const bloodRaw = disableHeroSkills(createRawSnapshot());
+    bloodRaw.account.rebornMode = 'reborn';
+    bloodRaw.account.equippedRebornSkill = 'blood_pact';
+    bloodRaw.rebornSkills = {skills: [{skillKey: 'blood_pact', level: 1}]};
+    Object.assign(bloodRaw.battleStatus, {currentHp: 1000, maxHp: 1000, attack: 100, defense: 500, speed: 100});
+    Object.assign(bloodRaw.battleStatus, {
+        hilichurlCurrentHp: 100,
+        hilichurlMaxHp: 100,
+        hilichurlStats: {hp: 100, atk: 1, def: 100, spd: 1}
+    });
+    const blood = heroAutomation.simulateBattle(heroAutomation.createSnapshot(bloodRaw), 'hilichurl', {random: () => 0.99});
+
+    assert.equal(mirror.victory, true);
+    assert.equal(mirror.mechanics.mirrorReflections, 1);
+    assert.equal(blood.victory, true);
+    assert.equal(blood.currentHp, 979);
+    assert.equal(blood.mechanics.bloodPactExplosions, 1);
+});
+
+test('base and faith modes keep independent levels and point pools and choose the stronger mode', () => {
+    const baseRaw = disableHeroSkills(createRawSnapshot());
+    baseRaw.account.rebornMode = 'base';
+    baseRaw.account.level = 50;
+    Object.assign(baseRaw.battleStatus, {
+        hilichurlCurrentHp: 5000,
+        hilichurlMaxHp: 5000,
+        hilichurlStats: {hp: 5000, atk: 1000, def: 1000, spd: 100}
+    });
+    const faithRaw = structuredClone(baseRaw);
+    Object.assign(faithRaw.account, {
+        rebornMode: 'faith',
+        faithLevel: 20,
+        hpBonus: 0,
+        attackBonus: 500,
+        defenseBonus: 0,
+        speedBonus: 0
+    });
+    Object.assign(faithRaw.battleStatus, {
+        currentHp: 500,
+        maxHp: 500,
+        attack: 5100,
+        defense: 50,
+        speed: 50,
+        baseAttack: 5100,
+        baseDefense: 50,
+        baseSpeed: 50
+    });
+    const snapshot = heroAutomation.combineHeroModeSnapshots(
+        heroAutomation.createSnapshot(baseRaw),
+        heroAutomation.createSnapshot(faithRaw),
+        'base'
+    );
+    const recommendation = heroAutomation.findOptimalBattleMode(snapshot, 'hilichurl', {
+        divisions: 4,
+        coarseSamples: 2,
+        finalSamples: 4,
+        optimizeActiveSkill: false
+    });
+
+    assert.equal(snapshot.heroModes.base.level, 50);
+    assert.equal(snapshot.heroModes.reborn.level, 20);
+    assert.equal(heroAutomation.getTotalPoints(heroAutomation.getHeroModeSnapshot(snapshot, 'base').account), 100);
+    assert.equal(heroAutomation.getTotalPoints(heroAutomation.getHeroModeSnapshot(snapshot, 'reborn').account), 500);
+    assert.equal(recommendation.heroMode, 'reborn');
+    assert.equal(recommendation.totalPoints, 500);
+    assert.ok(recommendation.modeComparisons.reborn.winRate > recommendation.modeComparisons.base.winRate);
+});
+
+test('all six monster models can be verified with one call', () => {
+    const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
+    const results = heroAutomation.verifyMonsterModels(snapshot, {
+        divisions: 4,
+        coarseSamples: 2,
+        finalSamples: 4
+    });
+
+    assert.deepEqual(Object.keys(results), Object.keys(heroAutomation.MONSTERS));
+    assert.ok(Object.values(results).every(result => result.status === 'ok'));
+    assert.equal(results.debt_collector.battleOptions.submitEquipment, false);
 });

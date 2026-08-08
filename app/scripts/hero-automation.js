@@ -43,6 +43,26 @@
         debt_collector: {name: '极乐盗贼', prefix: 'debtCollector', minDamage: 40, clientLevelField: 'clientDebtCollectorLevel'},
         firefly_mage: {name: '大雷精灵', prefix: 'fireflyMage', minDamage: 50, clientLevelField: 'clientFireflyMageLevel'}
     });
+    const MONSTER_IDS = Object.freeze(Object.keys(MONSTERS));
+    const MONSTER_BATTLE_DEFAULTS = Object.freeze({
+        slime: Object.freeze({}),
+        hilichurl: Object.freeze({}),
+        ruin_guard: Object.freeze({}),
+        familiar: Object.freeze({pleasureResist: true}),
+        // The official route does not hand equipment to this monster by default.
+        debt_collector: Object.freeze({submitEquipment: false, surrenderEquipment: false, equipmentSubmission: false}),
+        firefly_mage: Object.freeze({})
+    });
+    const HERO_MODES = Object.freeze({
+        base: '基础模式',
+        reborn: '转生信仰模式'
+    });
+    const REBORN_SKILLS = Object.freeze({
+        holy_judgment: Object.freeze({element: 'light', kind: 'attack'}),
+        mirror_shield: Object.freeze({element: 'light', kind: 'mirror'}),
+        star_curse: Object.freeze({element: 'dark', kind: 'attack'}),
+        blood_pact: Object.freeze({element: 'dark', kind: 'blood_pact'})
+    });
 
     function toFiniteNumber(value, fallback = 0) {
         const number = Number(value);
@@ -81,20 +101,244 @@
     }
 
     function getRebornSkillLevels(rawRebornSkills) {
-        const skills = Array.isArray(rawRebornSkills?.skills) ? rawRebornSkills.skills : [];
-        return Object.fromEntries(skills.map(skill => [String(skill?.skillKey || ''), Math.max(0, toFiniteNumber(skill?.level))]));
+        return Object.fromEntries(getRebornSkillOptions(rawRebornSkills).map(skill => [skill.key, skill.level]));
     }
 
+    function getRebornSkillOptions(rawRebornSkills) {
+        const skills = Array.isArray(rawRebornSkills?.skills)
+            ? rawRebornSkills.skills
+            : Array.isArray(rawRebornSkills) ? rawRebornSkills : [];
+        return skills.map(skill => {
+            const key = String(skill?.skillKey ?? skill?.key ?? skill?.id ?? '').trim();
+            if (!key) return null;
+            const effects = skill?.effects && typeof skill.effects === 'object'
+                ? skill.effects
+                : skill?.effect && typeof skill.effect === 'object' ? skill.effect : {};
+            return {
+                key,
+                name: String(skill?.name || skill?.title || key),
+                description: String(skill?.description || skill?.desc || ''),
+                level: Math.max(0, toFiniteNumber(skill?.level)),
+                faithCost: Math.max(0, toFiniteNumber(skill?.faithCost ?? skill?.cost)),
+                faithRequired: Math.max(0, toFiniteNumber(skill?.faithRequired ?? skill?.requiredFaith)),
+                equipped: skill?.equipped === true,
+                unlocked: skill?.unlocked !== false && toFiniteNumber(skill?.level) > 0,
+                supported: Boolean(REBORN_SKILLS[key]) || skill?.supported === true || skill?.noCombatEffect === true || Object.keys(effects).length > 0,
+                effects
+            };
+        }).filter(Boolean);
+    }
+
+    function normalizeRouteValue(value) {
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') {
+            try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) return parsed;
+            } catch {
+                // Accept the common comma/arrow separated route format.
+            }
+            return value.split(/[>,，、\s]+/).map(item => item.trim()).filter(Boolean);
+        }
+        return [];
+    }
+
+    function normalizeMonsterId(value) {
+        const text = String(value || '').trim();
+        if (MONSTERS[text]) return text;
+        const normalized = text.toLowerCase().replace(/[ -]/g, '_');
+        if (MONSTERS[normalized]) return normalized;
+        return MONSTER_IDS.find(id => MONSTERS[id].name === text) || null;
+    }
+
+    function getDefaultRoute(snapshot) {
+        const account = snapshot?.account || {};
+        const status = snapshot?.battleStatus || {};
+        const candidates = [
+            account.defaultMonsterRoute,
+            account.monsterRoute,
+            account.heroRoute,
+            account.defaultRoute,
+            account.preferredMonsters,
+            status.defaultMonsterRoute,
+            status.defaultRoute
+        ];
+        const explicit = candidates.flatMap(normalizeRouteValue).map(normalizeMonsterId).filter(Boolean);
+        const unique = [...new Set(explicit)];
+        return unique.length > 0 ? unique : [...MONSTER_IDS];
+    }
+
+    function getDefaultRebornSkill(snapshot) {
+        const account = snapshot?.account || {};
+        const options = Array.isArray(snapshot?.rebornSkillOptions) ? snapshot.rebornSkillOptions : [];
+        const requested = account.defaultRebornSkill || account.defaultRebornSkillKey || account.rebornSkillRoute;
+        const key = String(requested || account.equippedRebornSkill || options.find(skill => skill.equipped)?.key || '').trim();
+        if (!key) return null;
+        const candidate = options.find(skill => skill.key === key);
+        return candidate?.unlocked === false ? null : key;
+    }
+
+    function getDefaultBattleOptions(monsterId, options = {}) {
+        if (!MONSTERS[monsterId]) throw new Error('璇烽€夋嫨鏈夋晥鐨勫父瑙勬€墿');
+        return {...(MONSTER_BATTLE_DEFAULTS[monsterId] || {}), ...(options || {})};
+    }
+
+    function getDefaultRoutePlan(snapshot) {
+        const monsterIds = getDefaultRoute(snapshot);
+        return {
+            monsterIds,
+            rebornSkillKey: getDefaultRebornSkill(snapshot),
+            battleOptions: Object.fromEntries(MONSTER_IDS.map(id => [id, getDefaultBattleOptions(id)])),
+            source: 'account-or-fallback'
+        };
+    }
+
+    function validateRebornSkillSelection(snapshot, skillKey, options = {}) {
+        const key = skillKey === null || skillKey === undefined || skillKey === '' ? null : String(skillKey);
+        if (!key) {
+            if (options.allowNone === false) throw new Error('必须选择一个转生技能');
+            return null;
+        }
+        const candidate = (snapshot?.rebornSkillOptions || []).find(skill => skill.key === key);
+        if (!candidate || !candidate.unlocked || candidate.level <= 0) throw new Error('转生技能尚未解锁或无效');
+        if (candidate.faithRequired > Math.max(0, toFiniteNumber(snapshot?.faith))) throw new Error('当前信仰不足，无法选择该转生技能');
+        return key;
+    }
+
+    function getRebornSkill(snapshot, skillKey) {
+        const key = validateRebornSkillSelection(snapshot, skillKey);
+        return key ? snapshot.rebornSkillOptions.find(skill => skill.key === key) : null;
+    }
+
+    function getRebornModifiers(snapshot, skillKey) {
+        const skill = getRebornSkill(snapshot, skillKey);
+        if (!skill) return {};
+        if (!skill.supported) throw new Error('当前转生技能的信仰效果尚未纳入精确模拟');
+        const official = REBORN_SKILLS[skill.key];
+        if (official) return {...official, skillKey: skill.key, level: skill.level};
+        const effects = skill.effects || {};
+        const aliases = {
+            hp: ['hp', 'hpBonus', 'maxHpBonus'],
+            hpPercent: ['hpPercent', 'maxHpPercent'],
+            attack: ['attack', 'attackBonus', 'atkBonus'],
+            attackPercent: ['attackPercent', 'atkPercent'],
+            defense: ['defense', 'defenseBonus', 'defBonus'],
+            defensePercent: ['defensePercent', 'defPercent'],
+            speed: ['speed', 'speedBonus', 'spdBonus'],
+            speedPercent: ['speedPercent', 'spdPercent'],
+            dodgeRate: ['dodgeRate', 'dodge'],
+            critRate: ['critRate', 'crit'],
+            damagePercent: ['damagePercent', 'damage'],
+            damageReduction: ['damageReduction', 'damageTakenReduction'],
+            drainPercent: ['drainPercent', 'lifesteal']
+        };
+        return Object.fromEntries(Object.entries(aliases).map(([key, names]) => [
+            key,
+            names.reduce((value, name) => value || toFiniteNumber(effects[name]), 0)
+        ]).filter(([, value]) => value !== 0));
+    }
+
+    function firstDefined(...values) {
+        return values.find(value => value !== undefined && value !== null);
+    }
+
+    function normalizeHeroMode(mode) {
+        return mode === 'faith' || mode === 'reborn' ? 'reborn' : 'base';
+    }
+
+    function getServerHeroMode(mode) {
+        return normalizeHeroMode(mode) === 'reborn' ? 'faith' : 'base';
+    }
+
+    function createRebornModeData(raw, account, status) {
+        const reborn = raw?.rebornSkills || {};
+        const sourceAccount = reborn.account || reborn.hero || account.reborn || account.rebornStats || {};
+        const sourceStatus = reborn.battleStatus || reborn.status || status.reborn || status.rebornStatus || {};
+        const accountFields = {
+            statPoints: firstDefined(sourceAccount.statPoints, sourceAccount.availableStatPoints, account.rebornStatPoints),
+            hpBonus: firstDefined(sourceAccount.hpBonus, sourceAccount.hp, account.rebornHpBonus),
+            attackBonus: firstDefined(sourceAccount.attackBonus, sourceAccount.attack, sourceAccount.atk, account.rebornAttackBonus),
+            defenseBonus: firstDefined(sourceAccount.defenseBonus, sourceAccount.defense, sourceAccount.def, account.rebornDefenseBonus),
+            speedBonus: firstDefined(sourceAccount.speedBonus, sourceAccount.speed, sourceAccount.spd, account.rebornSpeedBonus)
+        };
+        const hasAllocation = Object.values(accountFields).every(value => value !== undefined && value !== null);
+        if (!hasAllocation) return null;
+        const modeAccount = {
+            ...account,
+            ...sourceAccount,
+            ...Object.fromEntries(Object.entries(accountFields).map(([key, value]) => [key, Math.max(0, toFiniteNumber(value))])),
+            equippedActiveSkill: firstDefined(sourceAccount.equippedActiveSkill, account.rebornEquippedActiveSkill, account.equippedActiveSkill),
+            equippedRebornSkill: firstDefined(sourceAccount.equippedRebornSkill, account.equippedRebornSkill, null)
+        };
+        const heroFields = {
+            currentHp: firstDefined(sourceStatus.currentHp, status.rebornCurrentHp),
+            maxHp: firstDefined(sourceStatus.maxHp, status.rebornMaxHp),
+            attack: firstDefined(sourceStatus.attack, sourceStatus.atk, status.rebornAttack),
+            defense: firstDefined(sourceStatus.defense, sourceStatus.def, status.rebornDefense),
+            speed: firstDefined(sourceStatus.speed, sourceStatus.spd, status.rebornSpeed),
+            baseAttack: firstDefined(sourceStatus.baseAttack, sourceStatus.baseAtk, status.rebornBaseAttack),
+            baseDefense: firstDefined(sourceStatus.baseDefense, sourceStatus.baseDef, status.rebornBaseDefense),
+            baseSpeed: firstDefined(sourceStatus.baseSpeed, sourceStatus.baseSpd, status.rebornBaseSpeed)
+        };
+        const requiredPanel = ['currentHp', 'maxHp', 'attack', 'defense', 'speed'];
+        if (!requiredPanel.every(key => heroFields[key] !== undefined && heroFields[key] !== null)) return null;
+        return {
+            account: modeAccount,
+            battleStatus: {
+                ...status,
+                ...sourceStatus,
+                ...Object.fromEntries(Object.entries(heroFields).filter(([, value]) => value !== undefined && value !== null)),
+                equipmentBonuses: sourceStatus.equipmentBonuses || reborn.equipmentBonuses || {}
+            },
+            level: Math.max(0, toFiniteNumber(firstDefined(sourceStatus.level, sourceAccount.level, reborn.level, account.rebornLevel)))
+        };
+    }
+
+    function getHeroModeSnapshot(snapshot, mode = 'base') {
+        const normalized = normalizeHeroMode(mode);
+        const modeData = snapshot?.heroModes?.[normalized];
+        if (!modeData) throw new Error(`${HERO_MODES[normalized]}的独立等级或加点面板尚未同步`);
+        return {...snapshot, account: modeData.account, battleStatus: modeData.battleStatus, heroMode: normalized};
+    }
+
+    function combineHeroModeSnapshots(baseSnapshot, rebornSnapshot, activeMode = 'base') {
+        const base = getHeroModeSnapshot(baseSnapshot, 'base');
+        const reborn = getHeroModeSnapshot(rebornSnapshot, 'reborn');
+        const normalized = normalizeHeroMode(activeMode);
+        const active = normalized === 'reborn' ? reborn : base;
+        return {
+            ...active,
+            heroMode: normalized,
+            heroModes: {
+                base: {
+                    account: base.account,
+                    battleStatus: base.battleStatus,
+                    level: Math.max(0, toFiniteNumber(base.account.level))
+                },
+                reborn: {
+                    account: reborn.account,
+                    battleStatus: reborn.battleStatus,
+                    level: Math.max(0, toFiniteNumber(reborn.account.faithLevel))
+                }
+            }
+        };
+    }
     function createSnapshot(raw) {
         const account = raw?.account;
         const status = raw?.battleStatus;
         if (!account || !status) throw new Error('勇者账户或战斗面板尚未同步');
 
-        return {
+        const heroMode = normalizeHeroMode(account.rebornMode);
+        const snapshot = {
             account,
             battleStatus: status,
+            heroMode,
             skills: getSkillLevels(raw.skills),
             rebornSkills: getRebornSkillLevels(raw.rebornSkills),
+            rebornSkillOptions: getRebornSkillOptions(raw.rebornSkills),
+            faith: Math.max(0, toFiniteNumber(raw.rebornSkills?.faith ?? raw.rebornSkills?.currentFaith ?? account.faithLevel ?? account.faith)),
+            soulFragments: Math.max(0, toFiniteNumber(raw.rebornSkills?.soulFragments)),
+            defaultRoute: getDefaultRoute({account, battleStatus: status}),
             monsterProgress: Object.fromEntries(Object.entries(MONSTERS).map(([monsterId, definition]) => {
                 const level = Math.max(0, toFiniteNumber(status[`${definition.prefix}Level`]));
                 const eligibleDropLevels = Math.min(Math.floor(level), FAMILIAR_MECHANIC.dropRecordLevelLimit);
@@ -111,6 +355,14 @@
             })),
             updatedAt: new Date().toISOString()
         };
+        snapshot.heroModes = {
+            [heroMode]: {
+                account,
+                battleStatus: status,
+                level: Math.max(0, toFiniteNumber(heroMode === 'reborn' ? account.faithLevel : account.level))
+            }
+        };
+        return snapshot;
     }
 
     function getMonster(snapshot, monsterId) {
@@ -135,6 +387,9 @@
             dodgeChance: definition.dodgeChance || 0,
             critChance: definition.critChance || 0,
             poisonChance: definition.poisonChance || 0,
+            resistNull: definition.resistNull || 0,
+            resistLight: definition.resistLight || 0,
+            resistDark: definition.resistDark || 0,
             clientLevelField: definition.clientLevelField,
             expReward: Math.max(0, toFiniteNumber(progress.expReward)),
             sweepLevel: progress.sweepLevel || null,
@@ -220,39 +475,55 @@
     }
 
     function createBattleGuard(snapshot, monsterId, options = {}) {
-        const monster = getMonster(snapshot, monsterId);
+        const heroMode = normalizeHeroMode(options.heroMode || snapshot.heroMode || snapshot.account?.rebornMode);
+        const modeSnapshot = getHeroModeSnapshot(snapshot, heroMode);
+        const monster = getMonster(modeSnapshot, monsterId);
+        const battleOptions = getDefaultBattleOptions(monsterId, {
+            ...(options.battleOptions || {}),
+            ...(options.pleasureResist === undefined ? {} : {pleasureResist: options.pleasureResist})
+        });
         return {
             monsterId,
+            heroMode,
             expectedMonster: getMonsterPanel(monster),
-            expectedBattleCount: getBattleCount(snapshot),
+            expectedBattleCount: getBattleCount(modeSnapshot),
             requireDefensePotions: options.requireDefensePotions === true,
-            pleasureResist: options.pleasureResist !== false,
-            ...(options.lockHeroPanel === true ? {expectedHero: getHeroPanel(snapshot)} : {})
+            pleasureResist: battleOptions.pleasureResist !== false,
+            battleOptions,
+            expectedRebornSkill: options.rebornSkillKey === undefined
+                ? heroMode === 'reborn' ? modeSnapshot.account.equippedRebornSkill || null : null
+                : validateRebornSkillSelection(modeSnapshot, options.rebornSkillKey),
+            ...(options.lockHeroPanel === true ? {expectedHero: getHeroPanel(modeSnapshot)} : {})
         };
     }
 
     function validateBattleGuard(snapshot, guard, options = {}) {
-        const monster = getMonster(snapshot, guard?.monsterId);
+        const modeSnapshot = getHeroModeSnapshot(snapshot, guard?.heroMode || snapshot.heroMode);
+        const monster = getMonster(modeSnapshot, guard?.monsterId);
         const expectedMonster = guard?.expectedMonster;
         if (!expectedMonster || JSON.stringify(getMonsterPanel(monster)) !== JSON.stringify(expectedMonster)) {
             throw new Error(`${monster.name}面板已经变化，请重新计算配点`);
         }
 
-        const battleCount = getBattleCount(snapshot);
+        const battleCount = getBattleCount(modeSnapshot);
         if (battleCount !== toNonNegativeInteger(guard?.expectedBattleCount, '预期战斗次数')) {
             throw new Error(`今日战斗次数已经变化：预期 ${guard.expectedBattleCount}，当前为 ${battleCount}`);
         }
-        const minimumBattleHp = Math.round(Math.max(1, toFiniteNumber(snapshot.battleStatus.maxHp)) * 0.02);
-        if (toFiniteNumber(snapshot.battleStatus.currentHp) < minimumBattleHp) {
+        const minimumBattleHp = Math.round(Math.max(1, toFiniteNumber(modeSnapshot.battleStatus.maxHp)) * 0.02);
+        if (toFiniteNumber(modeSnapshot.battleStatus.currentHp) < minimumBattleHp) {
             throw new Error(`勇者当前 HP 不足，至少需要 ${minimumBattleHp} HP 才能挑战`);
         }
-        if (guard.expectedHero && JSON.stringify(getHeroPanel(snapshot)) !== JSON.stringify(guard.expectedHero)) {
+        if (guard.expectedHero && JSON.stringify(getHeroPanel(modeSnapshot)) !== JSON.stringify(guard.expectedHero)) {
             throw new Error('勇者面板已经变化，请重新计算配点');
         }
 
+        const effectiveRebornSkill = modeSnapshot.heroMode === 'reborn' ? modeSnapshot.account.equippedRebornSkill || null : null;
+        if (guard.expectedRebornSkill !== undefined && effectiveRebornSkill !== guard.expectedRebornSkill) {
+            throw new Error('转生技能或信仰路线已经变化，请重新计算方案');
+        }
         if (guard.requireDefensePotions) {
-            const stacks = toNonNegativeInteger(snapshot.battleStatus.defenseBuffStacks, '防御药水层数');
-            const expiry = Date.parse(snapshot.battleStatus.defenseBuffExpiry || '');
+            const stacks = toNonNegativeInteger(modeSnapshot.battleStatus.defenseBuffStacks, '防御药水层数');
+            const expiry = Date.parse(modeSnapshot.battleStatus.defenseBuffExpiry || '');
             const now = toFiniteNumber(options.now, Date.now());
             if (stacks !== 30 || !Number.isFinite(expiry) || expiry <= now) {
                 throw new Error('30层防御药水已经失效，本轮按约定停止，不会再次消耗药水');
@@ -260,9 +531,9 @@
         }
 
         if (guard.expectedAllocation) {
-            const totalPoints = getTotalPoints(snapshot.account);
+            const totalPoints = getTotalPoints(modeSnapshot.account);
             const expected = validateAllocation(guard.expectedAllocation, totalPoints);
-            const current = getCurrentAllocation(snapshot.account);
+            const current = getCurrentAllocation(modeSnapshot.account);
             if (JSON.stringify(current) !== JSON.stringify(expected)) throw new Error('当前能力值方案与本轮推荐不一致，自动刷怪已停止');
         }
         return monster;
@@ -302,20 +573,30 @@
         const activeSkillKey = options.activeSkillKey === undefined ? account.equippedActiveSkill || null : options.activeSkillKey;
         if (activeSkillKey && !ACTIVE_SKILLS[activeSkillKey]) throw new Error('主动技能方案无效');
         if (activeSkillKey && toFiniteNumber(snapshot.skills[activeSkillKey]) <= 0) throw new Error(`${ACTIVE_SKILLS[activeSkillKey]}尚未解锁`);
+        const rebornModeActive = (snapshot.heroMode || account.rebornMode || 'base') !== 'base';
+        const rebornSkillKey = rebornModeActive
+            ? options.rebornSkillKey === undefined
+                ? account.equippedRebornSkill || null
+                : validateRebornSkillSelection(snapshot, options.rebornSkillKey)
+            : null;
+        const reborn = getRebornModifiers(snapshot, rebornSkillKey);
+        const withReborn = (value, key) => Math.max(1, Math.round(value * (1 + toFiniteNumber(reborn[`${key}Percent`]) / 100)) + toFiniteNumber(reborn[key]));
+        const adjustedMaxHp = withReborn(maxHp, 'hp');
         return {
-            hp: Math.max(1, Math.min(maxHp, Math.round(maxHp * currentHpRatio))),
-            maxHp,
-            atk: project('attack', status.attack),
-            def: project('defense', status.defense),
-            spd: project('speed', status.speed),
+            hp: Math.max(1, Math.min(adjustedMaxHp, Math.round(adjustedMaxHp * currentHpRatio))),
+            maxHp: adjustedMaxHp,
+            atk: withReborn(project('attack', status.attack), 'attack'),
+            def: withReborn(project('defense', status.defense), 'defense'),
+            spd: withReborn(project('speed', status.speed), 'speed'),
             baseAtk: getBaseStat('attack', target.attack),
             baseDef: getBaseStat('defense', target.defense),
             baseSpd: getBaseStat('speed', target.speed),
-            dodgeRate: Math.min(1, toFiniteNumber(snapshot.skills.dodge) * 0.03),
-            critRate: Math.min(1, toFiniteNumber(snapshot.skills.crit) * 0.03 + toFiniteNumber(status.critRateBonus)),
+            dodgeRate: Math.min(1, toFiniteNumber(snapshot.skills.dodge) * 0.03 + toFiniteNumber(reborn.dodgeRate)),
+            critRate: Math.min(1, toFiniteNumber(snapshot.skills.crit) * 0.03 + toFiniteNumber(status.critRateBonus) + toFiniteNumber(reborn.critRate)),
             critDamageMultiplier: 1.5 + toFiniteNumber(status.critDmgBonus),
             activeSkillKey,
-            equippedRebornSkill: account.equippedRebornSkill || null,
+            equippedRebornSkill: rebornSkillKey,
+            rebornModifiers: reborn,
             skills: snapshot.skills,
             rebornSkills: snapshot.rebornSkills
         };
@@ -348,15 +629,20 @@
         const random = typeof options.random === 'function' ? options.random : Math.random;
         const activeLevel = Math.max(0, toFiniteNumber(player.skills[player.activeSkillKey]));
         const rebornLevel = Math.max(0, toFiniteNumber(player.rebornSkills[player.equippedRebornSkill]));
-        const pleasureResist = options.pleasureResist !== false;
-        if (player.equippedRebornSkill && rebornLevel > 0) throw new Error('当前已装备转生技能，自动战斗模型暂不支持，请先切回基础模式');
+        const rebornSkill = rebornLevel > 0 ? REBORN_SKILLS[player.equippedRebornSkill] || null : null;
+        const battleOptions = getDefaultBattleOptions(monsterId, {
+            ...(options.battleOptions || {}),
+            ...(options.pleasureResist === undefined ? {} : {pleasureResist: options.pleasureResist})
+        });
+        const pleasureResist = battleOptions.pleasureResist !== false;
+        const equipmentSubmitted = monsterId === 'debt_collector' && battleOptions.submitEquipment === true;
 
         const state = {
             playerHp: player.hp,
             playerMaxHp: player.maxHp,
-            playerAtk: player.atk,
-            playerDef: player.def,
-            playerSpd: player.spd,
+            playerAtk: equipmentSubmitted ? player.baseAtk : player.atk,
+            playerDef: equipmentSubmitted ? player.baseDef : player.def,
+            playerSpd: equipmentSubmitted ? player.baseSpd : player.spd,
             originalPlayerSpd: player.spd,
             playerAtb: 0,
             playerShieldBonus: 0,
@@ -380,8 +666,25 @@
             monsterStealthed: false,
             magneticFieldUsed: false,
             shieldActive: false,
+            mirrorShieldCharged: false,
+            bloodPactCharged: false,
+            bloodPactCost: 0,
             monsterShieldBonus: 0,
             paralysisTimer: 0,
+            monsterDodges: 0,
+            monsterCriticalHits: 0,
+            poisonApplications: 0,
+            poisonTicks: 0,
+            shieldActivations: 0,
+            shieldReflections: 0,
+            familiarStolenAttack: 0,
+            familiarHealing: 0,
+            debtStealthToggles: 0,
+            debtDebuffStacks: 0,
+            forcedHugs: 0,
+            paralysisApplications: 0,
+            mirrorReflections: 0,
+            bloodPactExplosions: 0,
             ticks: 0,
             actions: 0,
             phase: 'fighting'
@@ -400,8 +703,48 @@
         function addDrain(damage) {
             if (!state.playerDrainActive) return;
             const maximum = Math.floor(state.playerMaxHp * toFiniteNumber(player.skills.drain) * 0.1);
-            const amount = Math.floor(damage * toFiniteNumber(player.skills.drain) * 0.01);
+            const amount = Math.floor(damage * (toFiniteNumber(player.skills.drain) + toFiniteNumber(player.rebornModifiers?.drainPercent)) * 0.01);
             state.playerDrainHp = Math.min(maximum, state.playerDrainHp + Math.max(0, amount));
+        }
+
+        function getMonsterResistance(element) {
+            if (element === 'light') return monster.resistLight;
+            if (element === 'dark') return monster.resistDark;
+            return monster.resistNull;
+        }
+
+        function applyMonsterResistance(damage, element) {
+            return Math.max(1, Math.round(damage * (1 - getMonsterResistance(element))));
+        }
+
+        function reflectMirrorShield() {
+            if (!state.mirrorShieldCharged) return;
+            state.mirrorShieldCharged = false;
+            if (state.monsterStealthed) return;
+            const ratio = 0.3 + rebornLevel * 0.02;
+            const baseDamage = Math.max(Math.round((state.playerDef + state.playerShieldBonus) * ratio) - state.monsterAtk, 1);
+            const rawDamage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
+            const damage = applyMonsterResistance(rawDamage, 'light');
+            state.monsterHp = Math.max(0, state.monsterHp - damage);
+            state.mirrorReflections += 1;
+            addDrain(damage);
+        }
+
+        function explodeBloodPact() {
+            if (!state.bloodPactCharged) return;
+            state.bloodPactCharged = false;
+            if (state.monsterStealthed) {
+                state.bloodPactCost = 0;
+                return;
+            }
+            const baseDamage = Math.max(state.bloodPactCost * 10 - state.monsterDef - state.monsterShieldBonus, 1);
+            const rawDamage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
+            const damage = applyMonsterResistance(rawDamage, 'dark');
+            state.monsterHp = Math.max(0, state.monsterHp - damage);
+            state.bloodPactCost = 0;
+            state.bloodPactExplosions += 1;
+            addDrain(damage);
+            if (state.monsterHp <= 0) state.phase = 'victory';
         }
 
         function playerAttack() {
@@ -411,13 +754,35 @@
                 return;
             }
             if (monster.dodgeChance > 0 && random() < monster.dodgeChance) {
+                state.monsterDodges += 1;
                 state.playerAtb = 0;
                 state.phase = 'fighting';
                 return;
             }
 
-            const baseDamage = Math.max(state.playerAtk - state.monsterDef - state.monsterShieldBonus, 1);
-            const damage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
+            if (rebornSkill?.kind === 'mirror') {
+                state.mirrorShieldCharged = true;
+                state.playerAtb = 0;
+                state.phase = 'fighting';
+                return;
+            }
+            if (rebornSkill?.kind === 'blood_pact') {
+                const cost = Math.min(Math.floor(state.playerMaxHp * (0.02 + rebornLevel * 0.001)), state.playerHp - 1);
+                state.playerHp -= Math.max(0, cost);
+                state.bloodPactCharged = true;
+                state.bloodPactCost = Math.max(0, cost);
+                state.playerAtb = 0;
+                state.phase = 'fighting';
+                return;
+            }
+
+            const attackMultiplier = rebornSkill?.kind === 'attack' ? 1 + rebornLevel * 0.05 : 1;
+            const effectiveAttack = rebornSkill?.kind === 'attack'
+                ? Math.round(state.playerAtk * attackMultiplier)
+                : state.playerAtk;
+            const baseDamage = Math.max(effectiveAttack - state.monsterDef - state.monsterShieldBonus, 1);
+            const rawDamage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
+            const damage = applyMonsterResistance(rawDamage, rebornSkill?.element);
             state.monsterHp = Math.max(0, state.monsterHp - damage);
             addDrain(damage);
 
@@ -427,9 +792,13 @@
                 state.monsterDef = Math.max(1, state.monsterDef - Math.max(1, Math.floor(state.monsterDef * rate)));
                 state.weakenStacks += 1;
             }
-            if (monsterId === 'firefly_mage') state.paralysisTimer = Math.min(2, state.paralysisTimer + 0.5);
-            if (monsterId === 'ruin_guard' && state.shieldActive && state.playerAtk < state.monsterDef + state.monsterShieldBonus) {
-                absorbDamage(Math.min(state.monsterDef + state.monsterShieldBonus - state.playerAtk, 100));
+            if (monsterId === 'firefly_mage') {
+                state.paralysisTimer = Math.min(2, state.paralysisTimer + 0.5);
+                state.paralysisApplications += 1;
+            }
+            if (monsterId === 'ruin_guard' && state.shieldActive && effectiveAttack < state.monsterDef + state.monsterShieldBonus) {
+                absorbDamage(Math.min(state.monsterDef + state.monsterShieldBonus - effectiveAttack, 100));
+                state.shieldReflections += 1;
                 if (state.playerHp <= 0) {
                     state.phase = 'defeat';
                     return;
@@ -447,6 +816,7 @@
             }
             if (state.playerPoisoned) {
                 absorbDamage(Math.min(Math.floor(state.playerMaxHp * 0.05), 100));
+                state.poisonTicks += 1;
                 if (state.playerHp <= 0) {
                     state.phase = 'defeat';
                     return;
@@ -484,6 +854,7 @@
                 const stolen = Math.floor(state.playerAtk / 2);
                 state.playerAtk -= stolen;
                 state.monsterAtk += stolen;
+                state.familiarStolenAttack += stolen;
                 state.monsterActionCount += 1;
                 state.monsterAtb = 0;
                 state.phase = 'fighting';
@@ -492,32 +863,63 @@
 
             const forcedHug = monsterId === 'firefly_mage' && (state.monsterActionCount + 1) % 3 === 0;
             if (player.dodgeRate > 0 && state.paralysisTimer === 0 && random() < player.dodgeRate) {
-                if (forcedHug) state.paralysisTimer = Math.min(2, state.paralysisTimer + 1);
+                if (forcedHug) {
+                    state.paralysisTimer = Math.min(2, state.paralysisTimer + 1);
+                    state.forcedHugs += 1;
+                    state.paralysisApplications += 1;
+                }
+                reflectMirrorShield();
                 state.monsterActionCount += 1;
                 state.monsterAtb = 0;
-                state.phase = 'fighting';
+                state.phase = state.monsterHp <= 0 ? 'victory' : 'fighting';
                 return;
             }
 
             const critical = monster.critChance > 0 && random() < monster.critChance;
-            const damage = critical
+            if (critical) state.monsterCriticalHits += 1;
+            const incomingDamage = critical
                 ? Math.min(state.monsterAtk, Math.min(200, Math.floor(state.playerMaxHp * 0.1)))
                 : Math.max(state.monsterAtk - state.playerDef - state.playerShieldBonus, monster.minDamage);
+            const damage = Math.max(1, Math.round(incomingDamage * (1 - Math.min(0.95, toFiniteNumber(player.rebornModifiers?.damageReduction) / 100))));
             const hpBefore = state.playerHp;
             const drainBefore = state.playerDrainHp;
             absorbDamage(damage);
             if (monsterId === 'familiar' && state.monsterActionCount > 0 && damage > 0) {
-                state.monsterHp = Math.min(state.monsterMaxHp, state.monsterHp + damage);
+                const healed = Math.min(damage, state.monsterMaxHp - state.monsterHp);
+                state.monsterHp += healed;
+                state.familiarHealing += healed;
             }
             if (monsterId === 'debt_collector' && (state.playerHp < hpBefore || state.playerDrainHp < drainBefore)) {
                 state.playerAtk = Math.max(1, state.playerAtk - Math.max(1, Math.floor(state.playerAtk * 0.05)));
                 state.playerDef = Math.max(1, state.playerDef - Math.max(1, Math.floor(state.playerDef * 0.05)));
+                state.debtDebuffStacks += 1;
             }
-            if (!state.playerPoisoned && monster.poisonChance > 0 && random() < monster.poisonChance) state.playerPoisoned = true;
+            if (!state.playerPoisoned && monster.poisonChance > 0 && random() < monster.poisonChance) {
+                state.playerPoisoned = true;
+                state.poisonApplications += 1;
+            }
             if (monsterId === 'firefly_mage' && (state.playerHp < hpBefore || state.playerDrainHp < drainBefore)) {
                 state.paralysisTimer = Math.min(2, state.paralysisTimer + 0.5);
+                state.paralysisApplications += 1;
             }
-            if (forcedHug) state.paralysisTimer = Math.min(2, state.paralysisTimer + 1);
+            if (forcedHug) {
+                state.paralysisTimer = Math.min(2, state.paralysisTimer + 1);
+                state.forcedHugs += 1;
+                state.paralysisApplications += 1;
+            }
+            if (state.playerHp <= 0) {
+                state.monsterActionCount += 1;
+                state.monsterAtb = 0;
+                state.phase = 'defeat';
+                return;
+            }
+            reflectMirrorShield();
+            if (state.monsterHp <= 0) {
+                state.monsterActionCount += 1;
+                state.monsterAtb = 0;
+                state.phase = 'victory';
+                return;
+            }
             if (monsterId === 'familiar' && !pleasureResist && state.playerHp > 0) {
                 state.pleasureValue = Math.min(FAMILIAR_MECHANIC.pleasureLimit, state.pleasureValue + FAMILIAR_MECHANIC.pleasureStep);
                 if (state.pleasureValue >= FAMILIAR_MECHANIC.pleasureLimit) {
@@ -542,6 +944,7 @@
 
             if (monsterId === 'debt_collector' && previousPlayerAtb < 50 && nextPlayerAtb >= 50) {
                 state.monsterStealthed = !state.monsterStealthed;
+                state.debtStealthToggles += 1;
                 state.playerAtb = nextPlayerAtb;
                 state.monsterAtb = Math.min(nextMonsterAtb, 100);
                 continue;
@@ -554,6 +957,7 @@
                     if (random() < 0.5) {
                         state.shieldActive = true;
                         state.monsterShieldBonus = state.monsterDef;
+                        state.shieldActivations += 1;
                     }
                 } else {
                     state.magneticFieldUsed = true;
@@ -561,6 +965,12 @@
                 }
                 state.playerAtb = nextPlayerAtb;
                 state.monsterAtb = Math.min(nextMonsterAtb, 100);
+                continue;
+            }
+            if (state.bloodPactCharged && previousPlayerAtb < 30 && nextPlayerAtb >= 30) {
+                state.playerAtb = nextPlayerAtb;
+                state.monsterAtb = Math.min(nextMonsterAtb, 100);
+                explodeBloodPact();
                 continue;
             }
 
@@ -594,7 +1004,32 @@
             actions: state.actions,
             monsterRemainingHp: Math.max(0, Math.round(state.monsterHp)),
             monsterLevel: monster.level,
-            monsterId
+            monsterId,
+            rebornSkillKey: player.equippedRebornSkill || null,
+            rebornSkillLevel: rebornLevel,
+            battleOptions,
+            equipmentSubmitted,
+            finalPlayerAtk: state.playerAtk,
+            finalPlayerDef: state.playerDef,
+            finalPlayerSpd: state.playerSpd,
+            mechanics: {
+                monsterDodges: state.monsterDodges,
+                monsterCriticalHits: state.monsterCriticalHits,
+                monsterReviveCount: state.monsterReviveCount,
+                poisonApplications: state.poisonApplications,
+                poisonTicks: state.poisonTicks,
+                magneticFieldUsed: state.magneticFieldUsed,
+                shieldActivations: state.shieldActivations,
+                shieldReflections: state.shieldReflections,
+                familiarStolenAttack: state.familiarStolenAttack,
+                familiarHealing: state.familiarHealing,
+                debtStealthToggles: state.debtStealthToggles,
+                debtDebuffStacks: state.debtDebuffStacks,
+                forcedHugs: state.forcedHugs,
+                paralysisApplications: state.paralysisApplications,
+                mirrorReflections: state.mirrorReflections,
+                bloodPactExplosions: state.bloodPactExplosions
+            }
         };
     }
 
@@ -679,6 +1114,7 @@
         return {
             allocation,
             activeSkillKey: options.activeSkillKey ?? snapshot.account.equippedActiveSkill ?? null,
+            rebornSkillKey: options.rebornSkillKey === undefined ? snapshot.account.equippedRebornSkill ?? null : options.rebornSkillKey,
             winRate,
             averageHpLost,
             averageHpLossRatio,
@@ -769,6 +1205,75 @@
             candidatesEvaluated: candidates.length * activeSkills.length,
             optimizationMode
         };
+    }
+
+    function findOptimalBattleMode(snapshot, monsterId, options = {}) {
+        const optimizationMode = getOptimizationMode(options.optimizationMode);
+        const candidates = [];
+        const getModeOptions = modeSnapshot => {
+            const hpRatio = toFiniteNumber(modeSnapshot.battleStatus.currentHp)
+                / Math.max(1, toFiniteNumber(modeSnapshot.battleStatus.maxHp, 1));
+            const minimumHpRatio = options.autoHealing === true && hpRatio < 0.2
+                ? Math.max(0.2, Math.min(1, toFiniteNumber(options.healingTargetRatio, 0.95)))
+                : options.minimumHpRatio;
+            return {...options, minimumHpRatio};
+        };
+        const baseData = snapshot?.heroModes?.base;
+        if (baseData) {
+            const baseSnapshot = getHeroModeSnapshot(snapshot, 'base');
+            candidates.push({
+                ...findOptimalAllocation(baseSnapshot, monsterId, {...getModeOptions(baseSnapshot), rebornSkillKey: null}),
+                heroMode: 'base',
+                modeName: HERO_MODES.base
+            });
+        }
+        const rebornData = snapshot?.heroModes?.reborn;
+        if (rebornData) {
+            const rebornSnapshot = getHeroModeSnapshot(snapshot, 'reborn');
+            const rebornSkillKey = options.rebornSkillKey === undefined
+                ? getDefaultRebornSkill(rebornSnapshot)
+                : options.rebornSkillKey;
+            candidates.push({
+                ...findOptimalAllocation(rebornSnapshot, monsterId, {...getModeOptions(rebornSnapshot), rebornSkillKey}),
+                heroMode: 'reborn',
+                modeName: HERO_MODES.reborn
+            });
+        }
+        if (candidates.length === 0) throw new Error('基础模式和转生信仰模式面板均未同步');
+        sortEvaluations(candidates, optimizationMode);
+        const comparisons = Object.fromEntries(candidates.map(candidate => [candidate.heroMode, {
+            modeName: candidate.modeName,
+            winRate: candidate.winRate,
+            averageHpLossRatio: candidate.averageHpLossRatio,
+            averageRemainingHpRatio: candidate.averageRemainingHpRatio,
+            averageVictorySeconds: candidate.averageVictorySeconds,
+            totalPoints: candidate.totalPoints,
+            allocation: candidate.allocation,
+            activeSkillKey: candidate.activeSkillKey,
+            rebornSkillKey: candidate.rebornSkillKey || null
+        }]));
+        return {...candidates[0], modeComparisons: comparisons};
+    }
+
+    function verifyMonsterModels(snapshot, options = {}) {
+        const results = {};
+        for (const monsterId of MONSTER_IDS) {
+            try {
+                const recommendation = findOptimalAllocation(snapshot, monsterId, options);
+                results[monsterId] = {
+                    status: 'ok',
+                    monster: recommendation.monster,
+                    allocation: recommendation.allocation,
+                    activeSkillKey: recommendation.activeSkillKey,
+                    rebornSkillKey: recommendation.rebornSkillKey || null,
+                    winRate: recommendation.winRate,
+                    battleOptions: getDefaultBattleOptions(monsterId, options.battleOptions)
+                };
+            } catch (error) {
+                results[monsterId] = {status: 'error', error: String(error?.message || error)};
+            }
+        }
+        return results;
     }
 
     function planAllocationChanges(account, targetAllocation) {
@@ -864,8 +1369,25 @@
         OPTIMIZATION_MODES,
         HEALING_POTIONS,
         FAMILIAR_MECHANIC,
+        HERO_MODES,
+        REBORN_SKILLS,
         MONSTERS,
+        MONSTER_IDS,
+        MONSTER_BATTLE_DEFAULTS,
         createSnapshot,
+        normalizeHeroMode,
+        getServerHeroMode,
+        getHeroModeSnapshot,
+        combineHeroModeSnapshots,
+        getRebornSkillOptions,
+        getRebornSkill,
+        getRebornModifiers,
+        validateRebornSkillSelection,
+        getDefaultRebornSkill,
+        getDefaultRoute,
+        getDefaultMonsterRoute: getDefaultRoute,
+        getDefaultBattleOptions,
+        getDefaultRoutePlan,
         getCurrentAllocation,
         getTotalPoints,
         validateAllocation,
@@ -878,6 +1400,8 @@
         simulateBattle,
         sortEvaluations,
         findOptimalAllocation,
+        findOptimalBattleMode,
+        verifyMonsterModels,
         planAllocationChanges,
         createBattleResultPayload,
         validateLevelTransition,

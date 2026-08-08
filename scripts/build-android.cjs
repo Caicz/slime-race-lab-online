@@ -32,4 +32,14 @@ if (result.error) {
     throw result.error;
 }
 
+if (result.status === 0) {
+    const version = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).version;
+    const source = path.join(projectRoot, 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+    const releaseDirectory = path.join(projectRoot, 'release');
+    const destination = path.join(releaseDirectory, `slime-race-lab-online-${version}-android-debug.apk`);
+    fs.mkdirSync(releaseDirectory, {recursive: true});
+    fs.copyFileSync(source, destination);
+    console.log(`APK: ${destination}`);
+}
+
 process.exitCode = result.status || 0;

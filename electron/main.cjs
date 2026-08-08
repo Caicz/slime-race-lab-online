@@ -60,14 +60,14 @@ function parseLocalEnv(text) {
     const values = {};
 
     text.split(/\r?\n/).forEach(line => {
-        const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+        const match = line.match(/^([A-Za-z0-9_]+)\s*[:=]\s*(.*)$/);
         if (!match) return;
         let value = match[2].trim();
 
         if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
             value = value.slice(1, -1);
         }
-        values[match[1]] = value;
+        values[match[1].toUpperCase()] = value;
     });
 
     return values;
@@ -86,12 +86,12 @@ async function readLocalCredentials() {
 
     if (process.platform !== 'win32' && (stat.mode & 0o777) !== 0o600) throw new Error('本地凭据文件权限必须为 600');
     const env = parseLocalEnv(text);
-    const username = String(env.SLIME_RACE_USERNAME || '').trim();
-    const password = String(env.SLIME_RACE_PASSWORD || '');
+    const username = String(env.SLIME_RACE_USERNAME || env.USERNAME || '').trim();
+    const password = String(env.SLIME_RACE_PASSWORD || env.PASSWORD || '');
     let configuredOrigin;
 
     try {
-        configuredOrigin = new URL(env.SLIME_RACE_URL || '').origin;
+        configuredOrigin = new URL(env.SLIME_RACE_URL || targetOrigin).origin;
     } catch {
         throw new Error('本地凭据文件中的 SLIME_RACE_URL 无效');
     }
@@ -241,7 +241,7 @@ async function syncDailyQuest() {
     return dailyQuest.normalizeDailyQuest(Object.fromEntries(names.map((name, index) => [name, values[index]])));
 }
 
-async function syncHeroAutomation() {
+async function syncCurrentHeroAutomation() {
     if (!sessionCookie) throw new Error('请先登录');
     const endpoints = {
         account: '/api/auth/me',
@@ -256,6 +256,45 @@ async function syncHeroAutomation() {
         250
     );
     return heroAutomation.createSnapshot(Object.fromEntries(names.map((name, index) => [name, values[index]])));
+}
+
+async function switchHeroMode(heroMode) {
+    await requestJson('/api/reborn/switch-mode', {
+        method: 'POST',
+        data: {mode: heroAutomation.getServerHeroMode(heroMode)}
+    });
+    await requestPolicy.delay(300);
+}
+
+async function syncHeroAutomation(options = {}) {
+    const current = await syncCurrentHeroAutomation();
+    if (options?.includeModes !== true || !current.account.rebornType) return current;
+    const originalMode = current.heroMode;
+    const otherMode = originalMode === 'base' ? 'reborn' : 'base';
+    let other;
+    await switchHeroMode(otherMode);
+    try {
+        other = await syncCurrentHeroAutomation();
+        if (other.heroMode !== otherMode) throw new Error(`${heroAutomation.HERO_MODES[otherMode]}切换后未生效`);
+    } finally {
+        await switchHeroMode(originalMode);
+    }
+    if (heroAutomation.getBattleCount(current) !== heroAutomation.getBattleCount(other)) {
+        throw new Error('读取双模式面板期间检测到并发战斗，方案已作废，请停止其他刷怪进程后重试');
+    }
+    return originalMode === 'base'
+        ? heroAutomation.combineHeroModeSnapshots(current, other, originalMode)
+        : heroAutomation.combineHeroModeSnapshots(other, current, originalMode);
+}
+
+async function ensureHeroMode(heroMode) {
+    const targetMode = heroAutomation.normalizeHeroMode(heroMode);
+    let snapshot = await syncCurrentHeroAutomation();
+    if (snapshot.heroMode === targetMode) return snapshot;
+    await switchHeroMode(targetMode);
+    snapshot = await syncCurrentHeroAutomation();
+    if (snapshot.heroMode !== targetMode) throw new Error(`${heroAutomation.HERO_MODES[targetMode]}切换后未生效`);
+    return snapshot;
 }
 
 async function runMutation(action) {
@@ -385,9 +424,13 @@ async function claimDailyGameReward(type) {
 
 async function applyHeroAllocation(intent) {
     return runMutation(async () => {
-        const snapshot = await syncHeroAutomation();
+        const snapshot = await ensureHeroMode(intent?.heroMode);
         const targetAllocation = intent?.targetAllocation || intent;
         const targetSkill = intent?.activeSkillKey;
+        const hasTargetRebornSkill = Object.hasOwn(intent || {}, 'rebornSkillKey');
+        const targetRebornSkill = hasTargetRebornSkill
+            ? heroAutomation.validateRebornSkillSelection(snapshot, intent.rebornSkillKey)
+            : undefined;
         if (intent?.guard) heroAutomation.validateBattleGuard(snapshot, intent.guard);
         if (targetSkill != null && (!heroAutomation.ACTIVE_SKILLS[targetSkill] || Number(snapshot.skills[targetSkill]) <= 0)) {
             throw new Error('推荐主动技能尚未解锁或无效');
@@ -406,12 +449,21 @@ async function applyHeroAllocation(intent) {
             await requestJson('/api/hero/skills/equip', {method: 'POST', data: {skillKey: targetSkill}});
             await requestPolicy.delay(300);
         }
+        if (snapshot.heroMode === 'reborn' && hasTargetRebornSkill && targetRebornSkill && targetRebornSkill !== (snapshot.account.equippedRebornSkill || null)) {
+            await requestJson('/api/hero/reborn-skills/equip', {method: 'POST', data: {skillKey: targetRebornSkill}});
+            await requestPolicy.delay(300);
+        }
 
         const updated = await syncHeroAutomation();
         const actual = heroAutomation.getCurrentAllocation(updated.account);
         if (JSON.stringify(actual) !== JSON.stringify(plan.target)) throw new Error('服务器返回的能力值方案与目标不一致，自动刷怪已停止');
         if (targetSkill !== undefined && updated.account.equippedActiveSkill !== targetSkill) throw new Error('服务器返回的主动技能与推荐不一致，自动刷怪已停止');
-        if (intent?.guard) heroAutomation.validateBattleGuard(updated, {...intent.guard, expectedAllocation: plan.target});
+        if (hasTargetRebornSkill && (updated.account.equippedRebornSkill || null) !== targetRebornSkill) throw new Error('服务器返回的转生技能与信仰路线不一致，自动刷怪已停止');
+        if (intent?.guard) heroAutomation.validateBattleGuard(updated, {
+            ...intent.guard,
+            expectedAllocation: plan.target,
+            ...(hasTargetRebornSkill ? {expectedRebornSkill: targetRebornSkill} : {})
+        });
         return updated;
     });
 }
@@ -490,12 +542,14 @@ async function prepareHeroDefensePotions() {
 
 async function runHeroBattle(intent) {
     return runMutation(async () => {
-        const snapshot = await syncHeroAutomation();
+        const snapshot = await ensureHeroMode(intent?.heroMode);
         const monster = heroAutomation.validateBattleGuard(snapshot, intent);
         const battleCount = heroAutomation.getBattleCount(snapshot);
         if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
 
         const result = heroAutomation.simulateBattle(snapshot, monster.id, {
+            rebornSkillKey: intent?.expectedRebornSkill,
+            battleOptions: intent?.battleOptions,
             pleasureResist: intent?.pleasureResist !== false
         });
         const payload = heroAutomation.createBattleResultPayload(monster.id, result);
@@ -561,9 +615,9 @@ ipcMain.handle('slime-remote:daily-open', event => {
     assertTrustedSender(event);
     return shell.openExternal(new URL('/daily-quest', targetOrigin).href);
 });
-ipcMain.handle('slime-remote:hero-sync', event => {
+ipcMain.handle('slime-remote:hero-sync', (event, options) => {
     assertTrustedSender(event);
-    return syncHeroAutomation();
+    return syncHeroAutomation(options);
 });
 ipcMain.handle('slime-remote:hero-allocate', (event, targetAllocation) => {
     assertTrustedSender(event);

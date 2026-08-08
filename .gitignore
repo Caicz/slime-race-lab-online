@@ -8,3 +8,5 @@ build/electron-win32-x64/
 .DS_Store
 .env.slime-race.local
 .local-data/
+.local-android-sdk/
+.local-android-commandlinetools.zip

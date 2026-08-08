@@ -5,7 +5,10 @@ const {execFileSync} = require('node:child_process');
 const projectRoot = path.join(__dirname, '..');
 const envName = '.env.slime-race.local';
 const envPath = path.join(projectRoot, envName);
-const expectedPrivateRemote = 'https://github.com/Caicz/slime-race-lab-online.git';
+const expectedPrivateRemotes = new Set([
+    'https://github.com/Caicz/slime-race-lab-online.git',
+    'git@github.com:Caicz/slime-race-lab-online.git'
+]);
 const expectedPackagedFiles = ['app/**/*', 'electron/**/*', 'package.json'];
 const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'electron/race-archive.cjs', 'app/scripts/app.js', 'app/scripts/real-stats.js', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/platform-bridge.js', 'app/scripts/remote.js', 'scripts/run-timer-error-check.cjs', 'scripts/update-race-archive.cjs'];
 
@@ -22,7 +25,7 @@ function checkPrivateRemote(violations) {
         remotes.forEach(remote => {
             const urls = execFileSync('git', ['remote', 'get-url', '--all', remote], {cwd: projectRoot, encoding: 'utf8'})
                 .trim().split(/\r?\n/).filter(Boolean);
-            if (remote !== 'origin' || urls.some(url => url !== expectedPrivateRemote)) {
+            if (remote !== 'origin' || urls.some(url => !expectedPrivateRemotes.has(url))) {
                 violations.push(`联网版只允许指定私有远程：${remote}`);
             }
         });

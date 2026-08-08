@@ -276,7 +276,9 @@
                         <button class="secondary-button" id="heroRefreshButton" type="button">刷新六只方案</button>
                     </div>
                     <div class="hero-automation-controls">
-                        <label><span>自动挑战怪物</span><select id="heroMonsterSelect"><option value="slime">史莱姆</option><option value="hilichurl">野生咕隆</option><option value="ruin_guard">重磁护卫</option><option value="familiar">奏咪使魔</option><option value="debt_collector">极乐盗贼</option><option value="firefly_mage">大雷精灵</option></select></label>
+                        <label><span>怪物选择</span><select id="heroMonsterSelect"><option value="slime">史莱姆</option><option value="hilichurl">野生咕隆</option><option value="ruin_guard">重磁护卫</option><option value="familiar">奏咪使魔</option><option value="debt_collector">极乐盗贼</option><option value="firefly_mage">大雷精灵</option></select></label>
+                        <label><span>挑战路线</span><select id="heroRouteMode"><option value="account">账号默认路线</option><option value="single">只刷所选怪物</option></select></label>
+                        <label><span>转生技能 / 信仰</span><select id="heroRebornSkillSelect"><option value="__default__">跟随账号默认</option></select></label>
                         <label><span>配点目标</span><select id="heroOptimizationMode"><option value="balanced">均衡</option><option value="minimum_loss">最少掉血</option><option value="fastest">最快速度</option></select></label>
                         <label><span>本轮最多胜场</span><input id="heroMaxVictories" type="number" min="1" max="60" step="1" value="10"></label>
                         <label><span>最低预测胜率</span><input id="heroMinWinRate" type="number" min="50" max="100" step="1" value="95"></label>
@@ -284,12 +286,14 @@
                         <label class="hero-potion-toggle"><input id="heroDefensePotionToggle" type="checkbox"><span>开始时补足 30 层防御药水（最多消耗 30 瓶；10 分钟到期即停）</span></label>
                         <label class="hero-potion-toggle"><input id="heroHealingToggle" type="checkbox" checked><span>HP 低于 20% 时使用恢复药水，补到至少 95%</span></label>
                         <label class="hero-potion-toggle"><input id="heroPleasureResistToggle" type="checkbox" checked><span>奏咪使魔快感抗性（推荐；关闭后每次命中 +10，达到 100 后归零）</span></label>
+                        <label class="hero-potion-toggle" id="heroDebtCollectorEquipmentControl"><input id="heroDebtCollectorEquipmentToggle" type="checkbox"><span>极乐盗贼：上交装备（默认关闭）</span></label>
                         <button class="primary-button" id="heroStartButton" type="button" disabled>开始自动循环</button>
                         <button class="quiet-button" id="heroStopButton" type="button" disabled>完成当前步骤后停止</button>
                     </div>
                     <div class="hero-automation-summary">
                         <div><span>今日战斗</span><strong id="heroBattleCount">等待读取</strong></div>
                         <div><span>防御药水</span><strong id="heroPotionStatus">等待读取</strong></div>
+                        <div><span>信仰 / 路线</span><strong id="heroFaithRoute">等待读取</strong></div>
                         <div><span>当前步骤</span><strong id="heroCurrentStep">尚未启动</strong></div>
                         <div><span>本轮结果</span><strong id="heroRunResult">0 胜 / 0 负</strong></div>
                     </div>

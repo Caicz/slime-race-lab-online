@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('slimeRaceRemote', Object.freeze({
     testDailyTimerError: () => ipcRenderer.invoke('slime-remote:daily-timer-error-test'),
     claimDailyGameReward: type => ipcRenderer.invoke('slime-remote:daily-claim', type),
     openDailyQuest: () => ipcRenderer.invoke('slime-remote:daily-open'),
-    syncHeroAutomation: () => ipcRenderer.invoke('slime-remote:hero-sync'),
+    syncHeroAutomation: options => ipcRenderer.invoke('slime-remote:hero-sync', options),
     applyHeroAllocation: target => ipcRenderer.invoke('slime-remote:hero-allocate', target),
     prepareHeroDefensePotions: () => ipcRenderer.invoke('slime-remote:hero-defense-potions'),
     prepareHeroHealing: () => ipcRenderer.invoke('slime-remote:hero-heal'),

@@ -79,6 +79,8 @@
         dailyStatus: document.querySelector('#dailyQuestStatus'),
         heroRefresh: document.querySelector('#heroRefreshButton'),
         heroMonster: document.querySelector('#heroMonsterSelect'),
+        heroRouteMode: document.querySelector('#heroRouteMode'),
+        heroRebornSkill: document.querySelector('#heroRebornSkillSelect'),
         heroOptimizationMode: document.querySelector('#heroOptimizationMode'),
         heroMaxVictories: document.querySelector('#heroMaxVictories'),
         heroMinWinRate: document.querySelector('#heroMinWinRate'),
@@ -86,10 +88,13 @@
         heroDefensePotions: document.querySelector('#heroDefensePotionToggle'),
         heroHealing: document.querySelector('#heroHealingToggle'),
         heroPleasureResist: document.querySelector('#heroPleasureResistToggle'),
+        heroDebtCollectorEquipmentControl: document.querySelector('#heroDebtCollectorEquipmentControl'),
+        heroDebtCollectorEquipment: document.querySelector('#heroDebtCollectorEquipmentToggle'),
         heroStart: document.querySelector('#heroStartButton'),
         heroStop: document.querySelector('#heroStopButton'),
         heroBattleCount: document.querySelector('#heroBattleCount'),
         heroPotionStatus: document.querySelector('#heroPotionStatus'),
+        heroFaithRoute: document.querySelector('#heroFaithRoute'),
         heroCurrentStep: document.querySelector('#heroCurrentStep'),
         heroRunResult: document.querySelector('#heroRunResult'),
         heroRecommendations: document.querySelector('#heroRecommendations'),
@@ -246,7 +251,7 @@
             return dailyQuest.normalizeDailyQuest(Object.fromEntries(names.map((name, index) => [name, values[index]])));
         }
 
-        async function fetchHeroAutomation() {
+        async function fetchCurrentHeroAutomation() {
             const endpoints = {
                 account: '/api/auth/me',
                 battleStatus: '/api/hero/battle-status',
@@ -258,10 +263,53 @@
             return heroAutomation.createSnapshot(Object.fromEntries(names.map((name, index) => [name, values[index]])));
         }
 
+        async function switchHeroMode(heroMode) {
+            await request('/api/reborn/switch-mode', {
+                method: 'POST',
+                data: {mode: heroAutomation.getServerHeroMode(heroMode)}
+            });
+            await requestPolicy.delay(300);
+        }
+
+        async function fetchHeroAutomation(options = {}) {
+            const current = await fetchCurrentHeroAutomation();
+            if (options?.includeModes !== true || !current.account.rebornType) return current;
+            const originalMode = current.heroMode;
+            const otherMode = originalMode === 'base' ? 'reborn' : 'base';
+            let other;
+            await switchHeroMode(otherMode);
+            try {
+                other = await fetchCurrentHeroAutomation();
+                if (other.heroMode !== otherMode) throw new Error(`${heroAutomation.HERO_MODES[otherMode]}切换后未生效`);
+            } finally {
+                await switchHeroMode(originalMode);
+            }
+            if (heroAutomation.getBattleCount(current) !== heroAutomation.getBattleCount(other)) {
+                throw new Error('读取双模式面板期间检测到并发战斗，方案已作废，请停止其他刷怪进程后重试');
+            }
+            return originalMode === 'base'
+                ? heroAutomation.combineHeroModeSnapshots(current, other, originalMode)
+                : heroAutomation.combineHeroModeSnapshots(other, current, originalMode);
+        }
+
+        async function ensureHeroMode(heroMode) {
+            const targetMode = heroAutomation.normalizeHeroMode(heroMode);
+            let snapshot = await fetchCurrentHeroAutomation();
+            if (snapshot.heroMode === targetMode) return snapshot;
+            await switchHeroMode(targetMode);
+            snapshot = await fetchCurrentHeroAutomation();
+            if (snapshot.heroMode !== targetMode) throw new Error(`${heroAutomation.HERO_MODES[targetMode]}切换后未生效`);
+            return snapshot;
+        }
+
         async function applyHeroAllocation(intent) {
-            const snapshot = await fetchHeroAutomation();
+            const snapshot = await ensureHeroMode(intent?.heroMode);
             const targetAllocation = intent?.targetAllocation || intent;
             const targetSkill = intent?.activeSkillKey;
+            const hasTargetRebornSkill = Object.hasOwn(intent || {}, 'rebornSkillKey');
+            const targetRebornSkill = hasTargetRebornSkill
+                ? heroAutomation.validateRebornSkillSelection(snapshot, intent.rebornSkillKey)
+                : undefined;
             if (intent?.guard) heroAutomation.validateBattleGuard(snapshot, intent.guard);
             if (targetSkill != null && (!heroAutomation.ACTIVE_SKILLS[targetSkill] || Number(snapshot.skills[targetSkill]) <= 0)) {
                 throw new Error('推荐主动技能尚未解锁或无效');
@@ -280,12 +328,21 @@
                 await request('/api/hero/skills/equip', {method: 'POST', data: {skillKey: targetSkill}});
                 await requestPolicy.delay(300);
             }
+            if (snapshot.heroMode === 'reborn' && hasTargetRebornSkill && targetRebornSkill && targetRebornSkill !== (snapshot.account.equippedRebornSkill || null)) {
+                await request('/api/hero/reborn-skills/equip', {method: 'POST', data: {skillKey: targetRebornSkill}});
+                await requestPolicy.delay(300);
+            }
 
             const updated = await fetchHeroAutomation();
             const actual = heroAutomation.getCurrentAllocation(updated.account);
             if (JSON.stringify(actual) !== JSON.stringify(plan.target)) throw new Error('服务器返回的能力值方案与目标不一致，自动刷怪已停止');
             if (targetSkill !== undefined && updated.account.equippedActiveSkill !== targetSkill) throw new Error('服务器返回的主动技能与推荐不一致，自动刷怪已停止');
-            if (intent?.guard) heroAutomation.validateBattleGuard(updated, {...intent.guard, expectedAllocation: plan.target});
+            if (hasTargetRebornSkill && (updated.account.equippedRebornSkill || null) !== targetRebornSkill) throw new Error('服务器返回的转生技能与信仰路线不一致，自动刷怪已停止');
+            if (intent?.guard) heroAutomation.validateBattleGuard(updated, {
+                ...intent.guard,
+                expectedAllocation: plan.target,
+                ...(hasTargetRebornSkill ? {expectedRebornSkill: targetRebornSkill} : {})
+            });
             return updated;
         }
 
@@ -351,12 +408,14 @@
         }
 
         async function runHeroBattle(intent) {
-            const snapshot = await fetchHeroAutomation();
+            const snapshot = await ensureHeroMode(intent?.heroMode);
             const monster = heroAutomation.validateBattleGuard(snapshot, intent);
             const battleCount = heroAutomation.getBattleCount(snapshot);
             if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
 
             const result = heroAutomation.simulateBattle(snapshot, monster.id, {
+                rebornSkillKey: intent?.expectedRebornSkill,
+                battleOptions: intent?.battleOptions,
                 pleasureResist: intent?.pleasureResist !== false
             });
             const payload = heroAutomation.createBattleResultPayload(monster.id, result);
@@ -694,6 +753,8 @@
         const atBattleLimit = Number(heroSnapshot?.battleStatus?.battleCount) >= 60;
         elements.heroRefresh.disabled = busy || !authenticated || !supported;
         elements.heroMonster.disabled = heroBusy || heroRunning;
+        elements.heroRouteMode.disabled = heroBusy || heroRunning;
+        elements.heroRebornSkill.disabled = heroBusy || heroRunning || !heroSnapshot;
         elements.heroOptimizationMode.disabled = heroBusy || heroRunning;
         elements.heroMaxVictories.disabled = heroBusy || heroRunning;
         elements.heroMinWinRate.disabled = heroBusy || heroRunning;
@@ -701,6 +762,7 @@
         elements.heroDefensePotions.disabled = heroBusy || heroRunning;
         elements.heroHealing.disabled = heroBusy || heroRunning;
         elements.heroPleasureResist.disabled = heroBusy || heroRunning;
+        elements.heroDebtCollectorEquipment.disabled = heroBusy || heroRunning;
         elements.heroStart.disabled = busy || !authenticated || !supported || !heroRecommendations.has(elements.heroMonster.value);
         elements.heroStop.disabled = !heroRunning || heroStopRequested;
         elements.heroUnlock.disabled = busy || !authenticated || !atBattleLimit || !adapter?.getHeroUnlockChallenge;
@@ -910,8 +972,61 @@
         }
     }
 
+    function getSelectedHeroRebornSkill(snapshot = heroSnapshot) {
+        if (!snapshot) return null;
+        const selected = elements.heroRebornSkill.value;
+        return selected === '__default__' ? heroAutomation.getDefaultRebornSkill(snapshot) : selected || null;
+    }
+
+    function getSelectedHeroBattleOptions(monsterId) {
+        return heroAutomation.getDefaultBattleOptions(monsterId, {
+            pleasureResist: elements.heroPleasureResist.checked,
+            ...(monsterId === 'debt_collector' ? {
+                submitEquipment: elements.heroDebtCollectorEquipment.checked,
+                surrenderEquipment: elements.heroDebtCollectorEquipment.checked,
+                equipmentSubmission: elements.heroDebtCollectorEquipment.checked
+            } : {})
+        });
+    }
+
+    function getSelectedHeroRoute(snapshot = heroSnapshot) {
+        if (!snapshot || elements.heroRouteMode.value === 'single') return [elements.heroMonster.value];
+        return heroAutomation.getDefaultRoute(snapshot);
+    }
+
+    function renderHeroRouteControls(snapshot) {
+        const previous = elements.heroRebornSkill.value || '__default__';
+        const defaultSkill = heroAutomation.getDefaultRebornSkill(snapshot);
+        elements.heroRebornSkill.replaceChildren();
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '__default__';
+        defaultOption.textContent = defaultSkill
+            ? `跟随账号默认：${snapshot.rebornSkillOptions.find(skill => skill.key === defaultSkill)?.name || defaultSkill}`
+            : '跟随账号默认：不使用转生技能';
+        elements.heroRebornSkill.append(defaultOption);
+        for (const skill of snapshot.rebornSkillOptions) {
+            if (!skill.unlocked) continue;
+            const option = document.createElement('option');
+            option.value = skill.key;
+            option.textContent = `${skill.name} Lv.${skill.level}${skill.faithRequired ? ` · 信仰 ${skill.faithRequired}` : ''}`;
+            option.disabled = skill.faithRequired > snapshot.faith || skill.supported === false;
+            elements.heroRebornSkill.append(option);
+        }
+        elements.heroRebornSkill.value = [...elements.heroRebornSkill.options].some(option => option.value === previous) ? previous : '__default__';
+        const route = getSelectedHeroRoute(snapshot);
+        const routeNames = route.map(id => heroAutomation.MONSTERS[id]?.name || id).join(' → ');
+        const baseMode = snapshot.heroModes?.base;
+        const rebornMode = snapshot.heroModes?.reborn;
+        const modeText = baseMode && rebornMode
+            ? `基础 Lv.${baseMode.level} / ${heroAutomation.getTotalPoints(baseMode.account)}点 · 信仰 Lv.${rebornMode.level} / ${heroAutomation.getTotalPoints(rebornMode.account)}点`
+            : `${heroAutomation.HERO_MODES[snapshot.heroMode] || '当前模式'} · ${heroAutomation.getTotalPoints(snapshot.account)}点`;
+        elements.heroFaithRoute.textContent = `${modeText} · ${routeNames}`;
+        elements.heroDebtCollectorEquipmentControl.hidden = elements.heroMonster.value !== 'debt_collector';
+    }
+
     function renderHeroSnapshot(snapshot) {
         heroSnapshot = snapshot;
+        renderHeroRouteControls(snapshot);
         const status = snapshot.battleStatus;
         const stacks = Math.max(0, Number(status.defenseBuffStacks) || 0);
         const expiry = status.defenseBuffExpiry ? new Date(status.defenseBuffExpiry) : null;
@@ -1010,13 +1125,23 @@
                     ? ' · 快感抗性'
                     : ` · 均高潮 ${recommendation.averageVictoryPleasureClimaxes.toFixed(1)} 次`
                 : '';
-            timing.textContent = `${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'}${pleasureText} · 均胜时 ${victoryTime}${activeTime}`;
+            const rebornText = recommendation.rebornSkillKey
+                ? ` · 转生 ${heroSnapshot?.rebornSkillOptions.find(skill => skill.key === recommendation.rebornSkillKey)?.name || recommendation.rebornSkillKey}`
+                : '';
+            const equipmentText = monsterId === 'debt_collector'
+                ? getSelectedHeroBattleOptions(monsterId).submitEquipment ? ' · 上交装备' : ' · 不上交装备'
+                : '';
+            const comparisonText = recommendation.modeComparisons
+                ? ` · 基础 ${(Number(recommendation.modeComparisons.base?.winRate) * 100 || 0).toFixed(1)}% / 信仰 ${(Number(recommendation.modeComparisons.reborn?.winRate) * 100 || 0).toFixed(1)}%`
+                : '';
+            timing.textContent = `${recommendation.modeName || heroAutomation.HERO_MODES[recommendation.heroMode] || '当前模式'} · ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'}${rebornText}${pleasureText}${equipmentText} · 均胜时 ${victoryTime}${activeTime}${comparisonText}`;
             progress.className = 'hero-monster-progress';
             progress.textContent = `经验 ${formatChips(recommendation.monster.expReward)} · ${recommendation.monster.sweepLevel ? `扫荡 Lv.${recommendation.monster.sweepLevel}` : '扫荡未解锁'} · 掉落 ${recommendation.monster.recordedDropLevels}/${recommendation.monster.eligibleDropLevels}`;
             footer.append(survival, timing);
             card.append(header, allocation, progress, footer);
             card.addEventListener('click', () => {
                 elements.heroMonster.value = monsterId;
+                if (heroSnapshot) renderHeroRouteControls(heroSnapshot);
                 renderHeroRecommendations();
                 updateHeroControls();
             });
@@ -1036,13 +1161,15 @@
 
     async function calculateHeroRecommendation(snapshot, monsterId, allMonsters = false) {
         await requestPolicy.delay(0);
-        const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
-        return heroAutomation.findOptimalAllocation(snapshot, monsterId, {
+        return heroAutomation.findOptimalBattleMode(snapshot, monsterId, {
             defensePotionStacks: elements.heroDefensePotions.checked ? 30 : undefined,
-            minimumHpRatio: elements.heroHealing.checked && hpRatio < 0.2 ? 0.95 : undefined,
+            autoHealing: elements.heroHealing.checked,
+            healingTargetRatio: 0.95,
             optimizationMode: elements.heroOptimizationMode.value,
             optimizeActiveSkill: elements.heroSkillSwitch.checked,
             pleasureResist: elements.heroPleasureResist.checked,
+            rebornSkillKey: getSelectedHeroRebornSkill(snapshot),
+            battleOptions: getSelectedHeroBattleOptions(monsterId),
             divisions: allMonsters ? 14 : 18,
             coarseSamples: 8,
             finalSamples: allMonsters ? 64 : 96
@@ -1061,7 +1188,7 @@
         updateBetControls();
 
         try {
-            const snapshot = await adapter.syncHeroAutomation();
+            const snapshot = await adapter.syncHeroAutomation({includeModes: true});
             renderHeroSnapshot(snapshot);
             for (const monsterId of Object.keys(heroAutomation.MONSTERS)) {
                 elements.heroCurrentStep.textContent = `计算 ${heroAutomation.MONSTERS[monsterId].name}`;
@@ -1112,7 +1239,7 @@
         if (!authenticated || syncing || mutating || heroBusy || heroRunning) return;
         const adapter = getAdapter();
         if (!adapter?.syncHeroAutomation || !adapter?.applyHeroAllocation || !adapter?.prepareHeroHealing || !adapter?.runHeroBattle) return;
-        const monsterId = elements.heroMonster.value;
+        let monsterId = elements.heroMonster.value;
         let initial;
         let limit;
         let minimumWinRate;
@@ -1122,7 +1249,7 @@
         setStatus(elements.heroStatus, '正在核对最新怪物面板、今日次数和药水状态…');
         updateBetControls();
         try {
-            initial = await adapter.syncHeroAutomation();
+            initial = await adapter.syncHeroAutomation({includeModes: true});
             renderHeroSnapshot(initial);
             limit = getHeroRunLimit(initial);
             minimumWinRate = getHeroMinimumWinRate();
@@ -1134,7 +1261,14 @@
             return;
         }
 
-        const monsterName = heroAutomation.MONSTERS[monsterId]?.name || monsterId;
+        const route = getSelectedHeroRoute(initial);
+        monsterId = route[0];
+        let monsterName = heroAutomation.MONSTERS[monsterId]?.name || monsterId;
+        const routeName = route.map(id => heroAutomation.MONSTERS[id]?.name || id).join(' → ');
+        const rebornSkillKey = getSelectedHeroRebornSkill(initial);
+        const rebornName = rebornSkillKey
+            ? initial.rebornSkillOptions.find(skill => skill.key === rebornSkillKey)?.name || rebornSkillKey
+            : '不使用转生技能';
         const modeName = heroAutomation.OPTIMIZATION_MODES[elements.heroOptimizationMode.value];
         const potionText = elements.heroDefensePotions.checked
             ? '；开始时将把防御药水补足到30层，最多消耗30瓶，药效到期立即停止'
@@ -1144,7 +1278,7 @@
         const pleasureText = monsterId === 'familiar'
             ? elements.heroPleasureResist.checked ? '；开启官方快感抗性' : '；关闭快感抗性并模拟每100点快感归零'
             : '';
-        if (!window.confirm(`确认以“${modeName}”目标自动挑战${monsterName}，本轮最多 ${limit} 胜、最低预测胜率 ${(minimumWinRate * 100).toFixed(0)}%${skillText}${potionText}${healingText}${pleasureText}？每轮都会重新配点并提交一次真实战斗结果。`)) {
+        if (!window.confirm(`确认以“${modeName}”目标按路线 ${routeName} 自动挑战，本轮最多 ${limit} 胜、最低预测胜率 ${(minimumWinRate * 100).toFixed(0)}%；转生技能：${rebornName}${skillText}${potionText}${healingText}${pleasureText}？每轮都会重新配点并提交一次真实战斗结果。`)) {
             heroBusy = false;
             elements.heroCurrentStep.textContent = '已取消启动';
             setStatus(elements.heroStatus, '已取消，账户未因本次启动执行配点、用药或战斗提交。');
@@ -1172,6 +1306,8 @@
 
             while (heroWins < limit && !heroStopRequested) {
                 try {
+                    monsterId = pendingBattle?.monsterId || route[heroWins % route.length];
+                    monsterName = heroAutomation.MONSTERS[monsterId]?.name || monsterId;
                     if (!defensePotionsPrepared) {
                         elements.heroCurrentStep.textContent = '补足30层防御药水';
                         const prepared = await adapter.prepareHeroDefensePotions();
@@ -1182,7 +1318,7 @@
                     }
 
                     elements.heroCurrentStep.textContent = pendingBattle ? '同步并对账上一场战斗' : '重新读取怪物面板';
-                    snapshot = await adapter.syncHeroAutomation();
+                    snapshot = await adapter.syncHeroAutomation({includeModes: true});
                     renderHeroSnapshot(snapshot);
                     if (pendingBattle) {
                         const reconciliation = heroAutomation.reconcileBattleAttempt(pendingBattle, snapshot);
@@ -1207,15 +1343,6 @@
                         pendingBattle = null;
                     }
 
-                    const hpRatio = Number(snapshot.battleStatus.currentHp) / Math.max(1, Number(snapshot.battleStatus.maxHp));
-                    if (elements.heroHealing.checked && hpRatio < 0.2) {
-                        elements.heroCurrentStep.textContent = 'HP低于20%，补血到至少95%';
-                        const healing = await adapter.prepareHeroHealing();
-                        snapshot = healing.snapshot;
-                        renderHeroSnapshot(snapshot);
-                        const consumed = healing.consumed.map(use => `${heroAutomation.HEALING_POTIONS[use.itemId]?.name || `物品${use.itemId}`}×${use.quantity}`).join('、');
-                        appendHeroLog(`恢复完成：${consumed || '无需消耗'}，当前 HP ${snapshot.battleStatus.currentHp} / ${snapshot.battleStatus.maxHp}。`);
-                    }
                     const monster = heroAutomation.getMonster(snapshot, monsterId);
                     if (elements.heroDefensePotions.checked) {
                         const expiry = Date.parse(snapshot.battleStatus.defenseBuffExpiry || '');
@@ -1224,16 +1351,17 @@
                         }
                     }
 
-                    const unallocatedPoints = Number(snapshot.account.statPoints) || 0;
-                    if (unallocatedPoints > 0) appendHeroLog(`检测到 ${unallocatedPoints} 个升级未分配点，将并入本轮最优方案自动分配。`);
                     elements.heroCurrentStep.textContent = `计算 ${monsterName} Lv.${monster.level} 最优配点`;
                     const recommendation = await calculateHeroRecommendation(snapshot, monsterId);
+                    const recommendedSnapshot = heroAutomation.getHeroModeSnapshot(snapshot, recommendation.heroMode);
+                    const unallocatedPoints = Number(recommendedSnapshot.account.statPoints) || 0;
+                    if (unallocatedPoints > 0) appendHeroLog(`检测到${recommendation.modeName}有 ${unallocatedPoints} 个升级未分配点，将并入本轮最优方案自动分配。`);
                     heroRecommendations.set(monsterId, recommendation);
                     renderHeroRecommendations();
                     const familiarLog = monsterId === 'familiar'
                         ? recommendation.pleasureResist ? '，快感抗性开启' : `，平均胜场高潮 ${recommendation.averageVictoryPleasureClimaxes.toFixed(1)} 次`
                         : '';
-                    appendHeroLog(`Lv.${monster.level}“${modeName}”推荐 HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%${familiarLog}。`);
+                    appendHeroLog(`Lv.${monster.level}“${modeName}”自动选择${recommendation.modeName}：HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%${familiarLog}。`);
                     if (recommendation.winRate < minimumWinRate) {
                         throw new Error(`Lv.${monster.level} 的最高预测胜率只有 ${(recommendation.winRate * 100).toFixed(1)}%，低于停止线 ${(minimumWinRate * 100).toFixed(0)}%`);
                     }
@@ -1241,11 +1369,16 @@
 
                     elements.heroCurrentStep.textContent = `应用 Lv.${monster.level} 配点`;
                     const allocationGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
-                        requireDefensePotions: elements.heroDefensePotions.checked
+                        heroMode: recommendation.heroMode,
+                        requireDefensePotions: elements.heroDefensePotions.checked,
+                        rebornSkillKey: recommendation.rebornSkillKey,
+                        battleOptions: getSelectedHeroBattleOptions(monsterId)
                     });
                     snapshot = await adapter.applyHeroAllocation({
+                        heroMode: recommendation.heroMode,
                         targetAllocation: recommendation.allocation,
                         activeSkillKey: recommendation.activeSkillKey,
+                        rebornSkillKey: recommendation.rebornSkillKey,
                         guard: allocationGuard
                     });
                     renderHeroSnapshot(snapshot);
@@ -1264,9 +1397,11 @@
 
                     elements.heroCurrentStep.textContent = `挑战 ${monsterName} Lv.${monster.level}`;
                     const battleGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
+                        heroMode: recommendation.heroMode,
                         requireDefensePotions: elements.heroDefensePotions.checked,
                         lockHeroPanel: true,
-                        pleasureResist: elements.heroPleasureResist.checked
+                        rebornSkillKey: recommendation.rebornSkillKey,
+                        battleOptions: getSelectedHeroBattleOptions(monsterId)
                     });
                     battleGuard.expectedAllocation = recommendation.allocation;
                     pendingBattle = {
@@ -1743,6 +1878,12 @@
             elements.dailyReciteInput.disabled = true;
             elements.heroBattleCount.textContent = '等待读取';
             elements.heroPotionStatus.textContent = '等待读取';
+            elements.heroFaithRoute.textContent = '等待读取';
+            elements.heroRebornSkill.replaceChildren();
+            const defaultRebornOption = document.createElement('option');
+            defaultRebornOption.value = '__default__';
+            defaultRebornOption.textContent = '跟随账号默认';
+            elements.heroRebornSkill.append(defaultRebornOption);
             elements.heroCurrentStep.textContent = '尚未启动';
             elements.heroRunResult.textContent = '0 胜 / 0 负';
             elements.heroUnlockStatus.textContent = '今日达到 60 次后，可在这里完成官方字母点击验证。';
@@ -1798,7 +1939,27 @@
         elements.heroUnlockStatus.textContent = '验证已取消；需要时可重新读取题目。';
     });
     elements.heroMonster.addEventListener('change', () => {
+        if (heroSnapshot) renderHeroRouteControls(heroSnapshot);
         renderHeroRecommendations();
+        updateHeroControls();
+    });
+    elements.heroRouteMode.addEventListener('change', () => {
+        if (heroSnapshot) renderHeroRouteControls(heroSnapshot);
+        renderHeroRecommendations();
+        updateHeroControls();
+    });
+    elements.heroRebornSkill.addEventListener('change', () => {
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
+        setStatus(elements.heroStatus, '转生技能或信仰条件已经变化，请重新刷新六只方案。');
+        updateHeroControls();
+    });
+    elements.heroDebtCollectorEquipment.addEventListener('change', () => {
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
+        setStatus(elements.heroStatus, elements.heroDebtCollectorEquipment.checked
+            ? '极乐盗贼将上交装备；战斗条件已经变化，请重新刷新六只方案。'
+            : '极乐盗贼恢复默认不上交装备；请重新刷新六只方案。');
         updateHeroControls();
     });
     elements.heroDefensePotions.addEventListener('change', () => {
