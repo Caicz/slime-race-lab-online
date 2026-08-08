@@ -78,6 +78,7 @@
         dailyTimerClaim: document.querySelector('#dailyTimerClaimButton'),
         dailyStatus: document.querySelector('#dailyQuestStatus'),
         heroRefresh: document.querySelector('#heroRefreshButton'),
+        heroRegionTabs: document.querySelector('#heroRegionTabs'),
         heroMonster: document.querySelector('#heroMonsterSelect'),
         heroRouteMode: document.querySelector('#heroRouteMode'),
         heroRebornSkill: document.querySelector('#heroRebornSkillSelect'),
@@ -121,6 +122,7 @@
     let dailyClickCount = 0;
     let dailyClickResetTimer = null;
     let heroSnapshot = null;
+    let heroRegion = 'novice';
     let heroRecommendations = new Map();
     let heroBusy = false;
     let heroRunning = false;
@@ -166,6 +168,50 @@
     function hasFreshRecommendation() {
         const updatedAt = Date.parse(latestSnapshot?.updatedAt || '');
         return hasCurrentRecommendation() && Number.isFinite(updatedAt) && Date.now() - updatedAt <= MAX_RECOMMENDATION_AGE_MS;
+    }
+
+    function getHeroRegionMonsterIds(region = heroRegion, options = {}) {
+        const definition = heroAutomation.MONSTER_REGIONS?.[region];
+        const ids = Array.isArray(definition?.monsterIds) ? definition.monsterIds : [];
+        return ids.filter(monsterId => options.includeUnavailable || Boolean(heroAutomation.MONSTERS[monsterId]));
+    }
+
+    function renderHeroMonsterOptions(preferredId = elements.heroMonster.value) {
+        const region = heroAutomation.MONSTER_REGIONS?.[heroRegion];
+        const ids = Array.isArray(region?.monsterIds) ? region.monsterIds : [];
+        const catalog = new Map((heroAutomation.FOREST_MONSTER_CATALOG || []).map(item => [item.id, item]));
+        elements.heroMonster.replaceChildren();
+        const group = document.createElement('optgroup');
+        group.label = region?.name || heroRegion;
+        for (const monsterId of ids) {
+            const definition = heroAutomation.MONSTERS[monsterId];
+            const catalogEntry = catalog.get(monsterId);
+            const option = document.createElement('option');
+            option.value = monsterId;
+            option.textContent = definition?.name || catalogEntry?.name || monsterId;
+            if (!definition || catalogEntry?.available === false) {
+                option.disabled = true;
+                option.textContent += '（即将开放）';
+            }
+            group.append(option);
+        }
+        elements.heroMonster.append(group);
+        const available = [...elements.heroMonster.options].filter(option => !option.disabled);
+        const selected = available.find(option => option.value === preferredId) || available[0];
+        if (selected) elements.heroMonster.value = selected.value;
+    }
+
+    function setHeroRegion(region) {
+        if (!heroAutomation.MONSTER_REGIONS?.[region]) return;
+        heroRegion = region;
+        renderHeroMonsterOptions();
+        elements.heroRegionTabs?.querySelectorAll('[data-hero-region]').forEach(button => {
+            button.setAttribute('aria-selected', String(button.dataset.heroRegion === heroRegion));
+        });
+        heroRecommendations = new Map();
+        if (heroSnapshot) renderHeroRouteControls(heroSnapshot);
+        renderHeroRecommendations();
+        updateHeroControls();
     }
 
     function updateBetControls() {
@@ -414,7 +460,7 @@
             if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
 
             const result = heroAutomation.simulateBattle(snapshot, monster.id, {
-                rebornSkillKey: intent?.expectedRebornSkill,
+                rebornSkillKey: intent?.rebornSkillKey ?? intent?.expectedRebornSkill,
                 battleOptions: intent?.battleOptions,
                 pleasureResist: intent?.pleasureResist !== false
             });
@@ -991,7 +1037,9 @@
 
     function getSelectedHeroRoute(snapshot = heroSnapshot) {
         if (!snapshot || elements.heroRouteMode.value === 'single') return [elements.heroMonster.value];
-        return heroAutomation.getDefaultRoute(snapshot);
+        const selectedRegionIds = new Set(getHeroRegionMonsterIds());
+        const route = heroAutomation.getDefaultRoute(snapshot).filter(monsterId => selectedRegionIds.has(monsterId));
+        return route.length > 0 ? route : getHeroRegionMonsterIds().filter(monsterId => heroAutomation.MONSTERS[monsterId]);
     }
 
     function renderHeroRouteControls(snapshot) {
@@ -1183,24 +1231,25 @@
         heroBusy = true;
         heroRecommendations = new Map();
         elements.heroCurrentStep.textContent = '读取勇者与怪物面板';
-        setStatus(elements.heroStatus, '正在读取当前面板并依次计算六只怪物；计算期间不会修改账户数据…');
+        const regionName = heroAutomation.MONSTER_REGIONS?.[heroRegion]?.name || heroRegion;
+        setStatus(elements.heroStatus, `正在读取当前面板并依次计算${regionName}的可用怪物；计算期间不会修改账户数据…`);
         renderHeroRecommendations();
         updateBetControls();
 
         try {
             const snapshot = await adapter.syncHeroAutomation({includeModes: true});
             renderHeroSnapshot(snapshot);
-            for (const monsterId of Object.keys(heroAutomation.MONSTERS)) {
+            for (const monsterId of getHeroRegionMonsterIds()) {
                 elements.heroCurrentStep.textContent = `计算 ${heroAutomation.MONSTERS[monsterId].name}`;
                 const recommendation = await calculateHeroRecommendation(snapshot, monsterId, true);
                 heroRecommendations.set(monsterId, recommendation);
                 renderHeroRecommendations();
             }
-            elements.heroCurrentStep.textContent = '六只方案计算完成';
+            elements.heroCurrentStep.textContent = `${regionName}方案计算完成`;
             const modeName = heroAutomation.OPTIMIZATION_MODES[elements.heroOptimizationMode.value];
             const skillText = elements.heroSkillSwitch.checked ? '并优化主动技能' : '并保持当前主动技能';
             const familiarText = elements.heroPleasureResist.checked ? '、奏咪快感抗性开启' : '、奏咪快感循环开启';
-            setStatus(elements.heroStatus, `已按“${modeName}”目标、${elements.heroDefensePotions.checked ? '30 层防御药水' : '当前药水状态'}${skillText}${familiarText}完成六只方案；点击卡片可选择目标。`, 'success');
+            setStatus(elements.heroStatus, `已按“${modeName}”目标、${elements.heroDefensePotions.checked ? '30 层防御药水' : '当前药水状态'}${skillText}${familiarText}完成${regionName}方案；点击卡片可选择目标。`, 'success');
         } catch (error) {
             elements.heroCurrentStep.textContent = '计算停止';
             setStatus(elements.heroStatus, String(error.message || error), 'error');
@@ -1938,6 +1987,9 @@
         closeHeroUnlockChallenge();
         elements.heroUnlockStatus.textContent = '验证已取消；需要时可重新读取题目。';
     });
+    elements.heroRegionTabs?.querySelectorAll('[data-hero-region]').forEach(button => {
+        button.addEventListener('click', () => setHeroRegion(button.dataset.heroRegion));
+    });
     elements.heroMonster.addEventListener('change', () => {
         if (heroSnapshot) renderHeroRouteControls(heroSnapshot);
         renderHeroRecommendations();
@@ -1951,39 +2003,39 @@
     elements.heroRebornSkill.addEventListener('change', () => {
         heroRecommendations = new Map();
         renderHeroRecommendations();
-        setStatus(elements.heroStatus, '转生技能或信仰条件已经变化，请重新刷新六只方案。');
+        setStatus(elements.heroStatus, '转生技能或信仰条件已经变化，请重新刷新当前区域方案。');
         updateHeroControls();
     });
     elements.heroDebtCollectorEquipment.addEventListener('change', () => {
         heroRecommendations = new Map();
         renderHeroRecommendations();
         setStatus(elements.heroStatus, elements.heroDebtCollectorEquipment.checked
-            ? '极乐盗贼将上交装备；战斗条件已经变化，请重新刷新六只方案。'
-            : '极乐盗贼恢复默认不上交装备；请重新刷新六只方案。');
+            ? '极乐盗贼将上交装备；战斗条件已经变化，请重新刷新当前区域方案。'
+            : '极乐盗贼恢复默认不上交装备；请重新刷新当前区域方案。');
         updateHeroControls();
     });
     elements.heroDefensePotions.addEventListener('change', () => {
         heroRecommendations = new Map();
         renderHeroRecommendations();
-        setStatus(elements.heroStatus, '防御药水计算条件已经变化，请重新刷新六只方案。');
+        setStatus(elements.heroStatus, '防御药水计算条件已经变化，请重新刷新当前区域方案。');
         updateHeroControls();
     });
     elements.heroOptimizationMode.addEventListener('change', () => {
         heroRecommendations = new Map();
         renderHeroRecommendations();
-        setStatus(elements.heroStatus, '配点目标已经变化，请重新刷新六只方案。');
+        setStatus(elements.heroStatus, '配点目标已经变化，请重新刷新当前区域方案。');
         updateHeroControls();
     });
     elements.heroSkillSwitch.addEventListener('change', () => {
         heroRecommendations = new Map();
         renderHeroRecommendations();
-        setStatus(elements.heroStatus, '主动技能优化条件已经变化，请重新刷新六只方案。');
+        setStatus(elements.heroStatus, '主动技能优化条件已经变化，请重新刷新当前区域方案。');
         updateHeroControls();
     });
     elements.heroHealing.addEventListener('change', () => {
         heroRecommendations = new Map();
         renderHeroRecommendations();
-        setStatus(elements.heroStatus, '恢复药水条件已经变化，请重新刷新六只方案。');
+        setStatus(elements.heroStatus, '恢复药水条件已经变化，请重新刷新当前区域方案。');
         updateHeroControls();
     });
     elements.heroPleasureResist.addEventListener('change', () => {
@@ -1999,7 +2051,7 @@
             elements.heroStatus,
             saveError
                 ? `快感抗性设置无法保存到本机：${String(saveError.message || saveError)}`
-                : '奏咪使魔快感机制条件已经变化，请重新刷新六只方案。',
+                : '奏咪使魔快感机制条件已经变化，请重新刷新当前区域方案。',
             saveError ? 'error' : undefined
         );
         updateHeroControls();
@@ -2025,6 +2077,7 @@
         clearTimeout(dailyClickResetTimer);
         void platformBridge?.getBackgroundExecutionPlugin(globalThis)?.stop();
     });
+    renderHeroMonsterOptions('slime');
     renderBetLedger();
     autoLogin();
 })();

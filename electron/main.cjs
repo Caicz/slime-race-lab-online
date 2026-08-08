@@ -548,7 +548,7 @@ async function runHeroBattle(intent) {
         if (battleCount >= 60) throw new Error('今日战斗次数已达到 60 次上限');
 
         const result = heroAutomation.simulateBattle(snapshot, monster.id, {
-            rebornSkillKey: intent?.expectedRebornSkill,
+            rebornSkillKey: intent?.rebornSkillKey ?? intent?.expectedRebornSkill,
             battleOptions: intent?.battleOptions,
             pleasureResist: intent?.pleasureResist !== false
         });

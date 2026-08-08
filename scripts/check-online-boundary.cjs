@@ -9,6 +9,7 @@ const expectedPrivateRemotes = new Set([
     'https://github.com/Caicz/slime-race-lab-online.git',
     'git@github.com:Caicz/slime-race-lab-online.git'
 ]);
+const safeGitArgs = args => ['-c', `safe.directory=${projectRoot.replaceAll('\\', '/')}`, ...args];
 const expectedPackagedFiles = ['app/**/*', 'electron/**/*', 'package.json'];
 const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'electron/race-archive.cjs', 'app/scripts/app.js', 'app/scripts/real-stats.js', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/platform-bridge.js', 'app/scripts/remote.js', 'scripts/run-timer-error-check.cjs', 'scripts/update-race-archive.cjs'];
 
@@ -20,10 +21,10 @@ function checkPrivateRemote(violations) {
     if (!fs.existsSync(path.join(projectRoot, '.git'))) return;
 
     try {
-        const remotes = execFileSync('git', ['remote'], {cwd: projectRoot, encoding: 'utf8'}).trim().split(/\s+/).filter(Boolean);
+        const remotes = execFileSync('git', safeGitArgs(['remote']), {cwd: projectRoot, encoding: 'utf8'}).trim().split(/\s+/).filter(Boolean);
 
         remotes.forEach(remote => {
-            const urls = execFileSync('git', ['remote', 'get-url', '--all', remote], {cwd: projectRoot, encoding: 'utf8'})
+            const urls = execFileSync('git', safeGitArgs(['remote', 'get-url', '--all', remote]), {cwd: projectRoot, encoding: 'utf8'})
                 .trim().split(/\r?\n/).filter(Boolean);
             if (remote !== 'origin' || urls.some(url => !expectedPrivateRemotes.has(url))) {
                 violations.push(`联网版只允许指定私有远程：${remote}`);
@@ -80,9 +81,9 @@ function checkBoundary() {
     const manifest = read('android/app/src/main/AndroidManifest.xml');
 
     if (packageJson.name !== 'slime-race-lab-online') violations.push('package.json: npm 名称必须使用联网版标识');
-    if (packageJson.build?.appId !== 'com.marisa.slimeracelab.online') violations.push('package.json: Electron appId 必须使用 .online');
-    if (capacitorConfig.appId !== 'com.marisa.slimeracelab.online') violations.push('capacitor.config.json: Capacitor appId 必须使用 .online');
-    if (!gradle.includes('applicationId "com.marisa.slimeracelab.online"')) violations.push('Android applicationId 必须使用 .online');
+    if (packageJson.build?.appId !== 'com.marisa.slimeracelab.online.v2') violations.push('package.json: Electron appId 必须使用稳定的 .online.v2');
+    if (capacitorConfig.appId !== 'com.marisa.slimeracelab.online.v2') violations.push('capacitor.config.json: Capacitor appId 必须使用稳定的 .online.v2');
+    if (!gradle.includes('applicationId "com.marisa.slimeracelab.online.v2"')) violations.push('Android applicationId 必须使用稳定的 .online.v2');
     if (!manifest.includes('android.permission.INTERNET')) violations.push('联网版 Android 清单必须声明 INTERNET 权限');
     if (!gitignore.includes(envName)) violations.push(`${envName} 必须加入 .gitignore`);
     if (JSON.stringify(packageJson.build?.files || []) !== JSON.stringify(expectedPackagedFiles)) {
@@ -95,7 +96,7 @@ function checkBoundary() {
     }
 
     if (fs.existsSync(path.join(projectRoot, '.git'))) {
-        const trackedEnv = execFileSync('git', ['ls-files', envName], {cwd: projectRoot, encoding: 'utf8'}).trim();
+        const trackedEnv = execFileSync('git', safeGitArgs(['ls-files', envName]), {cwd: projectRoot, encoding: 'utf8'}).trim();
         if (trackedEnv) violations.push(`${envName} 禁止被 Git 跟踪`);
     }
 

@@ -29,7 +29,14 @@
             </div>
         </header>
 
-        <main class="dashboard">
+        <nav class="app-view-nav" aria-label="应用菜单">
+            <button type="button" data-app-view-button="betting" aria-current="page">押注分析</button>
+            <button type="button" data-app-view-button="daily">日常任务</button>
+            <button type="button" data-app-view-button="simulator">模拟器</button>
+            <button type="button" data-app-view-button="hero">自动刷怪</button>
+        </nav>
+
+        <main class="dashboard" data-app-view="simulator">
             <section class="race-column">
                 <article class="panel race-panel">
                     <div class="panel-heading race-heading">
@@ -175,7 +182,7 @@
             </aside>
         </main>
 
-        <section class="panel remote-panel">
+        <section class="panel remote-panel shared-session-panel" data-app-view="shared">
             <div class="panel-heading remote-heading">
                 <div>
                     <p class="section-kicker">LIVE ACCOUNT BRIDGE</p>
@@ -202,7 +209,7 @@
                 </div>
             </div>
             <div class="remote-actions" id="remoteActions" hidden>
-                <section class="remote-action-card">
+                <section class="remote-action-card" data-app-view="betting">
                     <div class="remote-action-heading"><strong>远程下注</strong><span>最小 1 碎片 · 最多两只 · 提交后不可撤回</span></div>
                     <div class="remote-bet-form">
                         <label><span>史莱姆</span><select id="remoteBetRacer"><option value="melon">迷你哈密瓜</option><option value="blueberry">迷你蓝莓</option><option value="dragonfruit">迷你火龙果</option><option value="lemon">迷你柠檬</option></select></label>
@@ -217,12 +224,12 @@
                     </div>
                     <p class="form-status" id="remoteBetStatus">手动下注先核对金额；一键下注会刷新建议并统一确认；任何 POST 都不会自动重试。</p>
                 </section>
-                <section class="remote-action-card">
+                <section class="remote-action-card" data-app-view="betting">
                     <div class="remote-action-heading"><strong>待领取奖励</strong><span id="remoteRewardSummary">暂无可领取碎片</span></div>
                     <div class="remote-reward-list" id="remoteRewardList"><p>同步后在这里显示逐笔奖励。</p></div>
                     <p class="form-status" id="remoteClaimStatus">每笔奖励需手动确认领取，不会自动领取。</p>
                 </section>
-                <section class="remote-action-card bet-ledger-card">
+                <section class="remote-action-card bet-ledger-card" data-app-view="betting">
                     <div class="remote-action-heading">
                         <strong>最近三日押注盈亏</strong>
                         <span id="betLedgerStatus">结算后更新 · 按账号保存在本机</span>
@@ -235,7 +242,7 @@
                     </div>
                     <div class="bet-ledger-days" id="betLedgerDays"><p>登录后读取当前账号的本地押注账本。</p></div>
                 </section>
-                <section class="remote-action-card daily-quest-card">
+                <section class="remote-action-card daily-quest-card" data-app-view="daily">
                     <div class="remote-action-heading daily-quest-heading">
                         <div><strong>日常任务自动化</strong><span>站点所有者模式 · 单次执行 · 不自动领取</span></div>
                         <div><button class="secondary-button" id="dailyQuestRefreshButton" type="button">刷新日常</button><button class="quiet-button" id="dailyQuestOpenButton" type="button">打开官方小游戏</button></div>
@@ -270,13 +277,17 @@
                     </div>
                     <p class="form-status" id="dailyQuestStatus">登录后低频同步一次；自动化操作每次只执行一轮，不会后台循环或自动领取奖励。</p>
                 </section>
-                <section class="remote-action-card hero-automation-card">
+                <section class="remote-action-card hero-automation-card" data-app-view="hero">
                     <div class="remote-action-heading hero-automation-heading">
                         <div><strong>勇者最优配点与自动刷怪</strong><span>每次胜利后读取新面板、按 Lv.+0.5 重新计算并配点</span></div>
-                        <button class="secondary-button" id="heroRefreshButton" type="button">刷新六只方案</button>
+                        <button class="secondary-button" id="heroRefreshButton" type="button">刷新当前区域方案</button>
+                    </div>
+                    <div class="hero-region-tabs" id="heroRegionTabs" role="tablist" aria-label="怪物区域">
+                        <button type="button" role="tab" data-hero-region="novice" aria-selected="true">海罗格姆村</button>
+                        <button type="button" role="tab" data-hero-region="forest" aria-selected="false">恐怖之森</button>
                     </div>
                     <div class="hero-automation-controls">
-                        <label><span>怪物选择</span><select id="heroMonsterSelect"><option value="slime">史莱姆</option><option value="hilichurl">野生咕隆</option><option value="ruin_guard">重磁护卫</option><option value="familiar">奏咪使魔</option><option value="debt_collector">极乐盗贼</option><option value="firefly_mage">大雷精灵</option></select></label>
+                        <label><span>怪物选择</span><select id="heroMonsterSelect"></select></label>
                         <label><span>挑战路线</span><select id="heroRouteMode"><option value="account">账号默认路线</option><option value="single">只刷所选怪物</option></select></label>
                         <label><span>转生技能 / 信仰</span><select id="heroRebornSkillSelect"><option value="__default__">跟随账号默认</option></select></label>
                         <label><span>配点目标</span><select id="heroOptimizationMode"><option value="balanced">均衡</option><option value="minimum_loss">最少掉血</option><option value="fastest">最快速度</option></select></label>
@@ -307,7 +318,7 @@
                             <div class="hero-unlock-actions"><button class="primary-button" id="heroUnlockSubmitButton" type="button" disabled>提交两个字母</button><button class="quiet-button" id="heroUnlockCancelButton" type="button">取消</button></div>
                         </div>
                     </div>
-                    <div class="hero-recommendations" id="heroRecommendations"><p>点击“刷新六只方案”，读取当前怪物面板并计算每只怪物的推荐配点。</p></div>
+                    <div class="hero-recommendations" id="heroRecommendations"><p>点击“刷新当前区域方案”，读取当前区域怪物面板并计算推荐配点。</p></div>
                     <div class="hero-run-log" id="heroRunLog" aria-live="polite"><p>自动循环尚未开始。</p></div>
                     <p class="form-status" id="heroAutomationStatus">每轮会重新选择目标方案、配点和主动技能；HP低于20%时可补到至少95%。任何 POST 都不会自动重试。</p>
                 </section>
@@ -315,7 +326,7 @@
             <p class="form-status" id="remoteStatus">密码不会保存；开启自动实时更新后，账户余额、奖励和盘口每 4 秒刷新，历史与个人统计每 40 秒刷新。</p>
         </section>
 
-        <section class="data-workspace">
+        <section class="data-workspace" data-app-view="betting">
             <article class="panel data-panel history-panel">
                 <div class="panel-heading compact-heading">
                     <div>
@@ -361,7 +372,7 @@
             </article>
         </section>
 
-        <section class="panel betting-panel">
+        <section class="panel betting-panel" data-app-view="betting">
             <div class="panel-heading betting-heading">
                 <div>
                     <p class="section-kicker">PARIMUTUEL BET ANALYSIS</p>
@@ -446,6 +457,7 @@
     <script src="scripts/request-policy.js"></script>
     <script src="scripts/platform-bridge.js"></script>
     <script src="scripts/market-monitor.js"></script>
+    <script src="scripts/navigation.js"></script>
     <script src="scripts/app.js"></script>
     <script src="scripts/remote.js"></script>
 </body>

@@ -170,6 +170,44 @@ h1 {
     gap: 20px;
 }
 
+.app-view-nav {
+    display: flex;
+    gap: 5px;
+    margin: 0 0 18px;
+    padding: 4px;
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(8, 21, 35, 0.82);
+    scrollbar-width: thin;
+}
+
+.app-view-nav button {
+    flex: 1 0 128px;
+    min-height: 36px;
+    padding: 8px 14px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #8fa7ba;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.app-view-nav button:hover,
+.app-view-nav button.active,
+.app-view-nav button[aria-current="page"] {
+    border-color: rgba(83, 217, 197, 0.35);
+    color: #e3fbf7;
+    background: rgba(83, 217, 197, 0.12);
+}
+
+[data-app-view][hidden] {
+    display: none !important;
+}
+
 .race-column, .side-column {
     display: flex;
     min-width: 0;
@@ -1230,6 +1268,33 @@ input:focus {
     display: flex;
     align-items: baseline;
     gap: 8px;
+}
+
+.hero-region-tabs {
+    display: flex;
+    gap: 6px;
+    margin: 0 0 10px;
+    padding-bottom: 2px;
+    overflow-x: auto;
+}
+
+.hero-region-tabs button {
+    min-height: 30px;
+    padding: 6px 11px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    color: #8fa7ba;
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 9px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.hero-region-tabs button[aria-selected="true"] {
+    border-color: rgba(83, 217, 197, 0.5);
+    color: #e3fbf7;
+    background: rgba(83, 217, 197, 0.13);
 }
 
 .hero-automation-controls {
@@ -2420,6 +2485,14 @@ footer {
     .hero-automation-heading > div {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .app-view-nav {
+        margin-bottom: 12px;
+    }
+
+    .app-view-nav button {
+        flex-basis: 112px;
     }
 
     .hero-automation-controls, .hero-recommendations {

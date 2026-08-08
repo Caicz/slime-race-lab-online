@@ -4,11 +4,11 @@ android {
     namespace "com.marisa.slimeracelab.online"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.marisa.slimeracelab.online"
+        applicationId "com.marisa.slimeracelab.online.v2"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10
-        versionName "1.1.8"
+        versionCode 11
+        versionName "1.2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,9 +16,25 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        stable {
+            def stableStoreFile = System.getenv('SLIME_RACE_SIGNING_STORE_FILE')
+            def stableStorePassword = System.getenv('SLIME_RACE_SIGNING_STORE_PASSWORD')
+            def stableKeyAlias = System.getenv('SLIME_RACE_SIGNING_KEY_ALIAS')
+            def stableKeyPassword = System.getenv('SLIME_RACE_SIGNING_KEY_PASSWORD')
+            if (!stableStoreFile || !stableStorePassword || !stableKeyAlias || !stableKeyPassword) {
+                throw new GradleException('Stable Android signing credentials are missing; use npm run android:apk')
+            }
+            storeFile file(stableStoreFile)
+            storePassword stableStorePassword
+            keyAlias stableKeyAlias
+            keyPassword stableKeyPassword
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.stable
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

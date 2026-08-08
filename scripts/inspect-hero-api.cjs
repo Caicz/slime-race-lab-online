@@ -54,6 +54,15 @@ function pickBattleStatus(data) {
             stats: data?.[`${prefix}Stats`]
         };
     }
+    result.angryBush = {
+        level: data?.angryBushLevel,
+        currentHp: data?.angryBushCurrentHp,
+        maxHp: data?.angryBushMaxHp,
+        stats: data?.angryBushStats,
+        expReward: data?.angryBushExpReward,
+        sweepLevel: data?.angryBushSweepLevel,
+        droppedLevelCount: Array.isArray(data?.angryBushDroppedLevels) ? data.angryBushDroppedLevels.length : undefined
+    };
     return result;
 }
 

@@ -36,14 +36,24 @@
         dropRecordLevelLimit: 3000
     });
     const MONSTERS = Object.freeze({
-        slime: {name: '史莱姆', prefix: 'slime', minDamage: 5, dodgeChance: 0.25, clientLevelField: 'clientSlimeLevel'},
-        hilichurl: {name: '野生咕隆', prefix: 'hilichurl', minDamage: 10, critChance: 0.2, poisonChance: 0.15, clientLevelField: 'clientHilichurlLevel'},
-        ruin_guard: {name: '重磁护卫', prefix: 'ruinGuard', minDamage: 20, clientLevelField: 'clientRuinGuardLevel'},
-        familiar: {name: '奏咪使魔', prefix: 'familiar', minDamage: 30, clientLevelField: 'clientFamiliarLevel'},
-        debt_collector: {name: '极乐盗贼', prefix: 'debtCollector', minDamage: 40, clientLevelField: 'clientDebtCollectorLevel'},
-        firefly_mage: {name: '大雷精灵', prefix: 'fireflyMage', minDamage: 50, clientLevelField: 'clientFireflyMageLevel'}
+        slime: {name: '史莱姆', prefix: 'slime', region: 'novice', minDamage: 5, dodgeChance: 0.25, clientLevelField: 'clientSlimeLevel'},
+        hilichurl: {name: '野生咕隆', prefix: 'hilichurl', region: 'novice', minDamage: 10, critChance: 0.2, poisonChance: 0.15, clientLevelField: 'clientHilichurlLevel'},
+        ruin_guard: {name: '重磁护卫', prefix: 'ruinGuard', region: 'novice', minDamage: 20, clientLevelField: 'clientRuinGuardLevel'},
+        familiar: {name: '奏咪使魔', prefix: 'familiar', region: 'novice', minDamage: 30, clientLevelField: 'clientFamiliarLevel'},
+        debt_collector: {name: '极乐盗贼', prefix: 'debtCollector', region: 'novice', minDamage: 40, clientLevelField: 'clientDebtCollectorLevel'},
+        firefly_mage: {name: '大雷精灵', prefix: 'fireflyMage', region: 'novice', minDamage: 50, clientLevelField: 'clientFireflyMageLevel'},
+        angry_bush: {name: '愤怒灌木', prefix: 'angryBush', region: 'forest', minDamage: 10, resistNull: 0.8, resistLight: 0.1, resistDark: 0.1, clientLevelField: 'clientAngryBushLevel'}
     });
     const MONSTER_IDS = Object.freeze(Object.keys(MONSTERS));
+    const MONSTER_REGIONS = Object.freeze({
+        novice: Object.freeze({key: 'novice', name: '海罗格姆村', monsterIds: Object.freeze(['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage'])}),
+        forest: Object.freeze({key: 'forest', name: '恐怖之森', monsterIds: Object.freeze(['angry_bush', 'forest_2', 'forest_3'])})
+    });
+    const FOREST_MONSTER_CATALOG = Object.freeze([
+        Object.freeze({id: 'angry_bush', name: '愤怒灌木', available: true, hp: 8000, atk: 2800, def: 1200, spd: 3200, exp: 800}),
+        Object.freeze({id: 'forest_2', name: '自行人偶', available: false}),
+        Object.freeze({id: 'forest_3', name: '自然石像', available: false})
+    ]);
     const MONSTER_BATTLE_DEFAULTS = Object.freeze({
         slime: Object.freeze({}),
         hilichurl: Object.freeze({}),
@@ -51,7 +61,8 @@
         familiar: Object.freeze({pleasureResist: true}),
         // The official route does not hand equipment to this monster by default.
         debt_collector: Object.freeze({submitEquipment: false, surrenderEquipment: false, equipmentSubmission: false}),
-        firefly_mage: Object.freeze({})
+        firefly_mage: Object.freeze({}),
+        angry_bush: Object.freeze({})
     });
     const HERO_MODES = Object.freeze({
         base: '基础模式',
@@ -377,6 +388,7 @@
         return {
             id: monsterId,
             name: definition.name,
+            region: definition.region,
             level,
             hp: Math.max(1, toFiniteNumber(status?.[`${definition.prefix}CurrentHp`], stats.hp)),
             maxHp: Math.max(1, toFiniteNumber(status?.[`${definition.prefix}MaxHp`], stats.hp)),
@@ -685,6 +697,9 @@
             paralysisApplications: 0,
             mirrorReflections: 0,
             bloodPactExplosions: 0,
+            angryBushRageStacks: 0,
+            angryBushRegenerations: 0,
+            angryBushRegeneratedHp: 0,
             ticks: 0,
             actions: 0,
             phase: 'fighting'
@@ -717,6 +732,22 @@
             return Math.max(1, Math.round(damage * (1 - getMonsterResistance(element))));
         }
 
+        function addAngryBushRage() {
+            if (monsterId !== 'angry_bush') return;
+            state.angryBushRageStacks += 1;
+            const multiplier = Math.pow(1.05, state.angryBushRageStacks);
+            state.monsterAtk = Math.max(1, Math.round(monster.atk * multiplier));
+            state.monsterDef = Math.max(1, Math.round(monster.def * multiplier));
+        }
+
+        function regenerateAngryBush() {
+            if (monsterId !== 'angry_bush' || state.monsterHp <= 0 || state.monsterHp >= state.monsterMaxHp) return;
+            const healed = Math.min(Math.floor(state.monsterMaxHp * 0.05), state.monsterMaxHp - state.monsterHp);
+            state.monsterHp += healed;
+            state.angryBushRegenerations += 1;
+            state.angryBushRegeneratedHp += healed;
+        }
+
         function reflectMirrorShield() {
             if (!state.mirrorShieldCharged) return;
             state.mirrorShieldCharged = false;
@@ -727,6 +758,7 @@
             const damage = applyMonsterResistance(rawDamage, 'light');
             state.monsterHp = Math.max(0, state.monsterHp - damage);
             state.mirrorReflections += 1;
+            addAngryBushRage();
             addDrain(damage);
         }
 
@@ -743,6 +775,7 @@
             state.monsterHp = Math.max(0, state.monsterHp - damage);
             state.bloodPactCost = 0;
             state.bloodPactExplosions += 1;
+            addAngryBushRage();
             addDrain(damage);
             if (state.monsterHp <= 0) state.phase = 'victory';
         }
@@ -784,6 +817,7 @@
             const rawDamage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
             const damage = applyMonsterResistance(rawDamage, rebornSkill?.element);
             state.monsterHp = Math.max(0, state.monsterHp - damage);
+            addAngryBushRage();
             addDrain(damage);
 
             if (state.weakenModeActive) {
@@ -863,6 +897,7 @@
 
             const forcedHug = monsterId === 'firefly_mage' && (state.monsterActionCount + 1) % 3 === 0;
             if (player.dodgeRate > 0 && state.paralysisTimer === 0 && random() < player.dodgeRate) {
+                if (monsterId === 'angry_bush') addAngryBushRage();
                 if (forcedHug) {
                     state.paralysisTimer = Math.min(2, state.paralysisTimer + 1);
                     state.forcedHugs += 1;
@@ -941,6 +976,8 @@
             state.paralysisTimer = state.paralysisTimer > 0 ? Math.max(0, state.paralysisTimer - 0.1) : 0;
             const nextPlayerAtb = wasParalyzed ? state.playerAtb : state.playerAtb + 5 * speedFactor;
             const nextMonsterAtb = state.monsterAtb + 5 * (state.monsterSpd / Math.max(state.playerSpd, 1));
+
+            if (monsterId === 'angry_bush' && previousPlayerAtb < 50 && nextPlayerAtb >= 50) regenerateAngryBush();
 
             if (monsterId === 'debt_collector' && previousPlayerAtb < 50 && nextPlayerAtb >= 50) {
                 state.monsterStealthed = !state.monsterStealthed;
@@ -1028,7 +1065,10 @@
                 forcedHugs: state.forcedHugs,
                 paralysisApplications: state.paralysisApplications,
                 mirrorReflections: state.mirrorReflections,
-                bloodPactExplosions: state.bloodPactExplosions
+                bloodPactExplosions: state.bloodPactExplosions,
+                angryBushRageStacks: state.angryBushRageStacks,
+                angryBushRegenerations: state.angryBushRegenerations,
+                angryBushRegeneratedHp: state.angryBushRegeneratedHp
             }
         };
     }
@@ -1373,6 +1413,8 @@
         REBORN_SKILLS,
         MONSTERS,
         MONSTER_IDS,
+        MONSTER_REGIONS,
+        FOREST_MONSTER_CATALOG,
         MONSTER_BATTLE_DEFAULTS,
         createSnapshot,
         normalizeHeroMode,

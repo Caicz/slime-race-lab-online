@@ -62,7 +62,14 @@ function createRawSnapshot() {
             fireflyMageLevel: 2,
             fireflyMageCurrentHp: 100,
             fireflyMageMaxHp: 100,
-            fireflyMageStats: {hp: 100, atk: 36, def: 32, spd: 36}
+            fireflyMageStats: {hp: 100, atk: 36, def: 32, spd: 36},
+            angryBushLevel: 2,
+            angryBushCurrentHp: 200,
+            angryBushMaxHp: 200,
+            angryBushStats: {hp: 200, atk: 36, def: 32, spd: 36},
+            angryBushExpReward: 80,
+            angryBushSweepLevel: 2,
+            angryBushDroppedLevels: [1]
         },
         skills: [
             {skillKey: 'drain', level: 2},
@@ -119,6 +126,33 @@ test('六只常规怪物都从当前半级面板读取并生成正确结算字�
     assert.equal(familiar.sweepLevel, 2);
     assert.equal(familiar.eligibleDropLevels, 2);
     assert.equal(familiar.recordedDropLevels, 2);
+});
+
+test('恐怖之森愤怒灌木模型包含官方抗性、愤怒叠层和再生机制', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {
+        currentHp: 1000,
+        maxHp: 1000,
+        attack: 500,
+        defense: 1000,
+        speed: 500,
+        angryBushCurrentHp: 200,
+        angryBushMaxHp: 200,
+        angryBushStats: {hp: 200, atk: 50, def: 20, spd: 20}
+    });
+    const snapshot = heroAutomation.createSnapshot(raw);
+    const monster = heroAutomation.getMonster(snapshot, 'angry_bush');
+    assert.equal(monster.region, 'forest');
+    assert.equal(monster.minDamage, 10);
+    assert.equal(monster.resistNull, 0.8);
+    assert.equal(monster.resistLight, 0.1);
+    assert.equal(monster.resistDark, 0.1);
+    assert.equal(heroAutomation.MONSTER_REGIONS.forest.monsterIds[0], 'angry_bush');
+
+    const result = heroAutomation.simulateBattle(snapshot, 'angry_bush', {random: () => 0.99});
+    assert.ok(result.mechanics.angryBushRageStacks > 0);
+    assert.ok(result.mechanics.angryBushRegenerations > 0);
+    assert.ok(result.mechanics.angryBushRegeneratedHp > 0);
 });
 
 test('奏咪使魔快感抗性默认开启且关闭后每十次有效攻击完成一次循环', () => {
