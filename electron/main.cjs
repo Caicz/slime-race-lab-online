@@ -433,6 +433,7 @@ async function applyHeroAllocation(intent) {
         const targetRebornSkill = hasTargetRebornSkill
             ? heroAutomation.validateRebornSkillSelection(snapshot, intent.rebornSkillKey)
             : undefined;
+        const shouldManageRebornSkill = snapshot.heroMode === 'reborn' && targetRebornSkill != null;
         if (intent?.guard) heroAutomation.validateBattleGuard(snapshot, intent.guard);
         if (targetSkill != null && (!heroAutomation.ACTIVE_SKILLS[targetSkill] || Number(snapshot.skills[targetSkill]) <= 0)) {
             throw new Error('推荐主动技能尚未解锁或无效');
@@ -451,7 +452,7 @@ async function applyHeroAllocation(intent) {
             await requestJson('/api/hero/skills/equip', {method: 'POST', data: {skillKey: targetSkill}});
             await requestPolicy.delay(300);
         }
-        if (snapshot.heroMode === 'reborn' && hasTargetRebornSkill && targetRebornSkill && targetRebornSkill !== (snapshot.account.equippedRebornSkill || null)) {
+        if (shouldManageRebornSkill && targetRebornSkill !== (snapshot.account.equippedRebornSkill || null)) {
             await requestJson('/api/hero/reborn-skills/equip', {method: 'POST', data: {skillKey: targetRebornSkill}});
             await requestPolicy.delay(300);
         }
@@ -464,11 +465,11 @@ async function applyHeroAllocation(intent) {
         const actual = heroAutomation.getCurrentAllocation(updated.account);
         if (JSON.stringify(actual) !== JSON.stringify(plan.target)) throw new Error('服务器返回的能力值方案与目标不一致，自动刷怪已停止');
         if (targetSkill !== undefined && updated.account.equippedActiveSkill !== targetSkill) throw new Error('服务器返回的主动技能与推荐不一致，自动刷怪已停止');
-        if (hasTargetRebornSkill && (updated.account.equippedRebornSkill || null) !== targetRebornSkill) throw new Error('服务器返回的转生技能与信仰路线不一致，自动刷怪已停止');
+        heroAutomation.validateAppliedRebornSkill(updated, targetRebornSkill, snapshot.heroMode);
         if (intent?.guard) heroAutomation.validateBattleGuard(updated, {
             ...intent.guard,
             expectedAllocation: plan.target,
-            ...(hasTargetRebornSkill ? {expectedRebornSkill: targetRebornSkill} : {})
+            ...(shouldManageRebornSkill ? {expectedRebornSkill: targetRebornSkill} : {})
         });
         return updated;
     });

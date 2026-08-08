@@ -96,6 +96,7 @@ function getContexts(source, marker, radius = 260, maximum = 3) {
 async function main() {
     const arguments = process.argv.slice(2);
     const snapshotOnly = arguments.includes('--snapshot-only');
+    const verifyCurrentRebornEquip = arguments.includes('--verify-current-reborn-equip');
     const requestedMarkers = arguments.filter(argument => !argument.startsWith('--'));
     const env = parseEnv(fs.readFileSync(require('node:path').join(__dirname, '..', '.env.slime-race.local'), 'utf8'));
     const base = new URL(env.SLIME_RACE_URL || 'https://zouzou-princess-fan-2.replit.app').origin;
@@ -120,6 +121,27 @@ async function main() {
         try { data = text ? JSON.parse(text) : null; } catch { data = {nonJson: true}; }
         console.log(`${endpoint}=${response.status}`);
         responses[endpoint] = data;
+    }
+    if (verifyCurrentRebornEquip) {
+        const currentSkillKey = responses['/api/auth/me']?.equippedRebornSkill;
+        if (!currentSkillKey) throw new Error('account does not currently have a reborn skill to verify');
+        const equipResponse = await fetch(new URL('/api/hero/reborn-skills/equip', base), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', Accept: 'application/json', Cookie: cookie},
+            body: JSON.stringify({skillKey: currentSkillKey})
+        });
+        console.log(`/api/hero/reborn-skills/equip=${equipResponse.status}`);
+        if (!equipResponse.ok) throw new Error(`current reborn skill verification failed with ${equipResponse.status}`);
+        const accountResponse = await fetch(new URL('/api/auth/me', base), {headers: {Accept: 'application/json', Cookie: cookie}});
+        const account = await accountResponse.json();
+        console.log(`equipVerification=${JSON.stringify({
+            rebornType: account?.rebornType,
+            rebornMode: account?.rebornMode,
+            submittedSkillKey: currentSkillKey,
+            equippedRebornSkill: account?.equippedRebornSkill,
+            unchanged: account?.equippedRebornSkill === currentSkillKey
+        })}`);
+        if (account?.equippedRebornSkill !== currentSkillKey) throw new Error('server did not retain the submitted current reborn skill');
     }
     if (requestedMarkers.length === 0) {
         console.log(`account=${JSON.stringify(pickAccount(responses['/api/auth/me']))}`);

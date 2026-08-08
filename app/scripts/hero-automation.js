@@ -203,6 +203,18 @@
         return {route, equippedSkillKey: equippedKey, compatible: true};
     }
 
+    function validateAppliedRebornSkill(snapshot, expectedSkillKey, heroMode = snapshot?.heroMode) {
+        const actualSkillKey = snapshot?.account?.equippedRebornSkill || null;
+        if (normalizeHeroMode(heroMode) !== 'reborn' || expectedSkillKey === null || expectedSkillKey === undefined) {
+            return {checked: false, expectedSkillKey: expectedSkillKey ?? null, actualSkillKey};
+        }
+        const expected = validateRebornSkillSelection(snapshot, expectedSkillKey);
+        if (actualSkillKey !== expected) {
+            throw new Error(`服务器未应用推荐的转生技能：期望“${expected}”，实际“${actualSkillKey || '未装备'}”；信仰路线未发生变化`);
+        }
+        return {checked: true, expectedSkillKey: expected, actualSkillKey};
+    }
+
     function normalizeRouteValue(value) {
         if (Array.isArray(value)) return value;
         if (typeof value === 'string') {
@@ -1527,6 +1539,7 @@
         getSkillFaithRoute,
         isRebornSkillAllowedForFaithRoute,
         validateFaithRouteConsistency,
+        validateAppliedRebornSkill,
         getRebornSkill,
         getRebornModifiers,
         validateRebornSkillSelection,

@@ -571,6 +571,28 @@ test('incompatible server equipped skill is reported instead of auto-repaired', 
     assert.equal(heroAutomation.getDefaultRebornSkill(snapshot), null);
 });
 
+test('base mode keeps the server stored reborn skill without treating null as a faith conflict', () => {
+    const raw = createRawSnapshot();
+    raw.account.rebornType = 'M';
+    raw.account.rebornMode = 'base';
+    raw.account.equippedRebornSkill = 'star_curse';
+    raw.rebornSkills = {skills: [
+        {skillKey: 'star_curse', level: 4},
+        {skillKey: 'blood_pact', level: 1}
+    ]};
+    const snapshot = heroAutomation.createSnapshot(raw);
+
+    assert.deepEqual(heroAutomation.validateAppliedRebornSkill(snapshot, null, 'base'), {
+        checked: false,
+        expectedSkillKey: null,
+        actualSkillKey: 'star_curse'
+    });
+    assert.throws(
+        () => heroAutomation.validateAppliedRebornSkill(snapshot, 'blood_pact', 'reborn'),
+        /服务器未应用推荐的转生技能：期望“blood_pact”，实际“star_curse”/
+    );
+});
+
 test('base mode disables stored reborn skill while reborn mode applies the official attack multiplier', () => {
     const raw = disableHeroSkills(createRawSnapshot());
     raw.account.equippedRebornSkill = 'star_curse';
