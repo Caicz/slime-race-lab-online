@@ -289,6 +289,11 @@
                     <div class="hero-automation-controls">
                         <label><span>怪物选择</span><select id="heroMonsterSelect"></select></label>
                         <label><span>挑战路线</span><select id="heroRouteMode"><option value="account">账号默认路线</option><option value="single">只刷所选怪物</option></select></label>
+                        <div class="hero-faith-route-lock" id="heroFaithRouteLock">
+                            <span>信仰路线</span>
+                            <strong id="heroFaithRouteValue">读取服务器状态</strong>
+                            <small id="heroFaithRouteStatus">选择后不可修改，仅能使用该路线技能</small>
+                        </div>
                         <label><span>转生技能 / 信仰</span><select id="heroRebornSkillSelect"><option value="__default__">跟随账号默认</option></select></label>
                         <label><span>配点目标</span><select id="heroOptimizationMode"><option value="balanced">均衡</option><option value="minimum_loss">最少掉血</option><option value="fastest">最快速度</option></select></label>
                         <label><span>本轮最多胜场</span><input id="heroMaxVictories" type="number" min="1" max="60" step="1" value="10"></label>

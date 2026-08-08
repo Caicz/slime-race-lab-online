@@ -96,6 +96,8 @@
         heroBattleCount: document.querySelector('#heroBattleCount'),
         heroPotionStatus: document.querySelector('#heroPotionStatus'),
         heroFaithRoute: document.querySelector('#heroFaithRoute'),
+        heroFaithRouteValue: document.querySelector('#heroFaithRouteValue'),
+        heroFaithRouteStatus: document.querySelector('#heroFaithRouteStatus'),
         heroCurrentStep: document.querySelector('#heroCurrentStep'),
         heroRunResult: document.querySelector('#heroRunResult'),
         heroRecommendations: document.querySelector('#heroRecommendations'),
@@ -350,6 +352,8 @@
 
         async function applyHeroAllocation(intent) {
             const snapshot = await ensureHeroMode(intent?.heroMode);
+            heroAutomation.validateFaithRouteConsistency(snapshot);
+            const expectedFaithRoute = heroAutomation.getFaithRoute(snapshot);
             const targetAllocation = intent?.targetAllocation || intent;
             const targetSkill = intent?.activeSkillKey;
             const hasTargetRebornSkill = Object.hasOwn(intent || {}, 'rebornSkillKey');
@@ -380,6 +384,10 @@
             }
 
             const updated = await fetchHeroAutomation();
+            if (expectedFaithRoute !== heroAutomation.getFaithRoute(updated)) {
+                throw new Error('服务器返回的信仰路线发生变化，自动刷怪已停止');
+            }
+            heroAutomation.validateFaithRouteConsistency(updated);
             const actual = heroAutomation.getCurrentAllocation(updated.account);
             if (JSON.stringify(actual) !== JSON.stringify(plan.target)) throw new Error('服务器返回的能力值方案与目标不一致，自动刷怪已停止');
             if (targetSkill !== undefined && updated.account.equippedActiveSkill !== targetSkill) throw new Error('服务器返回的主动技能与推荐不一致，自动刷怪已停止');
@@ -1045,6 +1053,13 @@
     function renderHeroRouteControls(snapshot) {
         const previous = elements.heroRebornSkill.value || '__default__';
         const defaultSkill = heroAutomation.getDefaultRebornSkill(snapshot);
+        const faithRoute = heroAutomation.getFaithRoute(snapshot);
+        let faithRouteError = null;
+        try {
+            heroAutomation.validateFaithRouteConsistency(snapshot);
+        } catch (error) {
+            faithRouteError = error;
+        }
         elements.heroRebornSkill.replaceChildren();
         const defaultOption = document.createElement('option');
         defaultOption.value = '__default__';
@@ -1054,6 +1069,7 @@
         elements.heroRebornSkill.append(defaultOption);
         for (const skill of snapshot.rebornSkillOptions) {
             if (!skill.unlocked) continue;
+            if (!heroAutomation.isRebornSkillAllowedForFaithRoute(snapshot, skill)) continue;
             const option = document.createElement('option');
             option.value = skill.key;
             option.textContent = `${skill.name} Lv.${skill.level}${skill.faithRequired ? ` · 信仰 ${skill.faithRequired}` : ''}`;
@@ -1061,6 +1077,20 @@
             elements.heroRebornSkill.append(option);
         }
         elements.heroRebornSkill.value = [...elements.heroRebornSkill.options].some(option => option.value === previous) ? previous : '__default__';
+        if (elements.heroFaithRouteValue) {
+            elements.heroFaithRouteValue.textContent = faithRoute
+                ? `${heroAutomation.getFaithRouteLabel(faithRoute)}（${faithRoute}）`
+                : '服务器未返回';
+        }
+        if (elements.heroFaithRouteStatus) {
+            elements.heroFaithRouteStatus.textContent = faithRouteError
+                ? faithRouteError.message
+                : faithRoute
+                    ? '服务器已锁定，不能修改；只能使用该路线的转生技能'
+                    : '服务器未返回信仰路线，暂不允许安全选择转生技能';
+            elements.heroFaithRouteStatus.className = faithRouteError ? 'error' : '';
+        }
+        elements.heroRebornSkill.disabled = Boolean(faithRouteError || !faithRoute);
         const route = getSelectedHeroRoute(snapshot);
         const routeNames = route.map(id => heroAutomation.MONSTERS[id]?.name || id).join(' → ');
         const baseMode = snapshot.heroModes?.base;
@@ -1068,7 +1098,7 @@
         const modeText = baseMode && rebornMode
             ? `基础 Lv.${baseMode.level} / ${heroAutomation.getTotalPoints(baseMode.account)}点 · 信仰 Lv.${rebornMode.level} / ${heroAutomation.getTotalPoints(rebornMode.account)}点`
             : `${heroAutomation.HERO_MODES[snapshot.heroMode] || '当前模式'} · ${heroAutomation.getTotalPoints(snapshot.account)}点`;
-        elements.heroFaithRoute.textContent = `${modeText} · ${routeNames}`;
+        elements.heroFaithRoute.textContent = `${faithRoute ? heroAutomation.getFaithRouteLabel(faithRoute) : '信仰路线未知'} · ${modeText} · ${routeNames}`;
         elements.heroDebtCollectorEquipmentControl.hidden = elements.heroMonster.value !== 'debt_collector';
     }
 

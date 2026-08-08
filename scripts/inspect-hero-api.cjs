@@ -28,6 +28,9 @@ function pickAccount(data) {
         equippedActiveSkill: data?.equippedActiveSkill,
         equippedRebornSkill: data?.equippedRebornSkill,
         rebornType: data?.rebornType,
+        faithRoute: data?.faithRoute,
+        faithType: data?.faithType,
+        faithFaction: data?.faithFaction,
         rebornMode: data?.rebornMode,
         faithLevel: data?.faithLevel,
         faithExp: data?.faithExp
@@ -70,6 +73,9 @@ function pickSkills(data) {
     const skills = Array.isArray(data) ? data : Array.isArray(data?.skills) ? data.skills : [];
     return skills.map(skill => ({
         skillKey: skill?.skillKey,
+        route: skill?.route,
+        faithRoute: skill?.faithRoute,
+        routeLabel: skill?.routeLabel,
         level: skill?.level,
         name: skill?.name,
         description: skill?.description,

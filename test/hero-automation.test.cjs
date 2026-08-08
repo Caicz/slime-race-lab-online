@@ -532,6 +532,45 @@ test('official reborn skills are recognized without fabricated generic stat effe
     assert.equal(snapshot.soulFragments, 12);
 });
 
+test('server rebornType locks the faith route and filters skills', () => {
+    const raw = createRawSnapshot();
+    raw.account.rebornMode = 'reborn';
+    raw.account.rebornType = 'M';
+    raw.account.equippedRebornSkill = 'star_curse';
+    raw.rebornSkills = {
+        skills: [
+            {skillKey: 'holy_judgment', level: 2},
+            {skillKey: 'mirror_shield', level: 2},
+            {skillKey: 'star_curse', level: 2},
+            {skillKey: 'blood_pact', level: 1}
+        ]
+    };
+    const snapshot = heroAutomation.createSnapshot(raw);
+
+    assert.equal(snapshot.faithRoute, 'M');
+    assert.equal(heroAutomation.getFaithRouteLabel(snapshot.faithRoute), '魔女');
+    assert.equal(heroAutomation.getDefaultRebornSkill(snapshot), 'star_curse');
+    assert.equal(heroAutomation.isRebornSkillAllowedForFaithRoute(snapshot, snapshot.rebornSkillOptions.find(skill => skill.key === 'holy_judgment')), false);
+    assert.throws(
+        () => heroAutomation.validateRebornSkillSelection(snapshot, 'holy_judgment'),
+        /当前信仰路线为“魔女”/
+    );
+});
+
+test('incompatible server equipped skill is reported instead of auto-repaired', () => {
+    const raw = createRawSnapshot();
+    raw.account.rebornType = 'N';
+    raw.account.equippedRebornSkill = 'star_curse';
+    raw.rebornSkills = {skills: [{skillKey: 'star_curse', level: 2}]};
+    const snapshot = heroAutomation.createSnapshot(raw);
+
+    assert.throws(
+        () => heroAutomation.validateFaithRouteConsistency(snapshot),
+        /服务器返回的转生技能与信仰路线不一致/
+    );
+    assert.equal(heroAutomation.getDefaultRebornSkill(snapshot), null);
+});
+
 test('base mode disables stored reborn skill while reborn mode applies the official attack multiplier', () => {
     const raw = disableHeroSkills(createRawSnapshot());
     raw.account.equippedRebornSkill = 'star_curse';

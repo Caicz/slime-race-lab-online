@@ -425,6 +425,8 @@ async function claimDailyGameReward(type) {
 async function applyHeroAllocation(intent) {
     return runMutation(async () => {
         const snapshot = await ensureHeroMode(intent?.heroMode);
+        heroAutomation.validateFaithRouteConsistency(snapshot);
+        const expectedFaithRoute = heroAutomation.getFaithRoute(snapshot);
         const targetAllocation = intent?.targetAllocation || intent;
         const targetSkill = intent?.activeSkillKey;
         const hasTargetRebornSkill = Object.hasOwn(intent || {}, 'rebornSkillKey');
@@ -455,6 +457,10 @@ async function applyHeroAllocation(intent) {
         }
 
         const updated = await syncHeroAutomation();
+        if (expectedFaithRoute !== heroAutomation.getFaithRoute(updated)) {
+            throw new Error('服务器返回的信仰路线发生变化，自动刷怪已停止');
+        }
+        heroAutomation.validateFaithRouteConsistency(updated);
         const actual = heroAutomation.getCurrentAllocation(updated.account);
         if (JSON.stringify(actual) !== JSON.stringify(plan.target)) throw new Error('服务器返回的能力值方案与目标不一致，自动刷怪已停止');
         if (targetSkill !== undefined && updated.account.equippedActiveSkill !== targetSkill) throw new Error('服务器返回的主动技能与推荐不一致，自动刷怪已停止');

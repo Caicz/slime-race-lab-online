@@ -74,6 +74,14 @@
         star_curse: Object.freeze({element: 'dark', kind: 'attack'}),
         blood_pact: Object.freeze({element: 'dark', kind: 'blood_pact'})
     });
+    const FAITH_ROUTES = Object.freeze({goddess: 'N', witch: 'M'});
+    const FAITH_ROUTE_LABELS = Object.freeze({N: '女神', M: '魔女'});
+    const REBORN_SKILL_ROUTES = Object.freeze({
+        holy_judgment: 'N',
+        mirror_shield: 'N',
+        star_curse: 'M',
+        blood_pact: 'M'
+    });
 
     function toFiniteNumber(value, fallback = 0) {
         const number = Number(value);
@@ -135,9 +143,64 @@
                 equipped: skill?.equipped === true,
                 unlocked: skill?.unlocked !== false && toFiniteNumber(skill?.level) > 0,
                 supported: Boolean(REBORN_SKILLS[key]) || skill?.supported === true || skill?.noCombatEffect === true || Object.keys(effects).length > 0,
+                faithRoute: normalizeFaithRoute(firstDefined(skill?.faithRoute, skill?.faithType, skill?.faction, skill?.route, REBORN_SKILL_ROUTES[key])),
                 effects
             };
         }).filter(Boolean);
+    }
+
+    function normalizeFaithRoute(value) {
+        if (value && typeof value === 'object') {
+            return normalizeFaithRoute(firstDefined(value.code, value.key, value.route, value.type, value.name, value.label));
+        }
+        const text = String(value ?? '').trim();
+        if (!text) return null;
+        const normalized = text.toUpperCase().replace(/[ _-]/g, '');
+        if (['M', 'W', 'WITCH', '魔女', '魔女路线', '魔女信仰'].includes(normalized) || text.includes('魔女')) return FAITH_ROUTES.witch;
+        if (['N', 'G', 'GODDESS', 'GOD', '女神', '女神路线', '女神信仰'].includes(normalized) || text.includes('女神')) return FAITH_ROUTES.goddess;
+        return null;
+    }
+
+    function getFaithRoute(snapshot) {
+        return normalizeFaithRoute(firstDefined(
+            snapshot?.faithRoute,
+            snapshot?.account?.faithRoute,
+            snapshot?.account?.faithType,
+            snapshot?.account?.rebornType,
+            snapshot?.account?.reborn?.faithRoute,
+            snapshot?.rebornSkills?.faithRoute,
+            snapshot?.rebornSkills?.faithType,
+            snapshot?.rebornSkills?.rebornType,
+            snapshot?.battleStatus?.faithRoute,
+            snapshot?.battleStatus?.faithType,
+            snapshot?.battleStatus?.rebornType
+        ));
+    }
+
+    function getFaithRouteLabel(route) {
+        const normalized = normalizeFaithRoute(route);
+        return normalized ? FAITH_ROUTE_LABELS[normalized] : '未知';
+    }
+
+    function getSkillFaithRoute(skill) {
+        if (!skill) return null;
+        return normalizeFaithRoute(firstDefined(skill.faithRoute, skill.faithType, skill.faction, skill.route, REBORN_SKILL_ROUTES[skill.key || skill.skillKey]));
+    }
+
+    function isRebornSkillAllowedForFaithRoute(snapshot, skill) {
+        const route = getFaithRoute(snapshot);
+        if (!route) return true;
+        return getSkillFaithRoute(skill) === route;
+    }
+
+    function validateFaithRouteConsistency(snapshot) {
+        const route = getFaithRoute(snapshot);
+        const equippedKey = snapshot?.account?.equippedRebornSkill || null;
+        const equipped = equippedKey && (snapshot?.rebornSkillOptions || []).find(skill => skill.key === equippedKey);
+        if (route && equippedKey && (!equipped || getSkillFaithRoute(equipped) !== route)) {
+            throw new Error(`服务器返回的转生技能与信仰路线不一致：当前路线为“${getFaithRouteLabel(route)}”，已装备“${equipped?.name || equippedKey}”不属于该路线`);
+        }
+        return {route, equippedSkillKey: equippedKey, compatible: true};
     }
 
     function normalizeRouteValue(value) {
@@ -182,11 +245,21 @@
     function getDefaultRebornSkill(snapshot) {
         const account = snapshot?.account || {};
         const options = Array.isArray(snapshot?.rebornSkillOptions) ? snapshot.rebornSkillOptions : [];
-        const requested = account.defaultRebornSkill || account.defaultRebornSkillKey || account.rebornSkillRoute;
-        const key = String(requested || account.equippedRebornSkill || options.find(skill => skill.equipped)?.key || '').trim();
-        if (!key) return null;
-        const candidate = options.find(skill => skill.key === key);
-        return candidate?.unlocked === false ? null : key;
+        const equipped = options.find(skill => skill.key === account.equippedRebornSkill);
+        if (getFaithRoute(snapshot) && account.equippedRebornSkill && (!equipped || !isRebornSkillAllowedForFaithRoute(snapshot, equipped))) return null;
+        const requested = [account.defaultRebornSkill, account.defaultRebornSkillKey]
+            .map(value => String(value ?? '').trim())
+            .filter(value => options.some(skill => skill.key === value));
+        const candidates = [
+            ...requested,
+            account.equippedRebornSkill,
+            options.find(skill => skill.equipped)?.key,
+            options.find(skill => skill.unlocked && isRebornSkillAllowedForFaithRoute(snapshot, skill))?.key
+        ]
+            .filter(Boolean)
+            .map(key => options.find(skill => skill.key === key))
+            .filter(skill => skill && skill.unlocked && isRebornSkillAllowedForFaithRoute(snapshot, skill));
+        return candidates[0]?.key || null;
     }
 
     function getDefaultBattleOptions(monsterId, options = {}) {
@@ -205,12 +278,17 @@
     }
 
     function validateRebornSkillSelection(snapshot, skillKey, options = {}) {
+        validateFaithRouteConsistency(snapshot);
         const key = skillKey === null || skillKey === undefined || skillKey === '' ? null : String(skillKey);
         if (!key) {
             if (options.allowNone === false) throw new Error('必须选择一个转生技能');
             return null;
         }
         const candidate = (snapshot?.rebornSkillOptions || []).find(skill => skill.key === key);
+        const route = getFaithRoute(snapshot);
+        if (route && candidate && !isRebornSkillAllowedForFaithRoute(snapshot, candidate)) {
+            throw new Error(`当前信仰路线为“${getFaithRouteLabel(route)}”，不能使用“${getFaithRouteLabel(getSkillFaithRoute(candidate))}”路线转生技能`);
+        }
         if (!candidate || !candidate.unlocked || candidate.level <= 0) throw new Error('转生技能尚未解锁或无效');
         if (candidate.faithRequired > Math.max(0, toFiniteNumber(snapshot?.faith))) throw new Error('当前信仰不足，无法选择该转生技能');
         return key;
@@ -317,9 +395,16 @@
         const reborn = getHeroModeSnapshot(rebornSnapshot, 'reborn');
         const normalized = normalizeHeroMode(activeMode);
         const active = normalized === 'reborn' ? reborn : base;
+        const baseFaithRoute = getFaithRoute(baseSnapshot);
+        const rebornFaithRoute = getFaithRoute(rebornSnapshot);
+        if (baseFaithRoute && rebornFaithRoute && baseFaithRoute !== rebornFaithRoute) {
+            throw new Error('基础模式与转生信仰模式返回了不同的信仰路线，自动刷怪已停止');
+        }
         return {
             ...active,
             heroMode: normalized,
+            faithRoute: rebornFaithRoute || baseFaithRoute || getFaithRoute(active),
+            faithRouteLocked: Boolean(rebornFaithRoute || baseFaithRoute || getFaithRoute(active)),
             heroModes: {
                 base: {
                     account: base.account,
@@ -344,6 +429,12 @@
             account,
             battleStatus: status,
             heroMode,
+            faithRoute: getFaithRoute({
+                account,
+                battleStatus: status,
+                rebornSkills: raw?.rebornSkills
+            }),
+            faithRouteLocked: Boolean(getFaithRoute({account, battleStatus: status, rebornSkills: raw?.rebornSkills})),
             skills: getSkillLevels(raw.skills),
             rebornSkills: getRebornSkillLevels(raw.rebornSkills),
             rebornSkillOptions: getRebornSkillOptions(raw.rebornSkills),
@@ -497,6 +588,7 @@
         return {
             monsterId,
             heroMode,
+            expectedFaithRoute: getFaithRoute(modeSnapshot),
             expectedMonster: getMonsterPanel(monster),
             expectedBattleCount: getBattleCount(modeSnapshot),
             requireDefensePotions: options.requireDefensePotions === true,
@@ -530,6 +622,11 @@
         }
 
         const effectiveRebornSkill = modeSnapshot.heroMode === 'reborn' ? modeSnapshot.account.equippedRebornSkill || null : null;
+        const currentFaithRoute = getFaithRoute(modeSnapshot);
+        if (guard.expectedFaithRoute !== undefined && currentFaithRoute !== guard.expectedFaithRoute) {
+            throw new Error('信仰路线已经变化，自动刷怪已停止');
+        }
+        validateFaithRouteConsistency(modeSnapshot);
         if (guard.expectedRebornSkill !== undefined && effectiveRebornSkill !== guard.expectedRebornSkill) {
             throw new Error('转生技能或信仰路线已经变化，请重新计算方案');
         }
@@ -1411,6 +1508,8 @@
         FAMILIAR_MECHANIC,
         HERO_MODES,
         REBORN_SKILLS,
+        FAITH_ROUTES,
+        FAITH_ROUTE_LABELS,
         MONSTERS,
         MONSTER_IDS,
         MONSTER_REGIONS,
@@ -1422,6 +1521,12 @@
         getHeroModeSnapshot,
         combineHeroModeSnapshots,
         getRebornSkillOptions,
+        normalizeFaithRoute,
+        getFaithRoute,
+        getFaithRouteLabel,
+        getSkillFaithRoute,
+        isRebornSkillAllowedForFaithRoute,
+        validateFaithRouteConsistency,
         getRebornSkill,
         getRebornModifiers,
         validateRebornSkillSelection,
