@@ -1030,7 +1030,7 @@
     function getSelectedHeroRebornSkill(snapshot = heroSnapshot) {
         if (!snapshot) return null;
         const selected = elements.heroRebornSkill.value;
-        return selected === '__default__' ? heroAutomation.getDefaultRebornSkill(snapshot) : selected || null;
+        return selected === '__default__' ? undefined : selected || null;
     }
 
     function getSelectedHeroBattleOptions(monsterId) {
@@ -1065,8 +1065,8 @@
         const defaultOption = document.createElement('option');
         defaultOption.value = '__default__';
         defaultOption.textContent = defaultSkill
-            ? `跟随账号默认：${snapshot.rebornSkillOptions.find(skill => skill.key === defaultSkill)?.name || defaultSkill}`
-            : '跟随账号默认：不使用转生技能';
+            ? `自动选优（账号默认：${snapshot.rebornSkillOptions.find(skill => skill.key === defaultSkill)?.name || defaultSkill}）`
+            : '自动选择当前路线已解锁技能';
         elements.heroRebornSkill.append(defaultOption);
         for (const skill of snapshot.rebornSkillOptions) {
             if (!skill.unlocked) continue;
@@ -1346,9 +1346,11 @@
         let monsterName = heroAutomation.MONSTERS[monsterId]?.name || monsterId;
         const routeName = route.map(id => heroAutomation.MONSTERS[id]?.name || id).join(' → ');
         const rebornSkillKey = getSelectedHeroRebornSkill(initial);
-        const rebornName = rebornSkillKey
-            ? initial.rebornSkillOptions.find(skill => skill.key === rebornSkillKey)?.name || rebornSkillKey
-            : '不使用转生技能';
+        const rebornName = rebornSkillKey === undefined
+            ? '自动选择当前信仰路线的最优技能'
+            : rebornSkillKey
+                ? initial.rebornSkillOptions.find(skill => skill.key === rebornSkillKey)?.name || rebornSkillKey
+                : '不使用转生技能';
         const modeName = heroAutomation.OPTIMIZATION_MODES[elements.heroOptimizationMode.value];
         const potionText = elements.heroDefensePotions.checked
             ? '；开始时将把防御药水补足到30层，最多消耗30瓶，药效到期立即停止'

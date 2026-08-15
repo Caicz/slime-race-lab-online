@@ -42,17 +42,19 @@
         familiar: {name: '奏咪使魔', prefix: 'familiar', region: 'novice', minDamage: 30, clientLevelField: 'clientFamiliarLevel'},
         debt_collector: {name: '极乐盗贼', prefix: 'debtCollector', region: 'novice', minDamage: 40, clientLevelField: 'clientDebtCollectorLevel'},
         firefly_mage: {name: '大雷精灵', prefix: 'fireflyMage', region: 'novice', minDamage: 50, clientLevelField: 'clientFireflyMageLevel'},
-        angry_bush: {name: '愤怒灌木', prefix: 'angryBush', region: 'forest', minDamage: 10, resistNull: 0.8, resistLight: 0.1, resistDark: 0.1, clientLevelField: 'clientAngryBushLevel'}
+        angry_bush: {name: '愤怒灌木', prefix: 'angryBush', region: 'forest', minDamage: 10, resistNull: 0.8, resistLight: 0.1, resistDark: 0.1, clientLevelField: 'clientAngryBushLevel'},
+        automaton: {name: '自行人偶', prefix: 'automaton', region: 'forest', minDamage: 20, resistNull: 0.95, resistLight: 0.2, resistDark: 0.2, clientLevelField: 'clientAutomatonLevel'},
+        stone_golem: {name: '自然石像', prefix: 'stoneGolem', region: 'forest', minDamage: 30, resistNull: 0.98, resistLight: 0.3, resistDark: 0.3, clientLevelField: 'clientStoneGolemLevel'}
     });
     const MONSTER_IDS = Object.freeze(Object.keys(MONSTERS));
     const MONSTER_REGIONS = Object.freeze({
         novice: Object.freeze({key: 'novice', name: '海罗格姆村', monsterIds: Object.freeze(['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage'])}),
-        forest: Object.freeze({key: 'forest', name: '恐怖之森', monsterIds: Object.freeze(['angry_bush', 'forest_2', 'forest_3'])})
+        forest: Object.freeze({key: 'forest', name: '恐怖之森', monsterIds: Object.freeze(['angry_bush', 'automaton', 'stone_golem'])})
     });
     const FOREST_MONSTER_CATALOG = Object.freeze([
-        Object.freeze({id: 'angry_bush', name: '愤怒灌木', available: true, hp: 8000, atk: 2800, def: 1200, spd: 3200, exp: 800}),
-        Object.freeze({id: 'forest_2', name: '自行人偶', available: false}),
-        Object.freeze({id: 'forest_3', name: '自然石像', available: false})
+        Object.freeze({id: 'angry_bush', name: '愤怒灌木', available: true, hp: 50, atk: 20, def: 15, spd: 15, faithExp: 4}),
+        Object.freeze({id: 'automaton', name: '自行人偶', available: true, hp: 120, atk: 44, def: 36, spd: 32, faithExp: 10}),
+        Object.freeze({id: 'stone_golem', name: '自然石像', available: true, hp: 320, atk: 160, def: 80, spd: 48, faithExp: 20})
     ]);
     const MONSTER_BATTLE_DEFAULTS = Object.freeze({
         slime: Object.freeze({}),
@@ -62,7 +64,10 @@
         // The official route does not hand equipment to this monster by default.
         debt_collector: Object.freeze({submitEquipment: false, surrenderEquipment: false, equipmentSubmission: false}),
         firefly_mage: Object.freeze({}),
-        angry_bush: Object.freeze({})
+        angry_bush: Object.freeze({}),
+        // Official auto-battle accepts the opening suppression prompt.
+        automaton: Object.freeze({automatonSuppressed: true}),
+        stone_golem: Object.freeze({})
     });
     const HERO_MODES = Object.freeze({
         base: '基础模式',
@@ -681,10 +686,14 @@
             const currentBase = getBaseStat(key, current[key]);
             const percent = toFiniteNumber(equipment[`${key}Percent`]);
             const flat = toFiniteNumber(equipment[`${key}Bonus`]);
-            const currentExpected = Math.round(currentBase * (1 + percent / 100)) + flat;
+            const prayerField = {attack: 'atk', defense: 'def', speed: 'spd'}[key];
+            const prayer = status.prayerBuffActive && prayerField && status.prayerBuffStat === prayerField
+                ? toFiniteNumber(status.prayerBuffBonus)
+                : 0;
+            const currentExpected = Math.round(currentBase * (1 + percent / 100)) + flat + prayer;
             let external = toFiniteNumber(currentFinal) - currentExpected;
             if (key === 'defense') external += (targetBuffStacks - currentBuffStacks) * 100;
-            return Math.max(1, Math.round(base * (1 + percent / 100)) + flat + external);
+            return Math.max(1, Math.round(base * (1 + percent / 100)) + flat + prayer + external);
         }
 
         const maxHp = project('hp', status.maxHp);
@@ -757,6 +766,9 @@
         });
         const pleasureResist = battleOptions.pleasureResist !== false;
         const equipmentSubmitted = monsterId === 'debt_collector' && battleOptions.submitEquipment === true;
+        const automatonSuppressed = monsterId === 'automaton' && battleOptions.automatonSuppressed !== false;
+        const playerDodgeRate = automatonSuppressed ? 0 : player.dodgeRate;
+        const playerCritRate = automatonSuppressed ? 0 : player.critRate;
 
         const state = {
             playerHp: player.hp,
@@ -790,7 +802,7 @@
             mirrorShieldCharged: false,
             bloodPactCharged: false,
             bloodPactCost: 0,
-            monsterShieldBonus: 0,
+            monsterShieldBonus: monsterId === 'stone_golem' ? Math.round(monster.def * 0.5) : 0,
             paralysisTimer: 0,
             monsterDodges: 0,
             monsterCriticalHits: 0,
@@ -809,6 +821,13 @@
             angryBushRageStacks: 0,
             angryBushRegenerations: 0,
             angryBushRegeneratedHp: 0,
+            automatonSuppressed,
+            automatonClimaxes: 0,
+            stoneGolemAsleep: monsterId === 'stone_golem',
+            stoneGolemHitCount: 0,
+            stoneGolemAwakenings: 0,
+            stoneGolemRegenerations: 0,
+            stoneGolemRegeneratedHp: 0,
             ticks: 0,
             actions: 0,
             phase: 'fighting'
@@ -838,7 +857,8 @@
         }
 
         function applyMonsterResistance(damage, element) {
-            return Math.max(1, Math.round(damage * (1 - getMonsterResistance(element))));
+            const resisted = Math.max(1, Math.round(damage * (1 - getMonsterResistance(element))));
+            return Math.max(1, Math.round(resisted * (1 - state.pleasureValue / 100)));
         }
 
         function addAngryBushRage() {
@@ -857,13 +877,45 @@
             state.angryBushRegeneratedHp += healed;
         }
 
+        function regenerateStoneGolem() {
+            if (monsterId !== 'stone_golem' || state.stoneGolemAsleep || state.monsterHp <= 0 || state.monsterHp >= state.monsterMaxHp) return;
+            const healed = Math.min(Math.floor(state.monsterMaxHp * 0.05), state.monsterMaxHp - state.monsterHp);
+            state.monsterHp += healed;
+            state.stoneGolemRegenerations += 1;
+            state.stoneGolemRegeneratedHp += healed;
+        }
+
+        function applyStoneGolemHit(damage, critical) {
+            if (monsterId !== 'stone_golem' || !state.stoneGolemAsleep || damage <= 0) return;
+            state.stoneGolemHitCount += 1;
+            if (state.stoneGolemHitCount < 4 && (damage <= state.monsterMaxHp * 0.2 || critical)) return;
+            state.stoneGolemAsleep = false;
+            state.monsterShieldBonus = 0;
+            state.monsterAtk = monster.atk;
+            state.monsterDef = monster.def;
+            state.stoneGolemAwakenings += 1;
+        }
+
+        function applyAutomatonPleasure() {
+            if (monsterId !== 'automaton') return;
+            state.pleasureValue = Math.min(100, state.pleasureValue + (state.automatonSuppressed ? 20 : 10));
+            if (state.pleasureValue < 100) return;
+            state.playerHp = Math.max(1, Math.floor(state.playerHp * 0.8));
+            state.playerAtk = Math.max(1, Math.floor(state.playerAtk * 0.8));
+            state.playerDef = Math.max(1, Math.floor(state.playerDef * 0.8));
+            state.playerSpd = Math.max(1, Math.floor(state.playerSpd * 0.8));
+            state.pleasureValue = 0;
+            state.pleasureClimaxes += 1;
+            state.automatonClimaxes += 1;
+        }
+
         function reflectMirrorShield() {
             if (!state.mirrorShieldCharged) return;
             state.mirrorShieldCharged = false;
             if (state.monsterStealthed) return;
             const ratio = 0.3 + rebornLevel * 0.02;
-            const baseDamage = Math.max(Math.round((state.playerDef + state.playerShieldBonus) * ratio) - state.monsterAtk, 1);
-            const rawDamage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
+            const baseDamage = Math.max(Math.round((state.playerDef + state.playerShieldBonus) * ratio) - state.monsterDef - state.monsterShieldBonus, 1);
+            const rawDamage = random() < playerCritRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
             const damage = applyMonsterResistance(rawDamage, 'light');
             state.monsterHp = Math.max(0, state.monsterHp - damage);
             state.mirrorReflections += 1;
@@ -879,13 +931,18 @@
                 return;
             }
             const baseDamage = Math.max(state.bloodPactCost * 10 - state.monsterDef - state.monsterShieldBonus, 1);
-            const rawDamage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
-            const damage = applyMonsterResistance(rawDamage, 'dark');
+            const critical = random() < playerCritRate;
+            const rawDamage = critical ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
+            const resistedDamage = applyMonsterResistance(rawDamage, 'dark');
+            const damage = state.stoneGolemAsleep
+                ? Math.min(resistedDamage, Math.floor(state.monsterMaxHp * 0.4))
+                : resistedDamage;
             state.monsterHp = Math.max(0, state.monsterHp - damage);
             state.bloodPactCost = 0;
             state.bloodPactExplosions += 1;
             addAngryBushRage();
             addDrain(damage);
+            applyStoneGolemHit(damage, critical);
             if (state.monsterHp <= 0) state.phase = 'victory';
         }
 
@@ -923,8 +980,12 @@
                 ? Math.round(state.playerAtk * attackMultiplier)
                 : state.playerAtk;
             const baseDamage = Math.max(effectiveAttack - state.monsterDef - state.monsterShieldBonus, 1);
-            const rawDamage = random() < player.critRate ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
-            const damage = applyMonsterResistance(rawDamage, rebornSkill?.element);
+            const critical = random() < playerCritRate;
+            const rawDamage = critical ? Math.round(baseDamage * player.critDamageMultiplier) : baseDamage;
+            const resistedDamage = applyMonsterResistance(rawDamage, rebornSkill?.element);
+            const damage = state.stoneGolemAsleep
+                ? Math.min(resistedDamage, Math.floor(state.monsterMaxHp * 0.4))
+                : resistedDamage;
             state.monsterHp = Math.max(0, state.monsterHp - damage);
             addAngryBushRage();
             addDrain(damage);
@@ -935,6 +996,7 @@
                 state.monsterDef = Math.max(1, state.monsterDef - Math.max(1, Math.floor(state.monsterDef * rate)));
                 state.weakenStacks += 1;
             }
+            applyStoneGolemHit(damage, critical);
             if (monsterId === 'firefly_mage') {
                 state.paralysisTimer = Math.min(2, state.paralysisTimer + 0.5);
                 state.paralysisApplications += 1;
@@ -1005,7 +1067,7 @@
             }
 
             const forcedHug = monsterId === 'firefly_mage' && (state.monsterActionCount + 1) % 3 === 0;
-            if (player.dodgeRate > 0 && state.paralysisTimer === 0 && random() < player.dodgeRate) {
+            if (playerDodgeRate > 0 && state.paralysisTimer === 0 && random() < playerDodgeRate) {
                 if (monsterId === 'angry_bush') addAngryBushRage();
                 if (forcedHug) {
                     state.paralysisTimer = Math.min(2, state.paralysisTimer + 1);
@@ -1064,6 +1126,7 @@
                 state.phase = 'victory';
                 return;
             }
+            applyAutomatonPleasure();
             if (monsterId === 'familiar' && !pleasureResist && state.playerHp > 0) {
                 state.pleasureValue = Math.min(FAMILIAR_MECHANIC.pleasureLimit, state.pleasureValue + FAMILIAR_MECHANIC.pleasureStep);
                 if (state.pleasureValue >= FAMILIAR_MECHANIC.pleasureLimit) {
@@ -1084,9 +1147,12 @@
             const wasParalyzed = state.paralysisTimer > 0;
             state.paralysisTimer = state.paralysisTimer > 0 ? Math.max(0, state.paralysisTimer - 0.1) : 0;
             const nextPlayerAtb = wasParalyzed ? state.playerAtb : state.playerAtb + 5 * speedFactor;
-            const nextMonsterAtb = state.monsterAtb + 5 * (state.monsterSpd / Math.max(state.playerSpd, 1));
+            const nextMonsterAtb = state.stoneGolemAsleep
+                ? state.monsterAtb
+                : state.monsterAtb + 5 * (state.monsterSpd / Math.max(state.playerSpd, 1));
 
             if (monsterId === 'angry_bush' && previousPlayerAtb < 50 && nextPlayerAtb >= 50) regenerateAngryBush();
+            if (monsterId === 'stone_golem' && previousPlayerAtb < 50 && nextPlayerAtb >= 50) regenerateStoneGolem();
 
             if (monsterId === 'debt_collector' && previousPlayerAtb < 50 && nextPlayerAtb >= 50) {
                 state.monsterStealthed = !state.monsterStealthed;
@@ -1177,7 +1243,14 @@
                 bloodPactExplosions: state.bloodPactExplosions,
                 angryBushRageStacks: state.angryBushRageStacks,
                 angryBushRegenerations: state.angryBushRegenerations,
-                angryBushRegeneratedHp: state.angryBushRegeneratedHp
+                angryBushRegeneratedHp: state.angryBushRegeneratedHp,
+                automatonSuppressed: state.automatonSuppressed,
+                automatonClimaxes: state.automatonClimaxes,
+                stoneGolemAsleep: state.stoneGolemAsleep,
+                stoneGolemHitCount: state.stoneGolemHitCount,
+                stoneGolemAwakenings: state.stoneGolemAwakenings,
+                stoneGolemRegenerations: state.stoneGolemRegenerations,
+                stoneGolemRegeneratedHp: state.stoneGolemRegeneratedHp
             }
         };
     }
@@ -1289,6 +1362,19 @@
         return candidates.length > 0 ? candidates : [null];
     }
 
+    function getRebornSkillCandidates(snapshot, options = {}) {
+        if (normalizeHeroMode(snapshot.heroMode || snapshot.account?.rebornMode) !== 'reborn') return [null];
+        if (options.rebornSkillKey !== undefined) return [validateRebornSkillSelection(snapshot, options.rebornSkillKey)];
+        if (options.optimizeRebornSkill === false) return [getDefaultRebornSkill(snapshot)];
+        validateFaithRouteConsistency(snapshot);
+        const candidates = (snapshot.rebornSkillOptions || [])
+            .filter(skill => skill.unlocked && skill.supported !== false)
+            .filter(skill => isRebornSkillAllowedForFaithRoute(snapshot, skill))
+            .filter(skill => skill.faithRequired <= Math.max(0, toFiniteNumber(snapshot.faith)))
+            .map(skill => skill.key);
+        return candidates.length > 0 ? [...new Set(candidates)] : [null];
+    }
+
     function sortEvaluations(evaluations, optimizationMode) {
         const remainingValues = evaluations.map(item => item.averageRemainingHpRatio);
         const finiteVictorySeconds = evaluations.map(item => item.averageVictorySeconds).filter(Number.isFinite);
@@ -1330,13 +1416,14 @@
         const finalSamples = Math.max(coarseSamples, Math.min(512, toNonNegativeInteger(options.finalSamples ?? 96, '复核次数')));
         const candidates = getCandidateAllocations(totalPoints, current, divisions);
         const activeSkills = getActiveSkillCandidates(snapshot, options.optimizeActiveSkill);
-        const coarse = candidates.flatMap(allocation => activeSkills.map(activeSkillKey => evaluateAllocation(
+        const rebornSkills = getRebornSkillCandidates(snapshot, options);
+        const coarse = candidates.flatMap(allocation => activeSkills.flatMap(activeSkillKey => rebornSkills.map(rebornSkillKey => evaluateAllocation(
             snapshot,
             monsterId,
             allocation,
             coarseSamples,
-            {...options, activeSkillKey}
-        )));
+            {...options, activeSkillKey, rebornSkillKey}
+        ))));
         sortEvaluations(coarse, optimizationMode);
         const finalists = coarse.slice(0, Math.min(12, coarse.length));
         const reviewed = finalists.map(candidate => evaluateAllocation(
@@ -1344,14 +1431,14 @@
             monsterId,
             candidate.allocation,
             finalSamples,
-            {...options, activeSkillKey: candidate.activeSkillKey}
+            {...options, activeSkillKey: candidate.activeSkillKey, rebornSkillKey: candidate.rebornSkillKey}
         ));
         sortEvaluations(reviewed, optimizationMode);
         return {
             ...reviewed[0],
             monster: getMonster(snapshot, monsterId),
             totalPoints,
-            candidatesEvaluated: candidates.length * activeSkills.length,
+            candidatesEvaluated: candidates.length * activeSkills.length * rebornSkills.length,
             optimizationMode
         };
     }
@@ -1379,11 +1466,8 @@
         const rebornData = snapshot?.heroModes?.reborn;
         if (rebornData) {
             const rebornSnapshot = getHeroModeSnapshot(snapshot, 'reborn');
-            const rebornSkillKey = options.rebornSkillKey === undefined
-                ? getDefaultRebornSkill(rebornSnapshot)
-                : options.rebornSkillKey;
             candidates.push({
-                ...findOptimalAllocation(rebornSnapshot, monsterId, {...getModeOptions(rebornSnapshot), rebornSkillKey}),
+                ...findOptimalAllocation(rebornSnapshot, monsterId, getModeOptions(rebornSnapshot)),
                 heroMode: 'reborn',
                 modeName: HERO_MODES.reborn
             });

@@ -83,11 +83,44 @@ function pickSkills(data) {
     }));
 }
 
-function getContexts(source, marker, radius = 260, maximum = 3) {
+function pickBattleMonsters(data) {
+    const prefixes = Object.keys(data || {})
+        .filter(key => key.endsWith('Stats') && data[key] && typeof data[key] === 'object')
+        .map(key => key.slice(0, -'Stats'.length))
+        .filter(prefix => prefix && !['equipment', 'reborn'].includes(prefix))
+        .sort();
+    return Object.fromEntries(prefixes.map(prefix => [prefix, {
+        level: data?.[`${prefix}Level`],
+        currentHp: data?.[`${prefix}CurrentHp`],
+        maxHp: data?.[`${prefix}MaxHp`],
+        stats: data?.[`${prefix}Stats`],
+        expReward: data?.[`${prefix}ExpReward`],
+        sweepLevel: data?.[`${prefix}SweepLevel`],
+        droppedLevelCount: Array.isArray(data?.[`${prefix}DroppedLevels`])
+            ? data[`${prefix}DroppedLevels`].length
+            : undefined
+    }]));
+}
+
+function pickSkillSchema(data) {
+    const skills = Array.isArray(data) ? data : Array.isArray(data?.skills) ? data.skills : [];
+    return skills.map(skill => Object.fromEntries(Object.entries(skill || {}).filter(([, value]) => {
+        return value === null || ['string', 'number', 'boolean'].includes(typeof value)
+            || Array.isArray(value)
+            || (value && typeof value === 'object');
+    })));
+}
+
+function getContexts(source, marker, radius = 260, maximum = 3, skip = 0) {
     const contexts = [];
+    let skipped = 0;
     let index = source.indexOf(marker);
     while (index >= 0 && contexts.length < maximum) {
-        contexts.push(source.slice(Math.max(0, index - radius), Math.min(source.length, index + marker.length + radius)));
+        if (skipped < skip) {
+            skipped += 1;
+        } else {
+            contexts.push(source.slice(Math.max(0, index - radius), Math.min(source.length, index + marker.length + radius)));
+        }
         index = source.indexOf(marker, index + marker.length);
     }
     return contexts;
@@ -96,7 +129,15 @@ function getContexts(source, marker, radius = 260, maximum = 3) {
 async function main() {
     const arguments = process.argv.slice(2);
     const snapshotOnly = arguments.includes('--snapshot-only');
+    const schema = arguments.includes('--schema');
+    const validateModel = arguments.includes('--validate-model');
     const verifyCurrentRebornEquip = arguments.includes('--verify-current-reborn-equip');
+    const radiusArgument = arguments.find(argument => argument.startsWith('--radius='));
+    const contextRadius = Math.max(80, Math.min(5000, Number(radiusArgument?.slice('--radius='.length)) || 2600));
+    const maximumArgument = arguments.find(argument => argument.startsWith('--maximum='));
+    const contextMaximum = Math.max(1, Math.min(20, Number(maximumArgument?.slice('--maximum='.length)) || 4));
+    const skipArgument = arguments.find(argument => argument.startsWith('--skip='));
+    const contextSkip = Math.max(0, Number(skipArgument?.slice('--skip='.length)) || 0);
     const requestedMarkers = arguments.filter(argument => !argument.startsWith('--'));
     const env = parseEnv(fs.readFileSync(require('node:path').join(__dirname, '..', '.env.slime-race.local'), 'utf8'));
     const base = new URL(env.SLIME_RACE_URL || 'https://zouzou-princess-fan-2.replit.app').origin;
@@ -149,6 +190,40 @@ async function main() {
         console.log(`skills=${JSON.stringify(pickSkills(responses['/api/hero/skills']))}`);
         console.log(`rebornSkills=${JSON.stringify(pickSkills(responses['/api/hero/reborn-skills']))}`);
     }
+    if (schema) {
+        const account = responses['/api/auth/me'] || {};
+        const battleStatus = responses['/api/hero/battle-status'] || {};
+        console.log(`accountBattleSchema=${JSON.stringify(Object.fromEntries(Object.entries(account)
+            .filter(([key]) => /skill|reborn|faith|mode|route/i.test(key))))}`);
+        console.log(`battleStatusKeys=${JSON.stringify(Object.keys(battleStatus).sort())}`);
+        console.log(`battleMonsters=${JSON.stringify(pickBattleMonsters(battleStatus))}`);
+        console.log(`skillSchema=${JSON.stringify(pickSkillSchema(responses['/api/hero/skills']))}`);
+        console.log(`rebornSkillSchema=${JSON.stringify(pickSkillSchema(responses['/api/hero/reborn-skills']))}`);
+    }
+    if (validateModel) {
+        const heroAutomation = require('../app/scripts/hero-automation.js');
+        const snapshot = heroAutomation.createSnapshot({
+            account: responses['/api/auth/me'],
+            battleStatus: responses['/api/hero/battle-status'],
+            skills: responses['/api/hero/skills'],
+            rebornSkills: responses['/api/hero/reborn-skills']
+        });
+        heroAutomation.validateFaithRouteConsistency(snapshot);
+        const models = Object.fromEntries(heroAutomation.MONSTER_IDS.map(monsterId => {
+            const monster = heroAutomation.getMonster(snapshot, monsterId);
+            return [monsterId, {
+                prefix: heroAutomation.MONSTERS[monsterId].prefix,
+                level: monster.level,
+                hp: monster.hp,
+                maxHp: monster.maxHp,
+                atk: monster.atk,
+                def: monster.def,
+                spd: monster.spd,
+                clientLevelField: monster.clientLevelField
+            }];
+        }));
+        console.log(`validatedLocalModels=${JSON.stringify(models)}`);
+    }
     if (snapshotOnly) return;
 
     const pageResponse = await fetch(new URL('/', base), {headers: {Accept: 'text/html', Cookie: cookie}});
@@ -187,7 +262,13 @@ async function main() {
             .filter(endpoint => /hero|reborn|rebirth/i.test(endpoint)))].sort();
         console.log(`relevantEndpoints=${JSON.stringify(relevantEndpoints)}`);
         for (const marker of markers) {
-            const contexts = getContexts(source, marker, requestedMarkers.length > 0 ? 2600 : 1200, requestedMarkers.length > 0 ? 4 : 2);
+            const contexts = getContexts(
+                source,
+                marker,
+                requestedMarkers.length > 0 ? contextRadius : 1200,
+                requestedMarkers.length > 0 ? contextMaximum : 2,
+                requestedMarkers.length > 0 ? contextSkip : 0
+            );
             if (contexts.length > 0) console.log(`marker=${marker},contexts=${JSON.stringify(contexts)}`);
         }
     }

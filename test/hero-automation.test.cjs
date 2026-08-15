@@ -69,7 +69,19 @@ function createRawSnapshot() {
             angryBushStats: {hp: 200, atk: 36, def: 32, spd: 36},
             angryBushExpReward: 80,
             angryBushSweepLevel: 2,
-            angryBushDroppedLevels: [1]
+            angryBushDroppedLevels: [1],
+            automatonLevel: 2,
+            automatonCurrentHp: 120,
+            automatonMaxHp: 120,
+            automatonStats: {hp: 120, atk: 44, def: 36, spd: 32},
+            automatonSweepLevel: 2,
+            automatonDroppedLevels: [],
+            stoneGolemLevel: 4,
+            stoneGolemCurrentHp: 320,
+            stoneGolemMaxHp: 320,
+            stoneGolemStats: {hp: 320, atk: 160, def: 80, spd: 48},
+            stoneGolemSweepLevel: null,
+            stoneGolemDroppedLevels: []
         },
         skills: [
             {skillKey: 'drain', level: 2},
@@ -107,7 +119,7 @@ test('当前配点可以还原勇者面板最终属性并选择30层防御药水
     assert.equal(withPotions.def, 3365);
 });
 
-test('六只常规怪物都从当前半级面板读取并生成正确结算字段', () => {
+test('九只常规怪物都从当前半级面板读取并生成正确结算字段', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
 
     for (const monsterId of Object.keys(heroAutomation.MONSTERS)) {
@@ -126,6 +138,22 @@ test('六只常规怪物都从当前半级面板读取并生成正确结算字�
     assert.equal(familiar.sweepLevel, 2);
     assert.equal(familiar.eligibleDropLevels, 2);
     assert.equal(familiar.recordedDropLevels, 2);
+});
+
+test('祈祷增益按服务端指定属性作为固定值参与重新配点投影', () => {
+    const raw = createRawSnapshot();
+    Object.assign(raw.battleStatus, {
+        prayerBuffActive: true,
+        prayerBuffStat: 'atk',
+        prayerBuffBonus: 75,
+        attack: 685
+    });
+    const snapshot = heroAutomation.createSnapshot(raw);
+    const current = heroAutomation.getProjectedStats(snapshot, heroAutomation.getCurrentAllocation(snapshot.account));
+    const changed = heroAutomation.getProjectedStats(snapshot, {hp: 20, attack: 30, defense: 30, speed: 20});
+
+    assert.equal(current.atk, 685);
+    assert.equal(changed.atk, 565);
 });
 
 test('恐怖之森愤怒灌木模型包含官方抗性、愤怒叠层和再生机制', () => {
@@ -153,6 +181,51 @@ test('恐怖之森愤怒灌木模型包含官方抗性、愤怒叠层和再生�
     assert.ok(result.mechanics.angryBushRageStacks > 0);
     assert.ok(result.mechanics.angryBushRegenerations > 0);
     assert.ok(result.mechanics.angryBushRegeneratedHp > 0);
+});
+
+test('恐怖之森分页包含三只已开放怪物并使用各自服务端字段前缀', () => {
+    const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
+
+    assert.deepEqual(heroAutomation.MONSTER_REGIONS.forest.monsterIds, ['angry_bush', 'automaton', 'stone_golem']);
+    assert.ok(heroAutomation.FOREST_MONSTER_CATALOG.every(monster => monster.available));
+    assert.equal(heroAutomation.getMonster(snapshot, 'automaton').level, 2);
+    assert.equal(heroAutomation.getMonster(snapshot, 'stone_golem').level, 4);
+    assert.equal(heroAutomation.MONSTERS.stone_golem.prefix, 'stoneGolem');
+    assert.equal(heroAutomation.MONSTERS.stone_golem.clientLevelField, 'clientStoneGolemLevel');
+});
+
+test('自行人偶默认接受压制并按五次攻击触发全属性与当前HP衰减', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {currentHp: 10000, maxHp: 10000, attack: 1, defense: 1000, speed: 100});
+    Object.assign(raw.battleStatus, {
+        automatonCurrentHp: 100000,
+        automatonMaxHp: 100000,
+        automatonStats: {hp: 100000, atk: 1, def: 1000, spd: 100}
+    });
+    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'automaton', {random: () => 0.99});
+
+    assert.equal(result.battleOptions.automatonSuppressed, true);
+    assert.equal(result.mechanics.automatonSuppressed, true);
+    assert.ok(result.mechanics.automatonClimaxes > 0);
+    assert.ok(result.finalPlayerDef < 1000);
+    assert.ok(result.finalPlayerSpd < 100);
+});
+
+test('自然石像沉睡时具有额外护盾和伤害上限，四次命中后苏醒并开始再生', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.battleStatus, {currentHp: 100000, maxHp: 100000, attack: 6000, defense: 1000, speed: 200});
+    Object.assign(raw.battleStatus, {
+        stoneGolemCurrentHp: 1000,
+        stoneGolemMaxHp: 1000,
+        stoneGolemStats: {hp: 1000, atk: 100, def: 100, spd: 50}
+    });
+    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'stone_golem', {random: () => 0.99});
+
+    assert.equal(result.victory, true);
+    assert.equal(result.mechanics.stoneGolemHitCount, 4);
+    assert.equal(result.mechanics.stoneGolemAwakenings, 1);
+    assert.equal(result.mechanics.stoneGolemAsleep, false);
+    assert.ok(result.mechanics.stoneGolemRegenerations > 0);
 });
 
 test('奏咪使魔快感抗性默认开启且关闭后每十次有效攻击完成一次循环', () => {
@@ -624,9 +697,9 @@ test('mirror shield and blood pact follow the official charge and delayed damage
     mirrorRaw.rebornSkills = {skills: [{skillKey: 'mirror_shield', level: 2}]};
     Object.assign(mirrorRaw.battleStatus, {currentHp: 100, maxHp: 100, attack: 100, defense: 500, speed: 100});
     Object.assign(mirrorRaw.battleStatus, {
-        hilichurlCurrentHp: 50,
-        hilichurlMaxHp: 50,
-        hilichurlStats: {hp: 50, atk: 100, def: 1000, spd: 100}
+        hilichurlCurrentHp: 1,
+        hilichurlMaxHp: 1,
+        hilichurlStats: {hp: 1, atk: 100, def: 1000, spd: 100}
     });
     const mirror = heroAutomation.simulateBattle(heroAutomation.createSnapshot(mirrorRaw), 'hilichurl', {random: () => 0.99});
 
@@ -698,7 +771,68 @@ test('base and faith modes keep independent levels and point pools and choose th
     assert.ok(recommendation.modeComparisons.reborn.winRate > recommendation.modeComparisons.base.winRate);
 });
 
-test('all six monster models can be verified with one call', () => {
+test('faith optimization evaluates every unlocked skill on the locked route and selects the better result', () => {
+    const raw = disableHeroSkills(createRawSnapshot());
+    Object.assign(raw.account, {
+        rebornMode: 'reborn',
+        rebornType: 'M',
+        faithLevel: 89,
+        equippedRebornSkill: 'blood_pact'
+    });
+    raw.rebornSkills = {skills: [
+        {skillKey: 'star_curse', level: 4},
+        {skillKey: 'blood_pact', level: 1},
+        {skillKey: 'holy_judgment', level: 10}
+    ]};
+    Object.assign(raw.battleStatus, {
+        hilichurlCurrentHp: 1000,
+        hilichurlMaxHp: 1000,
+        hilichurlStats: {hp: 1000, atk: 1, def: 100, spd: 1}
+    });
+    const snapshot = heroAutomation.createSnapshot(raw);
+    const fixed = heroAutomation.findOptimalAllocation(snapshot, 'hilichurl', {
+        rebornSkillKey: 'star_curse',
+        optimizeActiveSkill: false,
+        divisions: 4,
+        coarseSamples: 2,
+        finalSamples: 4
+    });
+    const optimized = heroAutomation.findOptimalAllocation(snapshot, 'hilichurl', {
+        optimizeActiveSkill: false,
+        divisions: 4,
+        coarseSamples: 2,
+        finalSamples: 4
+    });
+
+    assert.equal(optimized.rebornSkillKey, 'star_curse');
+    assert.equal(optimized.candidatesEvaluated, fixed.candidatesEvaluated * 2);
+});
+
+test('combined mode snapshots preserve each refresh response monster panel independently', () => {
+    const baseRaw = createRawSnapshot();
+    baseRaw.account.rebornMode = 'base';
+    const faithRaw = createRawSnapshot();
+    faithRaw.account.rebornMode = 'faith';
+    faithRaw.account.rebornType = 'M';
+    faithRaw.account.faithLevel = 20;
+    faithRaw.account.equippedRebornSkill = 'star_curse';
+    faithRaw.rebornSkills = {skills: [{skillKey: 'star_curse', level: 1}]};
+    faithRaw.battleStatus.automatonLevel = 2.5;
+    faithRaw.battleStatus.automatonStats = {hp: 150, atk: 55, def: 45, spd: 40};
+    faithRaw.battleStatus.automatonCurrentHp = 150;
+    faithRaw.battleStatus.automatonMaxHp = 150;
+
+    const combined = heroAutomation.combineHeroModeSnapshots(
+        heroAutomation.createSnapshot(baseRaw),
+        heroAutomation.createSnapshot(faithRaw),
+        'base'
+    );
+
+    assert.equal(heroAutomation.getMonster(heroAutomation.getHeroModeSnapshot(combined, 'base'), 'automaton').level, 2);
+    assert.equal(heroAutomation.getMonster(heroAutomation.getHeroModeSnapshot(combined, 'reborn'), 'automaton').level, 2.5);
+});
+
+test('all nine monster models can be verified with one call', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
     const results = heroAutomation.verifyMonsterModels(snapshot, {
         divisions: 4,
