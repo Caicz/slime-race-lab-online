@@ -5,19 +5,19 @@ const {execFileSync} = require('node:child_process');
 const projectRoot = path.join(__dirname, '..');
 const envName = '.env.slime-race.local';
 const envPath = path.join(projectRoot, envName);
-const expectedPrivateRemotes = new Set([
+const expectedRemotes = new Set([
     'https://github.com/Caicz/slime-race-lab-online.git',
     'git@github.com:Caicz/slime-race-lab-online.git'
 ]);
 const safeGitArgs = args => ['-c', `safe.directory=${projectRoot.replaceAll('\\', '/')}`, ...args];
 const expectedPackagedFiles = ['app/**/*', 'electron/**/*', 'package.json'];
-const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'electron/race-archive.cjs', 'app/scripts/app.js', 'app/scripts/real-stats.js', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/platform-bridge.js', 'app/scripts/remote.js', 'scripts/run-timer-error-check.cjs', 'scripts/update-race-archive.cjs'];
+const networkFiles = ['electron/main.cjs', 'electron/preload.cjs', 'electron/race-archive.cjs', 'app/scripts/app.js', 'app/scripts/real-stats.js', 'app/scripts/remote-actions.js', 'app/scripts/daily-quest.js', 'app/scripts/platform-bridge.js', 'app/scripts/remote.js', 'app/scripts/combat-content.js', 'app/scripts/combat-workflow.js', 'scripts/run-timer-error-check.cjs', 'scripts/update-race-archive.cjs'];
 
 function read(relativePath) {
     return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
 }
 
-function checkPrivateRemote(violations) {
+function checkRemote(violations) {
     if (!fs.existsSync(path.join(projectRoot, '.git'))) return;
 
     try {
@@ -26,8 +26,8 @@ function checkPrivateRemote(violations) {
         remotes.forEach(remote => {
             const urls = execFileSync('git', safeGitArgs(['remote', 'get-url', '--all', remote]), {cwd: projectRoot, encoding: 'utf8'})
                 .trim().split(/\r?\n/).filter(Boolean);
-            if (remote !== 'origin' || urls.some(url => !expectedPrivateRemotes.has(url))) {
-                violations.push(`联网版只允许指定私有远程：${remote}`);
+            if (remote !== 'origin' || urls.some(url => !expectedRemotes.has(url))) {
+                violations.push(`联网版只允许指定联网远程：${remote}`);
             }
         });
     } catch (error) {
@@ -101,7 +101,7 @@ function checkBoundary() {
     }
 
     checkNetworkCode(violations);
-    checkPrivateRemote(violations);
+    checkRemote(violations);
 
     if (violations.length > 0) {
         console.error(`联网版边界检查失败：\n${violations.map(item => `- ${item}`).join('\n')}`);
@@ -109,7 +109,7 @@ function checkBoundary() {
         return;
     }
 
-    console.log('联网版边界检查通过：所有者日常自动化使用固定接口，躲避成绩未自动提交，凭据未打包，Git 远程仅允许指定私有仓库。');
+    console.log('联网版边界检查通过：所有者日常自动化使用固定接口，躲避成绩未自动提交，凭据未打包，Git 远程仅允许指定联网仓库。');
 }
 
 checkBoundary();

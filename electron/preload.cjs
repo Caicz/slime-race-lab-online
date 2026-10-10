@@ -21,6 +21,14 @@ contextBridge.exposeInMainWorld('slimeRaceRemote', Object.freeze({
     getHeroUnlockChallenge: () => ipcRenderer.invoke('slime-remote:hero-unlock-challenge'),
     submitHeroUnlock: letters => ipcRenderer.invoke('slime-remote:hero-unlock-submit', letters),
     runHeroBattle: intent => ipcRenderer.invoke('slime-remote:hero-battle', intent),
+    syncCombatContent: () => ipcRenderer.invoke('slime-remote:combat-sync'),
+    equipCombatItem: intent => ipcRenderer.invoke('slime-remote:combat-equip', intent),
+    enhanceCombatAccessory: intent => ipcRenderer.invoke('slime-remote:combat-enhance', intent),
+    startCombatTower: options => ipcRenderer.invoke('slime-remote:tower-start', options),
+    stepCombatTower: () => ipcRenderer.invoke('slime-remote:tower-step'),
+    stopCombatTower: () => ipcRenderer.invoke('slime-remote:tower-stop'),
+    dungeonAction: intent => ipcRenderer.invoke('slime-remote:dungeon-action', intent),
+    battleCombatDungeon: options => ipcRenderer.invoke('slime-remote:dungeon-battle', options),
     openRaceArchive: () => ipcRenderer.invoke('slime-remote:archive-open'),
     logout: () => ipcRenderer.invoke('slime-remote:logout')
 }));

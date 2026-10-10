@@ -81,7 +81,15 @@ function createRawSnapshot() {
             stoneGolemMaxHp: 320,
             stoneGolemStats: {hp: 320, atk: 160, def: 80, spd: 48},
             stoneGolemSweepLevel: null,
-            stoneGolemDroppedLevels: []
+            stoneGolemDroppedLevels: [],
+            mushroomMaidenLevel: 6,
+            mushroomMaidenCurrentHp: 450,
+            mushroomMaidenMaxHp: 450,
+            mushroomMaidenStats: {hp: 450, atk: 30, def: 150, spd: 90},
+            meteorSwarmLevel: 8,
+            meteorSwarmCurrentHp: 480,
+            meteorSwarmMaxHp: 480,
+            meteorSwarmStats: {hp: 480, atk: 184, def: 176, spd: 160}
         },
         skills: [
             {skillKey: 'drain', level: 2},
@@ -119,7 +127,7 @@ test('当前配点可以还原勇者面板最终属性并选择30层防御药水
     assert.equal(withPotions.def, 3365);
 });
 
-test('九只常规怪物都从当前半级面板读取并生成正确结算字段', () => {
+test('十一只常规怪物都从当前半级面板读取并生成正确结算字段', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
 
     for (const monsterId of Object.keys(heroAutomation.MONSTERS)) {
@@ -183,10 +191,10 @@ test('恐怖之森愤怒灌木模型包含官方抗性、愤怒叠层和再生�
     assert.ok(result.mechanics.angryBushRegeneratedHp > 0);
 });
 
-test('恐怖之森分页包含三只已开放怪物并使用各自服务端字段前缀', () => {
+test('恐怖之森分页包含五只已开放怪物并使用各自服务端字段前缀', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
 
-    assert.deepEqual(heroAutomation.MONSTER_REGIONS.forest.monsterIds, ['angry_bush', 'automaton', 'stone_golem']);
+    assert.deepEqual(heroAutomation.MONSTER_REGIONS.forest.monsterIds, ['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm']);
     assert.ok(heroAutomation.FOREST_MONSTER_CATALOG.every(monster => monster.available));
     assert.equal(heroAutomation.getMonster(snapshot, 'automaton').level, 2);
     assert.equal(heroAutomation.getMonster(snapshot, 'stone_golem').level, 4);
@@ -194,7 +202,7 @@ test('恐怖之森分页包含三只已开放怪物并使用各自服务端字�
     assert.equal(heroAutomation.MONSTERS.stone_golem.clientLevelField, 'clientStoneGolemLevel');
 });
 
-test('自行人偶默认接受压制并按五次攻击触发全属性与当前HP衰减', () => {
+test('自行人偶默认闪避突袭，显式接受压制时触发全属性与当前HP衰减', () => {
     const raw = disableHeroSkills(createRawSnapshot());
     Object.assign(raw.battleStatus, {currentHp: 10000, maxHp: 10000, attack: 1, defense: 1000, speed: 100});
     Object.assign(raw.battleStatus, {
@@ -202,7 +210,9 @@ test('自行人偶默认接受压制并按五次攻击触发全属性与当前HP
         automatonMaxHp: 100000,
         automatonStats: {hp: 100000, atk: 1, def: 1000, spd: 100}
     });
-    const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'automaton', {random: () => 0.99});
+    const snapshot = heroAutomation.createSnapshot(raw);
+    assert.equal(heroAutomation.getDefaultBattleOptions('automaton').automatonSuppressed, false);
+    const result = heroAutomation.simulateBattle(snapshot, 'automaton', {random: () => 0.99, battleOptions: {automatonSuppressed: true}});
 
     assert.equal(result.battleOptions.automatonSuppressed, true);
     assert.equal(result.mechanics.automatonSuppressed, true);
@@ -459,12 +469,12 @@ test('史莱姆按官方概率分支闪避并最多连续复活五次', () => {
     });
     const random = createSequenceRandom([
         0,
-        0.99, 0.99, 0,
-        0.99, 0.99, 0,
-        0.99, 0.99, 0,
-        0.99, 0.99, 0,
-        0.99, 0.99, 0,
-        0.99, 0.99
+        0.99, 0,
+        0.99, 0,
+        0.99, 0,
+        0.99, 0,
+        0.99, 0,
+        0.99
     ]);
     const result = heroAutomation.simulateBattle(heroAutomation.createSnapshot(raw), 'slime', {random});
 
@@ -832,7 +842,7 @@ test('combined mode snapshots preserve each refresh response monster panel indep
     assert.equal(heroAutomation.getMonster(heroAutomation.getHeroModeSnapshot(combined, 'reborn'), 'automaton').level, 2.5);
 });
 
-test('all nine monster models can be verified with one call', () => {
+test('all eleven monster models can be verified with one call', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
     const results = heroAutomation.verifyMonsterModels(snapshot, {
         divisions: 4,

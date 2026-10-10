@@ -9,6 +9,8 @@
     const betLedger = globalThis.SlimeBetLedger;
     const requestPolicy = globalThis.SlimeRequestPolicy;
     const platformBridge = globalThis.SlimePlatformBridge;
+    const combatContent = globalThis.SlimeCombatContent;
+    const combatWorkflow = globalThis.SlimeCombatWorkflow;
     const MAX_RECOMMENDATION_AGE_MS = 5000;
     const HERO_PLEASURE_RESIST_STORAGE_KEY = 'slime-race-lab.hero-pleasure-resist.v1';
     const endpointPaths = Object.freeze({
@@ -109,7 +111,27 @@
         heroUnlockGrid: document.querySelector('#heroUnlockGrid'),
         heroUnlockLetters: document.querySelector('#heroUnlockLetters'),
         heroUnlockSubmit: document.querySelector('#heroUnlockSubmitButton'),
-        heroUnlockCancel: document.querySelector('#heroUnlockCancelButton')
+        heroUnlockCancel: document.querySelector('#heroUnlockCancelButton'),
+        combatContentRefresh: document.querySelector('#combatContentRefreshButton'),
+        combatEquipmentSummary: document.querySelector('#combatEquipmentSummary'),
+        combatEquipmentApply: document.querySelector('#combatEquipmentApplyButton'),
+        combatAccessorySummary: document.querySelector('#combatAccessorySummary'),
+        combatAccessoryEnhance: document.querySelector('#combatAccessoryEnhanceButton'),
+        combatGuardian: document.querySelector('#combatGuardianToggle'),
+        combatTowerSummary: document.querySelector('#combatTowerSummary'),
+        combatTowerFloor: document.querySelector('#combatTowerFloorInput'),
+        combatTowerStages: document.querySelector('#combatTowerStagesInput'),
+        combatTowerStart: document.querySelector('#combatTowerStartButton'),
+        combatDungeonSummary: document.querySelector('#combatDungeonSummary'),
+        combatDungeon: document.querySelector('#combatDungeonSelect'),
+        combatDungeonRuns: document.querySelector('#combatDungeonRunsInput'),
+        combatDungeonStart: document.querySelector('#combatDungeonStartButton'),
+        combatDungeonChest: document.querySelector('#combatDungeonChestButton'),
+        combatDungeonChestSelect: document.querySelector('#combatDungeonChestSelect'),
+        combatDungeonAbandon: document.querySelector('#combatDungeonAbandonButton'),
+        combatStop: document.querySelector('#combatStopButton'),
+        combatRunLog: document.querySelector('#combatRunLog'),
+        combatStatus: document.querySelector('#combatContentStatus')
     };
     let authenticated = false;
     let syncing = false;
@@ -138,6 +160,15 @@
     let betLedgerState = null;
     let observedSettlementSessionId = null;
     let settlementRefreshSessionId = null;
+    let combatContentState = null;
+    let combatEquipmentPlan = null;
+    let combatEnhancementPlan = null;
+    let combatBusy = false;
+    let combatRunning = false;
+    let combatStopRequested = false;
+    let combatDungeonRemaining = 0;
+    let combatDungeonBatchId = null;
+    let androidAdapter = null;
     try {
         const storedPleasureResist = localStorage.getItem(HERO_PLEASURE_RESIST_STORAGE_KEY);
         if (storedPleasureResist !== null) elements.heroPleasureResist.checked = storedPleasureResist === 'true';
@@ -152,6 +183,211 @@
     function setStatus(element, message, type = '') {
         element.textContent = message;
         element.className = `form-status${type ? ` ${type}` : ''}`;
+    }
+
+    function setCombatStatus(message, type = '') {
+        if (elements.combatStatus) setStatus(elements.combatStatus, message, type);
+    }
+
+    function renderCombatContent(content) {
+        combatContentState = content;
+        if (!content || !combatContent) return;
+        const inventory = Array.isArray(content.inventory) ? content.inventory : [];
+        const options = {route: 'M', goal: elements.heroOptimizationMode?.value || 'balanced', stats: heroSnapshot?.battleStatus};
+        combatEquipmentPlan = combatContent.recommendEquipment(inventory, options);
+        combatEnhancementPlan = combatContent.recommendAccessoryEnhancement(Array.isArray(content.accessoryItems) ? content.accessoryItems : inventory, options);
+        const equipped = Object.values(combatEquipmentPlan.slots || {});
+        elements.combatEquipmentSummary.textContent = equipped.length ? equipped.map(item => item.name).join('、') : '没有可用的魔女路线装备';
+        elements.combatAccessorySummary.textContent = combatEnhancementPlan.plans[0]?.reason || '没有可用强化方案（需未锁定同类饰品，最高 +5）';
+        elements.combatTowerSummary.textContent = `最高 ${Number(content.towerProgress?.towerMaxFloor) || 0} 层`;
+        const dungeonId = elements.combatDungeon.value;
+        const key = dungeonId === 'warehouse' ? '' : dungeonId === 'golden_slime' ? 'goldenSlime' : dungeonId;
+        const status = content.dungeonStatus || {};
+        const run = status.activeRun;
+        const selectedId = run?.status === 'active' ? run.dungeonId : dungeonId;
+        try { elements.combatDungeonRuns.value = combatContent.planDungeonRun(status, {dungeonId: selectedId, includeActive: true}).remaining; }
+        catch { elements.combatDungeonRuns.value = 0; }
+        elements.combatDungeonSummary.textContent = `${Number(status[key ? `${key}TodayCount` : 'todayCount']) || 0} / ${Number(status[key ? `${key}MaxDaily` : 'maxDaily']) || 0} 次${run?.status === 'active' ? `；${combatContent.DUNGEON_PLANS[run.dungeonId]?.name || '副本'} 第 ${run.stage} 阶段` : ''}`;
+        updateCombatControls();
+    }
+
+    function updateCombatControls() {
+        const busy = syncing || mutating || dailyBusy || heroBusy || heroRunning || combatBusy || combatRunning;
+        const unavailable = busy || !authenticated || !getAdapter()?.syncCombatContent;
+        const run = combatContentState?.dungeonStatus?.activeRun;
+        elements.combatContentRefresh.disabled = unavailable;
+        elements.combatEquipmentApply.disabled = unavailable || !combatEquipmentPlan?.actions.length;
+        elements.combatAccessoryEnhance.disabled = unavailable || !combatEnhancementPlan?.plans.length;
+        elements.combatTowerStart.disabled = unavailable || !combatContentState;
+        elements.combatDungeonStart.disabled = unavailable || !combatContentState || run?.status === 'active' && Number(run.stage) >= 4;
+        elements.combatDungeonChest.disabled = unavailable || run?.status !== 'active' || Number(run.stage) !== 4;
+        elements.combatDungeonAbandon.disabled = unavailable || run?.status !== 'active';
+        for (const input of [elements.combatTowerFloor, elements.combatTowerStages, elements.combatDungeon, elements.combatDungeonRuns, elements.combatDungeonChestSelect, elements.combatGuardian]) input.disabled = busy;
+        elements.combatStop.disabled = !combatRunning || combatStopRequested;
+    }
+
+    function combatAvailable() {
+        return authenticated && !syncing && !mutating && !dailyBusy && !heroBusy && !heroRunning && !combatBusy && !combatRunning;
+    }
+
+    function appendCombatLog(message) {
+        const row = document.createElement('p');
+        row.textContent = message;
+        elements.combatRunLog.append(row);
+        while (elements.combatRunLog.children.length > 80) elements.combatRunLog.firstElementChild.remove();
+        elements.combatRunLog.scrollTop = elements.combatRunLog.scrollHeight;
+    }
+
+    async function performCombatAction(action) {
+        if (!combatAvailable()) return;
+        combatBusy = true;
+        updateBetControls();
+        try { await action(getAdapter()); }
+        catch (error) { combatDungeonRemaining = 0; setCombatStatus(`${String(error.message || error)}；未自动重试，请刷新核对。`, 'error'); }
+        finally { combatBusy = false; updateBetControls(); }
+    }
+
+    async function refreshCombatContent() {
+        await performCombatAction(async adapter => {
+            heroSnapshot = await adapter.syncHeroAutomation();
+            renderCombatContent(await adapter.syncCombatContent());
+            setCombatStatus('战斗资源已刷新；推荐仅针对魔女 M 路线。', 'success');
+        });
+    }
+
+    async function applyCombatEquipment() {
+        await performCombatAction(async adapter => {
+            heroSnapshot = await adapter.syncHeroAutomation();
+            renderCombatContent(await adapter.syncCombatContent());
+            const actions = combatEquipmentPlan?.actions || [];
+            if (!actions.length || !window.confirm(`确认逐件应用魔女装备方案：${actions.map(action => `${action.type === 'equip' ? '装备' : '卸下'}${action.name}`).join('、')}？锁定装备不会替换。`)) return;
+            for (const action of actions) renderCombatContent(await adapter.equipCombatItem(action));
+            heroRecommendations = new Map();
+            renderHeroRecommendations();
+            setCombatStatus('魔女路线装备已逐件应用。', 'success');
+        });
+    }
+
+    async function enhanceCombatAccessory() {
+        await performCombatAction(async adapter => {
+            heroSnapshot = await adapter.syncHeroAutomation();
+            renderCombatContent(await adapter.syncCombatContent());
+            const plan = combatEnhancementPlan?.plans?.[0];
+            const useGuardianCharm = elements.combatGuardian.checked;
+            if (!plan || !window.confirm(`确认${plan.reason}？消耗 1 魔法碎片和同类低评分饰品 #${plan.consumeId}${useGuardianCharm ? '，另消耗 1 强化守护符' : '，不使用强化守护符'}。副词条随机，提交不会自动重试。`)) return;
+            const response = await adapter.enhanceCombatAccessory({...plan, useGuardianCharm, goal: elements.heroOptimizationMode.value});
+            renderCombatContent(response.content);
+            heroRecommendations = new Map();
+            renderHeroRecommendations();
+            setCombatStatus('已完成一项推荐饰品强化，请查看同步后的结果。', 'success');
+        });
+    }
+
+    async function runCombatLoop(type, adapter, resetPlan = false) {
+        combatRunning = true;
+        combatStopRequested = false;
+        updateBetControls();
+        try {
+            await updateBackgroundExecution();
+            while (!combatStopRequested) {
+                const event = type === 'tower' ? await adapter.stepCombatTower() : await submitCombatDungeon(adapter, {action: 'battle', resetPlan, goal: elements.heroOptimizationMode.value, minWinRate: getHeroMinimumWinRate()});
+                resetPlan = false;
+                if (event.content) renderCombatContent(event.content);
+                if (event.result) appendCombatLog(`${type === 'tower' ? `塔 ${event.floor} 层 · 第 ${event.index + 1} 场` : `副本第 ${event.stage} 场`} ${event.monsterName}：${event.result.escaped ? '逃跑' : event.result.victory ? '胜利' : '战败'}，HP ${event.result.currentHp}，用时 ${event.result.elapsedSeconds} 秒${event.buffs ? `；Buff ${event.buffs.stats.join('/')} + ${event.buffs.skills.join('/')}` : ''}`);
+                if (event.savedFloor) appendCombatLog(`塔第 ${event.savedFloor} 层存档已由服务器确认。`);
+                if (event.recommendation && (type === 'tower' || event.stage === 1)) logCombatAllocation(event.recommendation);
+                if (event.done) {
+                    if (type === 'dungeon') combatDungeonRemaining = event.chestReady ? Math.max(0, combatDungeonRemaining - 1) : 0;
+                    setCombatStatus(event.defeated ? '战败，自动战斗已停止。' : event.chestReady ? '副本通关，等待单独确认开箱。' : '塔阶段已完成并保存。', event.defeated ? 'error' : 'success');
+                    break;
+                }
+                await requestPolicy.delay(500);
+            }
+            if (combatStopRequested) { combatDungeonRemaining = 0; setCombatStatus('已在当前战斗结算后停止；副本保留当前阶段，塔未完成阶段已清空。'); }
+        } finally {
+            combatRunning = false;
+            combatStopRequested = false;
+            updateBetControls();
+            if (type === 'tower') await adapter.stopCombatTower();
+            await updateBackgroundExecution();
+            renderCombatContent(await adapter.syncCombatContent());
+            renderHeroSnapshot(await adapter.syncHeroAutomation());
+            updateBetControls();
+        }
+    }
+
+    async function startCombatTower() {
+        await performCombatAction(async adapter => {
+            const plan = combatWorkflow.createTowerPlan((await adapter.syncCombatContent()).towerProgress, {startFloor: Number(elements.combatTowerFloor.value), stages: Number(elements.combatTowerStages.value)});
+            if (!window.confirm(`确认自动挑战无尽之塔 ${plan.startFloor}～${plan.endFloor} 层？自动重配当前模式全部能力点，以每阶段连续五层十五场的完成率和所选目标优化；阶段内保持配点。每层自动选择 Buff 和一次免费恢复，每五层核对存档，战败停止，不领取塔奖励。`)) return;
+            setCombatStatus('正在模拟连续五层并自动优化配点…');
+            const prepared = await adapter.startCombatTower({...plan, goal: elements.heroOptimizationMode.value, minWinRate: getHeroMinimumWinRate()});
+            logCombatAllocation(prepared.recommendation);
+            await runCombatLoop('tower', adapter);
+        });
+    }
+
+    async function startCombatDungeon() {
+        await performCombatAction(async adapter => {
+            renderCombatContent(await adapter.syncCombatContent());
+            const run = combatContentState.dungeonStatus.activeRun;
+            const active = run?.status === 'active';
+            const dungeonId = active ? run.dungeonId : elements.combatDungeon.value;
+            const plan = combatContent.planDungeonRun(combatContentState.dungeonStatus, {dungeonId, includeActive: true});
+            const runs = plan.remaining;
+            if (!window.confirm(`确认${active ? '继续' : '开始'}${plan.name}当天全部剩余 ${runs} 轮${active ? '（包含当前轮）' : ''}？自动重配当前模式全部能力点，连续计算所有轮次的血量和技能收益；逐场提交，战败或状态不确定时停止。每轮通关宝箱单独确认，开箱后继续。`)) return;
+            setCombatStatus('正在模拟当天全部剩余挑战并自动优化配点…');
+            combatDungeonRemaining = runs;
+            combatDungeonBatchId = dungeonId;
+            if (!active) renderCombatContent((await submitCombatDungeon(adapter, {action: 'start', dungeonId, resetPlan: true})).content);
+            await runCombatLoop('dungeon', adapter, active);
+        });
+    }
+
+    async function claimCombatDungeonChest() {
+        await performCombatAction(async adapter => {
+            renderCombatContent(await adapter.syncCombatContent());
+            const chestIndex = Number(elements.combatDungeonChestSelect.value);
+            if (!window.confirm(`确认领取${['左侧', '中间', '右侧'][chestIndex]}副本宝箱？${combatDungeonRemaining ? `开箱成功后继续已确认的 ${combatDungeonRemaining} 轮副本。` : '领取后停止。'}`)) return;
+            renderCombatContent((await submitCombatDungeon(adapter, {action: 'chest', chestIndex})).content);
+            if (combatDungeonRemaining > 0) {
+                renderCombatContent((await submitCombatDungeon(adapter, {action: 'start', dungeonId: combatDungeonBatchId})).content);
+                await runCombatLoop('dungeon', adapter);
+            } else setCombatStatus('副本宝箱已领取，本轮完成。', 'success');
+        });
+    }
+
+    async function abandonCombatDungeon() {
+        await performCombatAction(async adapter => {
+            if (!window.confirm('确认放弃当前副本？已使用次数不会恢复。')) return;
+            combatDungeonRemaining = 0;
+            renderCombatContent((await submitCombatDungeon(adapter, {action: 'abandon'})).content);
+            setCombatStatus('副本已放弃。');
+        });
+    }
+
+    async function submitCombatDungeon(adapter, intent) {
+        const accountKey = latestSnapshot?.account?.storageKey;
+        if (!accountKey) throw new Error('账号状态未同步');
+        const journalKey = `slime-race-lab.dungeon-submit.v1.${accountKey}`;
+        if (localStorage.getItem(journalKey) && intent.action !== 'abandon') {
+            const current = await adapter.syncCombatContent();
+            if (!current.dungeonStatus || !Number.isFinite(Number(current.dungeonStatus.todayCount)) || current.dungeonStatus.activeRun?.status === 'active') throw new Error('上次副本操作可能已提交，请先在官方页面核对；需要重新开始时明确放弃当前副本');
+            localStorage.removeItem(journalKey);
+        }
+        localStorage.setItem(journalKey, 'pending');
+        const options = {...intent, goal: elements.heroOptimizationMode.value, minWinRate: getHeroMinimumWinRate()};
+        const result = intent.action === 'battle' ? await adapter.battleCombatDungeon(options) : await adapter.dungeonAction(options);
+        localStorage.removeItem(journalKey);
+        if (result.recommendation && intent.action === 'start') logCombatAllocation(result.recommendation);
+        return result;
+    }
+
+    function logCombatAllocation(plan) {
+        const points = plan.allocation;
+        appendCombatLog(`整轮自动配点：生命 ${points.hp}／攻击 ${points.attack}／防御 ${points.defense}／速度 ${points.speed}；${plan.battleCount} 场连续战斗，整轮预测完成率 ${(plan.winRate * 100).toFixed(1)}%（${plan.samples} 次模拟）。`);
+        heroRecommendations = new Map();
+        renderHeroRecommendations();
     }
 
     function getPoolKey(snapshot) {
@@ -217,12 +453,14 @@
     }
 
     function updateBetControls() {
-        const busy = syncing || mutating;
+        const busy = syncing || mutating || combatBusy || combatRunning;
         elements.betReview.disabled = busy || !authenticated;
         elements.optimalBet.disabled = busy || !authenticated || !hasCurrentRecommendation();
         elements.betSubmit.disabled = busy || pendingBets.length === 0;
         updateDailyControls();
         updateHeroControls();
+        updateCombatControls();
+        elements.logoutButton.disabled = combatBusy || combatRunning;
     }
 
     function showBetConfirmation(bets, label) {
@@ -239,6 +477,7 @@
     }
 
     function getAndroidAdapter() {
+        if (androidAdapter) return androidAdapter;
         const plugins = platformBridge?.getAndroidNetworkPlugins(globalThis);
         if (!plugins) return null;
 
@@ -483,7 +722,8 @@
             return {snapshot: updated, result, nextLevel, message: String(submission?.message || '').slice(0, 180)};
         }
 
-        return {
+        const combatService = combatWorkflow.createService({request, syncHero: fetchCurrentHeroAutomation, delay: requestPolicy.delay});
+        androidAdapter = {
             async login(credentials) {
                 await cookies?.clearAllCookies?.();
                 cachedRemoteRacers = null;
@@ -586,14 +826,24 @@
             getHeroUnlockChallenge,
             submitHeroUnlock,
             runHeroBattle,
+            syncCombatContent: combatService.sync,
+            equipCombatItem: combatService.equip,
+            enhanceCombatAccessory: combatService.enhance,
+            startCombatTower: combatService.startTower,
+            stepCombatTower: combatService.stepTower,
+            stopCombatTower: combatService.stopTower,
+            dungeonAction: combatService.dungeonAction,
+            battleCombatDungeon: combatService.battleDungeon,
             async openDailyQuest() {
                 globalThis.open(new URL('/daily-quest', TARGET_ORIGIN).href, '_blank', 'noopener,noreferrer');
             },
             async logout() {
                 await cookies?.clearAllCookies?.();
                 cachedRemoteRacers = null;
+                combatService.reset();
             }
         };
+        return androidAdapter;
     }
 
     function getAdapter() {
@@ -603,7 +853,7 @@
     async function updateBackgroundExecution() {
         const plugin = platformBridge?.getBackgroundExecutionPlugin(globalThis);
         if (!plugin) return;
-        const shouldRun = heroRunning || (authenticated && elements.autoSync.checked);
+        const shouldRun = heroRunning || combatRunning || (authenticated && elements.autoSync.checked);
         if (shouldRun === backgroundExecutionActive) return;
 
         if (shouldRun) await plugin.start();
@@ -783,7 +1033,7 @@
     }
 
     function updateDailyControls() {
-        const busy = syncing || mutating || dailyBusy;
+        const busy = syncing || mutating || dailyBusy || combatBusy || combatRunning;
         const clickAtLimit = dailyState?.click?.maxDaily > 0
             && dailyState.click.completionCount >= dailyState.click.maxDaily;
         const timerAtLimit = dailyState?.timer?.maxRewards > 0
@@ -804,15 +1054,15 @@
     function updateHeroControls() {
         const adapter = getAdapter();
         const supported = Boolean(adapter?.syncHeroAutomation && adapter?.applyHeroAllocation && adapter?.prepareHeroHealing && adapter?.runHeroBattle);
-        const busy = syncing || mutating || heroBusy || heroRunning;
+        const busy = syncing || mutating || heroBusy || heroRunning || combatBusy || combatRunning;
         const atBattleLimit = Number(heroSnapshot?.battleStatus?.battleCount) >= 60;
         elements.heroRefresh.disabled = busy || !authenticated || !supported;
-        elements.heroMonster.disabled = heroBusy || heroRunning;
-        elements.heroRouteMode.disabled = heroBusy || heroRunning;
-        elements.heroRebornSkill.disabled = heroBusy || heroRunning || !heroSnapshot;
-        elements.heroOptimizationMode.disabled = heroBusy || heroRunning;
-        elements.heroMaxVictories.disabled = heroBusy || heroRunning;
-        elements.heroMinWinRate.disabled = heroBusy || heroRunning;
+        elements.heroMonster.disabled = heroBusy || heroRunning || combatBusy || combatRunning;
+        elements.heroRouteMode.disabled = heroBusy || heroRunning || combatBusy || combatRunning;
+        elements.heroRebornSkill.disabled = heroBusy || heroRunning || combatBusy || combatRunning || !heroSnapshot;
+        elements.heroOptimizationMode.disabled = heroBusy || heroRunning || combatBusy || combatRunning;
+        elements.heroMaxVictories.disabled = heroBusy || heroRunning || combatBusy || combatRunning;
+        elements.heroMinWinRate.disabled = heroBusy || heroRunning || combatBusy || combatRunning;
         elements.heroSkillSwitch.disabled = heroBusy || heroRunning;
         elements.heroDefensePotions.disabled = heroBusy || heroRunning;
         elements.heroHealing.disabled = heroBusy || heroRunning;
@@ -1168,7 +1418,7 @@
         elements.heroRecommendations.replaceChildren();
         if (heroRecommendations.size === 0) {
             const empty = document.createElement('p');
-            empty.textContent = '点击“刷新六只方案”，读取当前怪物面板并计算每只怪物的推荐配点。';
+            empty.textContent = '点击“刷新当前区域方案”，读取怪物面板并计算推荐配点。';
             elements.heroRecommendations.append(empty);
             return;
         }
@@ -1213,7 +1463,9 @@
             const comparisonText = recommendation.modeComparisons
                 ? ` · 基础 ${(Number(recommendation.modeComparisons.base?.winRate) * 100 || 0).toFixed(1)}% / 信仰 ${(Number(recommendation.modeComparisons.reborn?.winRate) * 100 || 0).toFixed(1)}%`
                 : '';
-            timing.textContent = `${recommendation.modeName || heroAutomation.HERO_MODES[recommendation.heroMode] || '当前模式'} · ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'}${rebornText}${pleasureText}${equipmentText} · 均胜时 ${victoryTime}${activeTime}${comparisonText}`;
+            const strategyText = recommendation.battleOptions?.useActiveSkill === false ? ' · 直接攻击，不施放主动技能' : '';
+            const forestText = monsterId === 'automaton' ? ' · 闪避开场突袭，保留暴击与闪避' : monsterId === 'meteor_swarm' ? ' · 自动清理幼虫，争取全场100%暴击' : '';
+            timing.textContent = `${recommendation.modeName || heroAutomation.HERO_MODES[recommendation.heroMode] || '当前模式'} · ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'}${rebornText}${strategyText}${forestText}${pleasureText}${equipmentText} · 均胜时 ${victoryTime}${activeTime}${comparisonText}`;
             progress.className = 'hero-monster-progress';
             progress.textContent = `经验 ${formatChips(recommendation.monster.expReward)} · ${recommendation.monster.sweepLevel ? `扫荡 Lv.${recommendation.monster.sweepLevel}` : '扫荡未解锁'} · 掉落 ${recommendation.monster.recordedDropLevels}/${recommendation.monster.eligibleDropLevels}`;
             footer.append(survival, timing);
@@ -1316,7 +1568,7 @@
     }
 
     async function startHeroAutomation() {
-        if (!authenticated || syncing || mutating || heroBusy || heroRunning) return;
+        if (!authenticated || syncing || mutating || heroBusy || heroRunning || combatBusy || combatRunning) return;
         const adapter = getAdapter();
         if (!adapter?.syncHeroAutomation || !adapter?.applyHeroAllocation || !adapter?.prepareHeroHealing || !adapter?.runHeroBattle) return;
         let monsterId = elements.heroMonster.value;
@@ -1443,7 +1695,8 @@
                     const familiarLog = monsterId === 'familiar'
                         ? recommendation.pleasureResist ? '，快感抗性开启' : `，平均胜场高潮 ${recommendation.averageVictoryPleasureClimaxes.toFixed(1)} 次`
                         : '';
-                    appendHeroLog(`Lv.${monster.level}“${modeName}”自动选择${recommendation.modeName}：HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%${familiarLog}。`);
+                    const strategyText = recommendation.battleOptions?.useActiveSkill === false ? '（本场不施放）' : '';
+                    appendHeroLog(`Lv.${monster.level}“${modeName}”自动选择${recommendation.modeName}：HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}${strategyText}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%${familiarLog}。`);
                     if (recommendation.winRate < minimumWinRate) {
                         throw new Error(`Lv.${monster.level} 的最高预测胜率只有 ${(recommendation.winRate * 100).toFixed(1)}%，低于停止线 ${(minimumWinRate * 100).toFixed(0)}%`);
                     }
@@ -1454,7 +1707,7 @@
                         heroMode: recommendation.heroMode,
                         requireDefensePotions: elements.heroDefensePotions.checked,
                         rebornSkillKey: recommendation.rebornSkillKey,
-                        battleOptions: getSelectedHeroBattleOptions(monsterId)
+                        battleOptions: recommendation.battleOptions
                     });
                     snapshot = await adapter.applyHeroAllocation({
                         heroMode: recommendation.heroMode,
@@ -1483,7 +1736,7 @@
                         requireDefensePotions: elements.heroDefensePotions.checked,
                         lockHeroPanel: true,
                         rebornSkillKey: recommendation.rebornSkillKey,
-                        battleOptions: getSelectedHeroBattleOptions(monsterId)
+                        battleOptions: recommendation.battleOptions
                     });
                     battleGuard.expectedAllocation = recommendation.allocation;
                     pendingBattle = {
@@ -1631,7 +1884,7 @@
     function isAutoSyncPaused() {
         const editingBet = document.activeElement === elements.betRacer || document.activeElement === elements.betAmount;
         const editingRecite = Boolean(elements.dailyReciteInput.value.trim());
-        return dailyBusy || heroBusy || heroRunning || Boolean(heroUnlockData) || editingBet || editingRecite || dailyClickCount > 0 || pendingBets.length > 0;
+        return dailyBusy || heroBusy || heroRunning || combatBusy || combatRunning || Boolean(heroUnlockData) || editingBet || editingRecite || dailyClickCount > 0 || pendingBets.length > 0;
     }
 
     async function sync(mode = 'live', automatic = false) {
@@ -1841,6 +2094,8 @@
         }
         await requestPolicy.delay(900);
         await refreshDailyQuest(false);
+        await refreshCombatContent();
+        if (combatContentState) elements.combatTowerFloor.value = Number(combatContentState.towerProgress?.towerMaxFloor) + 1;
         startPolling();
     }
 
@@ -1906,6 +2161,7 @@
     }
 
     async function logout() {
+        if (combatBusy || combatRunning) return;
         if (heroRunning) {
             stopHeroAutomation();
             setStatus(elements.status, '自动刷怪仍有当前步骤在执行，已请求安全停止；停止完成后再退出。');
@@ -1929,6 +2185,11 @@
         betLedgerState = null;
         observedSettlementSessionId = null;
         settlementRefreshSessionId = null;
+        combatContentState = null;
+        combatEquipmentPlan = null;
+        combatEnhancementPlan = null;
+        combatDungeonRemaining = 0;
+        combatDungeonBatchId = null;
         resetDailyClicks();
 
         try {
@@ -2020,6 +2281,15 @@
         closeHeroUnlockChallenge();
         elements.heroUnlockStatus.textContent = '验证已取消；需要时可重新读取题目。';
     });
+    elements.combatContentRefresh.addEventListener('click', refreshCombatContent);
+    elements.combatEquipmentApply.addEventListener('click', applyCombatEquipment);
+    elements.combatAccessoryEnhance.addEventListener('click', enhanceCombatAccessory);
+    elements.combatTowerStart.addEventListener('click', startCombatTower);
+    elements.combatDungeonStart.addEventListener('click', startCombatDungeon);
+    elements.combatDungeonChest.addEventListener('click', claimCombatDungeonChest);
+    elements.combatDungeonAbandon.addEventListener('click', abandonCombatDungeon);
+    elements.combatDungeon.addEventListener('change', () => { if (combatContentState) renderCombatContent(combatContentState); });
+    elements.combatStop.addEventListener('click', () => { combatStopRequested = true; combatDungeonRemaining = 0; updateCombatControls(); setCombatStatus('已请求安全停止，等待当前战斗结算与核对。'); });
     elements.heroRegionTabs?.querySelectorAll('[data-hero-region]').forEach(button => {
         button.addEventListener('click', () => setHeroRegion(button.dataset.heroRegion));
     });
@@ -2054,6 +2324,7 @@
         updateHeroControls();
     });
     elements.heroOptimizationMode.addEventListener('change', () => {
+        if (combatContentState) renderCombatContent(combatContentState);
         heroRecommendations = new Map();
         renderHeroRecommendations();
         setStatus(elements.heroStatus, '配点目标已经变化，请重新刷新当前区域方案。');
@@ -2106,6 +2377,7 @@
     });
     window.addEventListener('beforeunload', () => {
         heroStopRequested = true;
+        combatStopRequested = true;
         stopPolling();
         clearTimeout(dailyClickResetTimer);
         void platformBridge?.getBackgroundExecutionPlugin(globalThis)?.stop();

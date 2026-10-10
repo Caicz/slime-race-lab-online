@@ -1,6 +1,6 @@
 {
     "name": "slime-race-lab-online",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "description": "仅供本机使用的联网实盘数据同步与史莱姆竞速分析器",
     "main": "electron/main.cjs",
     "author": "Marisa",
@@ -10,6 +10,7 @@
         "start": "electron .",
         "check": "node scripts/check-online-boundary.cjs && node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/race-archive.cjs && node --check app/scripts/engine.js && node --check app/scripts/betting.js && node --check app/scripts/real-stats.js && node --check app/scripts/remote-data.js && node --check app/scripts/remote-actions.js && node --check app/scripts/daily-quest.js && node --check app/scripts/hero-automation.js && node --check app/scripts/bet-ledger.js && node --check app/scripts/request-policy.js && node --check app/scripts/platform-bridge.js && node --check app/scripts/market-monitor.js && node --check app/scripts/navigation.js && node --check app/scripts/app.js && node --check app/scripts/remote.js && node --check scripts/build-android.cjs && node --check scripts/create-ico.cjs && node --check scripts/inspect-hero-api.cjs && node --check scripts/inspect-slime-api.cjs && node --check scripts/run-timer-error-check.cjs && node --check scripts/update-race-archive.cjs && node --test",
         "check:online": "node scripts/check-online-boundary.cjs",
+        "check:combat": "node --check app/scripts/combat-content.js && node --check app/scripts/combat-workflow.js && node --check scripts/audit-forest-model.cjs && node --check scripts/audit-combat-model.cjs && node --test test/hero-automation.test.cjs test/combat-workflow.test.cjs test/combat-ui.test.cjs",
         "archive:update": "node scripts/update-race-archive.cjs",
         "test:timer-error": "node scripts/run-timer-error-check.cjs",
         "android:sync": "npx cap sync android",

@@ -5,6 +5,7 @@ const remoteData = require('../app/scripts/remote-data.js');
 const remoteActions = require('../app/scripts/remote-actions.js');
 const dailyQuest = require('../app/scripts/daily-quest.js');
 const heroAutomation = require('../app/scripts/hero-automation.js');
+const combatWorkflow = require('../app/scripts/combat-workflow.js');
 const requestPolicy = require('../app/scripts/request-policy.js');
 const raceArchive = require('./race-archive.cjs');
 
@@ -498,6 +499,24 @@ async function prepareHeroHealing() {
     });
 }
 
+async function syncCombatContent() {
+    return combatService.sync();
+}
+
+async function equipCombatItem(intent) {
+    return runMutation(() => combatService.equip(intent));
+}
+
+async function enhanceCombatAccessory(intent) {
+    return runMutation(() => combatService.enhance(intent));
+}
+
+async function dungeonAction(intent) {
+    return runMutation(() => combatService.dungeonAction(intent));
+}
+
+const combatService = combatWorkflow.createService({request: (endpoint, options) => requestJson(endpoint, options).then(result => result.data), syncHero: syncCurrentHeroAutomation, delay: requestPolicy.delay});
+
 async function getHeroUnlockChallenge() {
     if (!sessionCookie) throw new Error('请先登录');
     return requestJson('/api/hero/unlock-challenge').then(result => result.data);
@@ -650,6 +669,14 @@ ipcMain.handle('slime-remote:hero-battle', (event, intent) => {
     assertTrustedSender(event);
     return runHeroBattle(intent);
 });
+ipcMain.handle('slime-remote:combat-sync', event => { assertTrustedSender(event); return syncCombatContent(); });
+ipcMain.handle('slime-remote:combat-equip', (event, inventoryId) => { assertTrustedSender(event); return equipCombatItem(inventoryId); });
+ipcMain.handle('slime-remote:combat-enhance', (event, intent) => { assertTrustedSender(event); return enhanceCombatAccessory(intent); });
+ipcMain.handle('slime-remote:tower-start', (event, options) => { assertTrustedSender(event); return runMutation(() => combatService.startTower(options)); });
+ipcMain.handle('slime-remote:tower-step', event => { assertTrustedSender(event); return runMutation(() => combatService.stepTower()); });
+ipcMain.handle('slime-remote:tower-stop', event => { assertTrustedSender(event); return runMutation(() => combatService.stopTower()); });
+ipcMain.handle('slime-remote:dungeon-action', (event, intent) => { assertTrustedSender(event); return dungeonAction(intent); });
+ipcMain.handle('slime-remote:dungeon-battle', (event, options) => { assertTrustedSender(event); return runMutation(() => combatService.battleDungeon(options)); });
 ipcMain.handle('slime-remote:archive-open', async event => {
     assertTrustedSender(event);
     const directory = getRaceArchiveDirectory();
@@ -664,6 +691,7 @@ ipcMain.handle('slime-remote:logout', event => {
     sessionCookie = '';
     mutationInFlight = false;
     cachedRemoteRacers = null;
+    combatService.reset();
     return {ok: true};
 });
 

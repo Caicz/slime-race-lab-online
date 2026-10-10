@@ -104,7 +104,8 @@ function pickBattleMonsters(data) {
 
 function pickSkillSchema(data) {
     const skills = Array.isArray(data) ? data : Array.isArray(data?.skills) ? data.skills : [];
-    return skills.map(skill => Object.fromEntries(Object.entries(skill || {}).filter(([, value]) => {
+    return skills.map(skill => Object.fromEntries(Object.entries(skill || {}).filter(([key, value]) => {
+        if (/^(id|userId|username)$/i.test(key)) return false;
         return value === null || ['string', 'number', 'boolean'].includes(typeof value)
             || Array.isArray(value)
             || (value && typeof value === 'object');
@@ -130,6 +131,9 @@ async function main() {
     const arguments = process.argv.slice(2);
     const snapshotOnly = arguments.includes('--snapshot-only');
     const schema = arguments.includes('--schema');
+    const combatCatalog = arguments.includes('--combat-catalog');
+    const compactCombatCatalog = arguments.includes('--compact-combat-catalog');
+    const forestAudit = arguments.includes('--forest-audit');
     const validateModel = arguments.includes('--validate-model');
     const verifyCurrentRebornEquip = arguments.includes('--verify-current-reborn-equip');
     const radiusArgument = arguments.find(argument => argument.startsWith('--radius='));
@@ -223,6 +227,51 @@ async function main() {
             }];
         }));
         console.log(`validatedLocalModels=${JSON.stringify(models)}`);
+    }
+    if (combatCatalog || compactCombatCatalog) {
+        for (const endpoint of ['/api/inventory', '/api/accessory/items', '/api/shop/enhance/items', '/api/tower/progress', '/api/dungeon/status', '/api/hero/stat-presets']) {
+            const response = await fetch(new URL(endpoint, base), {headers: {Accept: 'application/json', Cookie: cookie}});
+            const data = await response.json();
+            const selected = Array.isArray(data) ? data.filter(entry => entry.equipped || entry.item?.category === 'equipment' || entry.accessoryEnhanceLevel > 0 || Number(entry.itemId) === 64).map(entry => ({
+                id: entry.id, itemId: entry.itemId, equipped: entry.equipped, locked: entry.locked, quantity: entry.quantity,
+                item: entry.item && {name: entry.item.name, equipSlot: entry.item.equipSlot, routeType: entry.item.routeType},
+                ...Object.fromEntries(Object.entries(entry).filter(([key]) => /Bonus|Percent|enhanceValue|critRate|critDamage|accessoryEnhanceLevel/.test(key)))
+            })) : data;
+            const compact = compactCombatCatalog && Array.isArray(data) ? [...new Map(data.filter(entry => entry.item?.category === 'equipment').map(entry => [entry.itemId, {item: entry.item, example: selected.find(item => item.itemId === entry.itemId)}])).values()] : selected;
+            const sanitized = JSON.parse(JSON.stringify(compact, (key, value) => /userId|username|password|cookie|token/i.test(key) ? undefined : value));
+            console.log(`${endpoint}=${response.status},data=${JSON.stringify(sanitized)}`);
+        }
+    }
+    if (forestAudit) {
+        const hero = require('../app/scripts/hero-automation.js');
+        const {createRandom} = require('./audit-forest-model.cjs');
+        const snapshot = hero.createSnapshot({account: responses['/api/auth/me'], battleStatus: responses['/api/hero/battle-status'], skills: responses['/api/hero/skills'], rebornSkills: responses['/api/hero/reborn-skills']});
+        if (hero.getFaithRoute(snapshot) !== 'M' || snapshot.heroMode !== 'reborn') throw new Error('森林审计只支持当前已处于魔女信仰模式的账号，不会自动切换');
+        const completeAllocation = panel => {
+            const allocation = hero.getCurrentAllocation(panel.account);
+            allocation.attack += hero.getTotalPoints(panel.account) - Object.values(allocation).reduce((sum, value) => sum + value, 0);
+            return allocation;
+        };
+        const summarize = (panel, monsterId, options) => {
+            const results = Array.from({length: 256}, (_, index) => hero.simulateBattle(panel, monsterId, {...options, allocation: options.allocation || completeAllocation(panel), random: createRandom(100000 + index)}));
+            const wins = results.filter(result => result.victory);
+            return {winRate: wins.length / results.length, hpLossPercent: Number((results.reduce((sum, result) => sum + result.hpLossRatio * 100, 0) / results.length).toFixed(2)), victorySeconds: wins.length ? Number((wins.reduce((sum, result) => sum + result.wallClockSeconds, 0) / wins.length).toFixed(2)) : null};
+        };
+        for (const monsterId of hero.MONSTER_REGIONS.forest.monsterIds) {
+            for (const target of ['current', 'sweep']) {
+                const panel = structuredClone(snapshot);
+                const definition = hero.MONSTERS[monsterId];
+                const level = target === 'current' ? hero.getMonster(panel, monsterId).level : Number(panel.battleStatus[`${definition.prefix}SweepLevel`]);
+                if (!(level > 0)) continue;
+                if (target === 'sweep') {
+                    const catalog = hero.FOREST_MONSTER_CATALOG.find(monster => monster.id === monsterId);
+                    const stats = Object.fromEntries(['hp', 'atk', 'def', 'spd'].map(key => [key, Math.round(catalog[key] * level)]));
+                    Object.assign(panel.battleStatus, {[`${definition.prefix}Level`]: level, [`${definition.prefix}Stats`]: stats, [`${definition.prefix}CurrentHp`]: stats.hp, [`${definition.prefix}MaxHp`]: stats.hp});
+                }
+                const recommendation = hero.findOptimalAllocation(panel, monsterId, {optimizationMode: 'fastest', divisions: 14, coarseSamples: 8, finalSamples: 96});
+                console.log(`forestAudit=${JSON.stringify({monsterId, target, level, baseline: summarize(panel, monsterId, {}), optimized: summarize(panel, monsterId, {allocation: recommendation.allocation, activeSkillKey: recommendation.activeSkillKey, rebornSkillKey: recommendation.rebornSkillKey, battleOptions: recommendation.battleOptions}), allocation: recommendation.allocation, activeSkillKey: recommendation.activeSkillKey, rebornSkillKey: recommendation.rebornSkillKey, battleOptions: recommendation.battleOptions, refinedCandidates: recommendation.refinedCandidates})}`);
+            }
+        }
     }
     if (snapshotOnly) return;
 
