@@ -4,5 +4,8 @@
     "webDir": "app",
     "server": {
         "androidScheme": "https"
+    },
+    "android": {
+        "adjustMarginsForEdgeToEdge": "auto"
     }
 }

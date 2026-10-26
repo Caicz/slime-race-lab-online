@@ -201,7 +201,7 @@ test('塔怪物序列与官方五层布局一致，森林副本只有前三只�
     const forest = workflow.getDungeonMonsterSequence('forest', {faithLevel: 10, level: 200});
     assert.deepEqual(forest.map(monster => monster.id), ['angry_bush', 'automaton', 'stone_golem']);
     assert.equal(forest[0].hp, 500);
-    assert.deepEqual(workflow.getForestMonsterSequence({faithLevel: 10}).map(monster => monster.id), ['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm']);
+        assert.deepEqual(workflow.getForestMonsterSequence({faithLevel: 10}).map(monster => monster.id), ['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm', 'forest_wolf']);
     assert.equal(workflow.getDungeonMonsterSequence('warehouse', {level: 5})[0].level, 2.5);
 });
 

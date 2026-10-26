@@ -1464,7 +1464,7 @@
                 ? ` · 基础 ${(Number(recommendation.modeComparisons.base?.winRate) * 100 || 0).toFixed(1)}% / 信仰 ${(Number(recommendation.modeComparisons.reborn?.winRate) * 100 || 0).toFixed(1)}%`
                 : '';
             const strategyText = recommendation.battleOptions?.useActiveSkill === false ? ' · 直接攻击，不施放主动技能' : '';
-            const forestText = monsterId === 'automaton' ? ' · 闪避开场突袭，保留暴击与闪避' : monsterId === 'meteor_swarm' ? ' · 自动清理幼虫，争取全场100%暴击' : '';
+        const forestText = monsterId === 'automaton' ? ' · 闪避开场突袭，保留暴击与闪避' : monsterId === 'meteor_swarm' ? ' · 自动清理幼虫，争取全场100%暴击' : monsterId === 'forest_wolf' ? ' · 预留护盾或额外血条，按狼的状态技调整防御' : '';
             timing.textContent = `${recommendation.modeName || heroAutomation.HERO_MODES[recommendation.heroMode] || '当前模式'} · ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无主动技能'}${rebornText}${strategyText}${forestText}${pleasureText}${equipmentText} · 均胜时 ${victoryTime}${activeTime}${comparisonText}`;
             progress.className = 'hero-monster-progress';
             progress.textContent = `经验 ${formatChips(recommendation.monster.expReward)} · ${recommendation.monster.sweepLevel ? `扫荡 Lv.${recommendation.monster.sweepLevel}` : '扫荡未解锁'} · 掉落 ${recommendation.monster.recordedDropLevels}/${recommendation.monster.eligibleDropLevels}`;
@@ -1504,7 +1504,7 @@
             battleOptions: getSelectedHeroBattleOptions(monsterId),
             divisions: battleRun ? 8 : allMonsters ? 14 : 18,
             coarseSamples: battleRun ? 3 : 8,
-            finalSamples: battleRun ? 16 : allMonsters ? 64 : 96,
+            finalSamples: battleRun ? 24 : allMonsters ? 64 : 96,
             maximumTicks: battleRun ? 12000 : 30000,
             searchProfile,
             refineAllocation: battleRun ? false : undefined
@@ -1695,7 +1695,7 @@
                     if (recommendation) {
                         try {
                             recommendation = heroAutomation.revalidateBattleRecommendation(snapshot, monsterId, recommendation, {
-                                samples: 4,
+                                samples: 16,
                                 maximumTicks: 12000,
                                 defensePotionStacks: elements.heroDefensePotions.checked ? 30 : undefined,
                                 autoHealing: elements.heroHealing.checked,
@@ -1704,7 +1704,7 @@
                             });
                             recommendation.cached = true;
                         } catch (error) {
-                            if (!String(error.message || error).includes('能力点已变化')) throw error;
+                            if (!String(error.message || error).includes('需要重新计算配点')) throw error;
                             recommendationCache.delete(monsterId);
                             recommendation = await calculateHeroRecommendation(snapshot, monsterId, false, true);
                             recommendationCache.set(monsterId, recommendation);

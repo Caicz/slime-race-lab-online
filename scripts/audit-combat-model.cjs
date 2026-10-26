@@ -10,11 +10,12 @@ function main() {
     if (!sourcePath) throw new Error('用法：node scripts/audit-combat-model.cjs <官方前端 JS 文件>');
     const source = fs.readFileSync(sourcePath, 'utf8');
     const engine = loadOfficialEngine(source);
-    const sequenceStart = source.indexOf('function dh(t,r)');
-    const sequenceEnd = source.indexOf('function MPe()', sequenceStart);
+    const sequenceStart = source.indexOf('function dh(t,r)') >= 0 ? source.indexOf('function dh(t,r)') : source.indexOf('function $h(t,r)');
+    const sequenceEnd = source.indexOf('function MPe()', sequenceStart) >= 0 ? source.indexOf('function MPe()', sequenceStart) : source.indexOf('function kTe()', sequenceStart);
     if (sequenceStart < 0 || sequenceEnd < sequenceStart) throw new Error('官方塔序列结构发生变化');
-    const context = vm.createContext({Op: ['slime', 'hilichurl', 'ruin_guard'], EPe: ['familiar', 'debt_collector', 'firefly_mage'], mu: {familiar: 'familiar', debt_collector: 'debt_collector', firefly_mage: 'firefly_mage', witch_clone: 'witch_clone'}});
-    vm.runInContext(`${source.slice(sequenceStart, sequenceEnd)}; globalThis.sequence = FC;`, context, {timeout: 1000});
+    const context = vm.createContext({Op: ['slime', 'hilichurl', 'ruin_guard'], EPe: ['familiar', 'debt_collector', 'firefly_mage'], mu: {familiar: 'familiar', debt_collector: 'debt_collector', firefly_mage: 'firefly_mage', witch_clone: 'witch_clone'}, dx: ['slime', 'hilichurl', 'ruin_guard'], $u: {familiar: 'familiar', debt_collector: 'debt_collector', firefly_mage: 'firefly_mage', witch_clone: 'witch_clone'}, NTe: ['familiar', 'debt_collector', 'firefly_mage']});
+    const sequenceName = source.indexOf('function dh(t,r)') >= 0 ? 'FC' : 'p3';
+    vm.runInContext(`${source.slice(sequenceStart, sequenceEnd)}; globalThis.sequence = ${sequenceName};`, context, {timeout: 1000});
     for (let start = 1; start <= 96; start += 5) {
         for (let floor = start; floor < start + 5; floor += 1) {
             const expected = [...context.sequence(floor, start)];
@@ -24,7 +25,7 @@ function main() {
     }
     const mismatches = [];
     let cases = 0;
-    for (const id of ['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage', 'witch_clone', 'angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm', 'golden_slime_dungeon']) {
+    for (const id of ['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage', 'witch_clone', 'angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm', 'forest_wolf', 'golden_slime_dungeon']) {
         for (const skill of ['star_curse', 'blood_pact']) {
             for (const activeSkill of [null, 'shield', 'drain', 'weaken', 'speed']) {
                 for (const level of [10, 100, 300]) {

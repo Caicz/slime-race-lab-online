@@ -46,10 +46,11 @@
         automaton: {name: '自行人偶', prefix: 'automaton', region: 'forest', minDamage: 20, resistNull: 0.95, resistLight: 0.2, resistDark: 0.2, clientLevelField: 'clientAutomatonLevel'},
         stone_golem: {name: '自然石像', prefix: 'stoneGolem', region: 'forest', minDamage: 30, resistNull: 0.98, resistLight: 0.3, resistDark: 0.3, clientLevelField: 'clientStoneGolemLevel'},
         mushroom_maiden: {name: '魅惑菇娘', prefix: 'mushroomMaiden', region: 'forest', minDamage: 10, resistNull: 0.99, resistLight: 0.2, resistDark: 0.2, clientLevelField: 'clientMushroomMaidenLevel'},
-        meteor_swarm: {name: '陨星虫群', prefix: 'meteorSwarm', region: 'forest', minDamage: 50, resistNull: 0.99, resistLight: 0.2, resistDark: 0.2, clientLevelField: 'clientMeteorSwarmLevel'}
+        meteor_swarm: {name: '陨星虫群', prefix: 'meteorSwarm', region: 'forest', minDamage: 50, resistNull: 0.99, resistLight: 0.2, resistDark: 0.2, clientLevelField: 'clientMeteorSwarmLevel'},
+        forest_wolf: {name: '巨型森林狼', prefix: 'forestWolf', region: 'forest', minDamage: 200, resistNull: 0.99, resistLight: 0.3, resistDark: 0.3, clientLevelField: 'clientForestWolfLevel'}
     });
     const MONSTER_IDS = Object.freeze(Object.keys(MONSTERS));
-    const FOREST_MONSTER_IDS = Object.freeze(['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm']);
+    const FOREST_MONSTER_IDS = Object.freeze(['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm', 'forest_wolf']);
     const MONSTER_REGIONS = Object.freeze({
         novice: Object.freeze({key: 'novice', name: '海罗格姆村', monsterIds: Object.freeze(['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage'])}),
         forest: Object.freeze({key: 'forest', name: '恐怖之森', monsterIds: FOREST_MONSTER_IDS})
@@ -59,7 +60,8 @@
         Object.freeze({id: 'automaton', name: '自行人偶', available: true, hp: 60, atk: 22, def: 18, spd: 16, faithExp: 5}),
         Object.freeze({id: 'stone_golem', name: '自然石像', available: true, hp: 80, atk: 40, def: 20, spd: 12, faithExp: 5}),
         Object.freeze({id: 'mushroom_maiden', name: '魅惑菇娘', available: true, hp: 75, atk: 5, def: 25, spd: 15, faithExp: 6}),
-        Object.freeze({id: 'meteor_swarm', name: '陨星虫群', available: true, hp: 60, atk: 23, def: 22, spd: 20, faithExp: 6})
+        Object.freeze({id: 'meteor_swarm', name: '陨星虫群', available: true, hp: 60, atk: 23, def: 22, spd: 20, faithExp: 6}),
+        Object.freeze({id: 'forest_wolf', name: '巨型森林狼', available: true, hp: 80, atk: 30, def: 25, spd: 20, faithExp: 8})
     ]);
     const MONSTER_BATTLE_DEFAULTS = Object.freeze({
         slime: Object.freeze({}),
@@ -73,7 +75,8 @@
         automaton: Object.freeze({automatonSuppressed: false}),
         stone_golem: Object.freeze({}),
         mushroom_maiden: Object.freeze({}),
-        meteor_swarm: Object.freeze({})
+        meteor_swarm: Object.freeze({}),
+        forest_wolf: Object.freeze({})
     });
     const HERO_MODES = Object.freeze({
         base: '基础模式',
@@ -288,6 +291,12 @@
     function getDefaultBattleOptions(monsterId, options = {}) {
         if (!MONSTERS[monsterId]) throw new Error('璇烽€夋嫨鏈夋晥鐨勫父瑙勬€墿');
         return {...(MONSTER_BATTLE_DEFAULTS[monsterId] || {}), ...(options || {})};
+    }
+
+    function getForestWolfSkill(state) {
+        if (state.playerShieldBonus > 0 || state.playerDef >= state.playerHp && state.playerDef >= state.playerAtk) return 'crush';
+        if (state.playerDrainHp > 0 || state.playerHp >= state.playerAtk) return 'bloodlust';
+        return 'roar';
     }
 
     function getDefaultRoutePlan(snapshot) {
@@ -850,6 +859,8 @@
             swarmLarvaeRemaining: 0,
             swarmLarvaeKilled: 0,
             swarmEvolutionMultiplier: 1,
+            forestWolfSkillUses: 0,
+            forestWolfLastSkill: null,
             ticks: 0,
             actions: 0,
             phase: 'fighting'
@@ -929,6 +940,26 @@
             state.monsterHp += healed;
             state.stoneGolemRegenerations += 1;
             state.stoneGolemRegeneratedHp += healed;
+        }
+
+        function useForestWolfSkill(nextMonsterAtb) {
+            if (monsterId !== 'forest_wolf' || state.monsterAtb >= 50 || nextMonsterAtb < 50) return false;
+            let skill;
+            skill = getForestWolfSkill(state);
+            if (skill === 'crush') {
+                if (state.playerShieldBonus > 0) state.playerShieldBonus = 0;
+                else state.playerDef = Math.max(1, Math.floor(state.playerDef * 0.9));
+            } else if (skill === 'bloodlust') {
+                if (state.playerDrainHp > 0) state.playerDrainHp = 0;
+                else state.playerHp = Math.max(1, Math.floor(state.playerHp * 0.95));
+            } else {
+                state.playerAtk = Math.max(1, Math.floor(state.playerAtk * 0.9));
+            }
+            state.forestWolfSkillUses += 1;
+            state.forestWolfLastSkill = skill;
+            state.monsterAtb = Math.min(nextMonsterAtb, 100);
+            if (state.playerHp <= 0) state.phase = 'defeat';
+            return true;
         }
 
         function applyStoneGolemHit(damage, critical) {
@@ -1296,6 +1327,8 @@
                 ? state.monsterAtb
                 : state.monsterAtb + 5 * (state.monsterSpd / Math.max(state.playerSpd, 1));
 
+            if (useForestWolfSkill(nextMonsterAtb)) continue;
+
             if ((monsterId === 'angry_bush' || monsterId === 'stone_golem' && !state.stoneGolemAsleep) && previousPlayerAtb < 50 && nextPlayerAtb >= 50) {
                 regenerateAngryBush();
                 regenerateStoneGolem();
@@ -1431,7 +1464,9 @@
                 mushroomParasiticDamage: state.mushroomParasiticDamage,
                 neuroDisorderLevel: state.neuroDisorderLevel,
                 swarmLarvaeKilled: state.swarmLarvaeKilled,
-                swarmEvolutionMultiplier: state.swarmEvolutionMultiplier
+                swarmEvolutionMultiplier: state.swarmEvolutionMultiplier,
+                forestWolfSkillUses: state.forestWolfSkillUses,
+                forestWolfLastSkill: state.forestWolfLastSkill
             }
         };
     }
@@ -1492,6 +1527,29 @@
             maximumTicks: Math.max(2000, Math.min(200000, toNonNegativeInteger(options.maximumTicks ?? 200000, '模拟步数'))),
             refineAllocation: options.refineAllocation !== false
         };
+    }
+
+    function getBattleRecommendationContext(snapshot, monsterId, options = {}) {
+        const monster = getMonster(snapshot, monsterId);
+        const account = snapshot.account || {};
+        const status = snapshot.battleStatus || {};
+        return JSON.stringify({
+            heroMode: normalizeHeroMode(snapshot.heroMode || account.rebornMode),
+            faithRoute: getFaithRoute(snapshot),
+            totalPoints: getTotalPoints(account),
+            skills: snapshot.skills,
+            rebornSkills: snapshot.rebornSkills,
+            equippedActiveSkill: account.equippedActiveSkill || null,
+            equippedRebornSkill: account.equippedRebornSkill || null,
+            equipmentBonuses: status.equipmentBonuses || {},
+            defensePotionStacks: options.defensePotionStacks ?? status.defenseBuffStacks ?? 0,
+            autoHealing: options.autoHealing === true,
+            healingTargetRatio: options.healingTargetRatio ?? null,
+            pleasureResist: options.pleasureResist !== false,
+            optimizationMode: options.optimizationMode || 'balanced',
+            battleOptions: getDefaultBattleOptions(monsterId, options.battleOptions),
+            monster: {id: monster.id, level: monster.level, hp: monster.hp, maxHp: monster.maxHp, atk: monster.atk, def: monster.def, spd: monster.spd}
+        });
     }
 
     function evaluateAllocation(snapshot, monsterId, allocation, sampleCount, options = {}) {
@@ -1674,7 +1732,8 @@
             refinedCandidates,
             optimizationMode,
             searchProfile: options.searchProfile || (options.fast ? 'battle' : 'full'),
-            maximumTicks: profile.maximumTicks
+            maximumTicks: profile.maximumTicks,
+            recommendationContext: getBattleRecommendationContext(snapshot, monsterId, options)
         };
     }
 
@@ -1683,8 +1742,16 @@
         const modeSnapshot = getHeroModeSnapshot(snapshot, recommendation.heroMode);
         const totalPoints = getTotalPoints(modeSnapshot.account);
         if (totalPoints !== recommendation.totalPoints) throw new Error('勇者能力点已变化，需要重新计算配点');
+        const contextOptions = {...options, battleOptions: recommendation.battleOptions};
+        if (recommendation.recommendationContext && recommendation.recommendationContext !== getBattleRecommendationContext(modeSnapshot, monsterId, contextOptions)) throw new Error('战斗面板或装备已变化，需要重新计算配点');
+        const hpRatio = toFiniteNumber(modeSnapshot.battleStatus.currentHp)
+            / Math.max(1, toFiniteNumber(modeSnapshot.battleStatus.maxHp, 1));
+        const minimumHpRatio = options.autoHealing === true && hpRatio < 0.2
+            ? Math.max(0.2, Math.min(1, toFiniteNumber(options.healingTargetRatio, 0.95)))
+            : options.minimumHpRatio;
         const result = evaluateAllocation(modeSnapshot, monsterId, recommendation.allocation, options.samples || 4, {
             ...options,
+            minimumHpRatio,
             maximumTicks: options.maximumTicks || 12000,
             activeSkillKey: recommendation.activeSkillKey,
             rebornSkillKey: recommendation.rebornSkillKey,
@@ -1700,7 +1767,8 @@
             candidatesEvaluated: 0,
             refinedCandidates: 0,
             quickValidation: true,
-            searchProfile: 'battle'
+            searchProfile: 'battle',
+            recommendationContext: getBattleRecommendationContext(modeSnapshot, monsterId, contextOptions)
         };
     }
 
@@ -1899,6 +1967,7 @@
         getCandidateAllocations,
         validateAllocation,
         getMonster,
+        getForestWolfSkill,
         getBattleCount,
         planHealingConsumables,
         createBattleGuard,

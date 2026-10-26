@@ -15,19 +15,31 @@ function createRandom(seed) {
 }
 
 function loadOfficialEngine(source) {
-    const helpersStart = source.indexOf('const Gv={drainHpPercentPerLevel:');
-    const engineStart = source.indexOf('function m5e({fps:');
-    const engineEnd = source.indexOf('const f5e=', engineStart);
+    const helpersStart = source.indexOf('const Gv={drainHpPercentPerLevel:') >= 0
+        ? source.indexOf('const Gv={drainHpPercentPerLevel:')
+        : source.indexOf('const wy={drainHpPercentPerLevel:');
+    const engineStart = source.indexOf('function m5e({fps:') >= 0
+        ? source.indexOf('function m5e({fps:')
+        : source.indexOf('function sCe({fps:');
+    const engineEnd = source.indexOf('const f5e=', engineStart) >= 0
+        ? source.indexOf('const f5e=', engineStart)
+        : source.indexOf('const aCe=', engineStart);
     if (helpersStart < 0 || engineStart < helpersStart || engineEnd < engineStart) throw new Error('官方引擎结构发生变化，请重新核对提取边界');
     const engine = source.slice(helpersStart, engineEnd).replace('return{battle:r,startBattle:m', 'return{getBattle:()=>s.current,tickBattle:c,battle:r,startBattle:m');
     const context = vm.createContext({
         u: {useState: () => [null, () => {}], useRef: value => ({current: value}), useCallback: callback => callback, useEffect: () => {}},
+        d: {useState: () => [null, () => {}], useRef: value => ({current: value}), useCallback: callback => callback, useEffect: () => {}},
         setInterval: () => 0,
         clearInterval: () => {},
         random: Math.random
     });
-    vm.runInContext(`Math.random = () => random(); ${engine}; globalThis.createBattle = m5e;`, context, {timeout: 1000});
+    const engineName = engineStartName(source);
+    vm.runInContext(`Math.random = () => random(); ${engine}; globalThis.createBattle = ${engineName};`, context, {timeout: 1000});
     return {context, createBattle: context.createBattle};
+}
+
+function engineStartName(source) {
+    return source.indexOf('function m5e({fps:') >= 0 ? 'm5e' : 'sCe';
 }
 
 function replayOfficial(engine, snapshot, monsterId, random, battleOptions, overrides = {}) {

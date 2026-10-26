@@ -90,6 +90,10 @@ function createRawSnapshot() {
             meteorSwarmCurrentHp: 480,
             meteorSwarmMaxHp: 480,
             meteorSwarmStats: {hp: 480, atk: 184, def: 176, spd: 160}
+            ,forestWolfLevel: 10,
+            forestWolfCurrentHp: 800,
+            forestWolfMaxHp: 800,
+            forestWolfStats: {hp: 800, atk: 300, def: 250, spd: 200}
         },
         skills: [
             {skillKey: 'drain', level: 2},
@@ -191,15 +195,17 @@ test('恐怖之森愤怒灌木模型包含官方抗性、愤怒叠层和再生�
     assert.ok(result.mechanics.angryBushRegeneratedHp > 0);
 });
 
-test('恐怖之森分页包含五只已开放怪物并使用各自服务端字段前缀', () => {
+test('恐怖之森分页包含六只已开放怪物并使用各自服务端字段前缀', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
 
-    assert.deepEqual(heroAutomation.MONSTER_REGIONS.forest.monsterIds, ['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm']);
+    assert.deepEqual(heroAutomation.MONSTER_REGIONS.forest.monsterIds, ['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm', 'forest_wolf']);
     assert.ok(heroAutomation.FOREST_MONSTER_CATALOG.every(monster => monster.available));
     assert.equal(heroAutomation.getMonster(snapshot, 'automaton').level, 2);
     assert.equal(heroAutomation.getMonster(snapshot, 'stone_golem').level, 4);
     assert.equal(heroAutomation.MONSTERS.stone_golem.prefix, 'stoneGolem');
     assert.equal(heroAutomation.MONSTERS.stone_golem.clientLevelField, 'clientStoneGolemLevel');
+    assert.equal(heroAutomation.getMonster(snapshot, 'forest_wolf').level, 10);
+    assert.equal(heroAutomation.MONSTERS.forest_wolf.clientLevelField, 'clientForestWolfLevel');
 });
 
 test('恐怖之森新增模型都能生成战斗面板，战斗搜索模式显著缩小候选集', () => {
@@ -216,6 +222,26 @@ test('恐怖之森新增模型都能生成战斗面板，战斗搜索模式显�
     const reused = heroAutomation.revalidateBattleRecommendation(snapshot, 'stone_golem', quick, {samples: 2, maximumTicks: 4000});
     assert.equal(reused.quickValidation, true);
     assert.deepEqual(reused.allocation, quick.allocation);
+});
+
+test('巨型森林狼按勇者当前状态选择咬碎、嗜血或吼叫', () => {
+    const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
+    assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 1, playerDef: 1, playerHp: 100, playerAtk: 100}), 'crush');
+    assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 0, playerDrainHp: 1, playerDef: 1, playerHp: 100, playerAtk: 100}), 'bloodlust');
+    assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 0, playerDrainHp: 0, playerDef: 1, playerHp: 100, playerAtk: 200}), 'roar');
+    const basePlayer = heroAutomation.getProjectedStats(snapshot, heroAutomation.getCurrentAllocation(snapshot.account));
+    const wolf = heroAutomation.getMonster(snapshot, 'forest_wolf');
+    const shield = heroAutomation.simulateBattle(snapshot, 'forest_wolf', {
+        player: {...basePlayer, activeSkillKey: 'shield', skills: {...basePlayer.skills, shield: 10}}, monster: wolf,
+        maximumTicks: 1200, random: () => 0.99
+    });
+    assert.ok(['bloodlust', 'roar', 'crush'].includes(shield.mechanics.forestWolfLastSkill));
+    const drain = heroAutomation.simulateBattle(snapshot, 'forest_wolf', {
+        player: {...basePlayer, activeSkillKey: 'drain', skills: {...basePlayer.skills, drain: 10}}, monster: wolf,
+        maximumTicks: 1200, random: () => 0.99
+    });
+    assert.ok(['bloodlust', 'roar', 'crush'].includes(drain.mechanics.forestWolfLastSkill));
+    assert.ok(drain.mechanics.forestWolfSkillUses > 0);
 });
 
 test('自行人偶默认闪避突袭，显式接受压制时触发全属性与当前HP衰减', () => {
