@@ -202,6 +202,22 @@ test('恐怖之森分页包含五只已开放怪物并使用各自服务端字�
     assert.equal(heroAutomation.MONSTERS.stone_golem.clientLevelField, 'clientStoneGolemLevel');
 });
 
+test('恐怖之森新增模型都能生成战斗面板，战斗搜索模式显著缩小候选集', () => {
+    const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
+    for (const monsterId of heroAutomation.FOREST_MONSTER_IDS) {
+        const monster = heroAutomation.getMonster(snapshot, monsterId);
+        assert.equal(monster.region, 'forest');
+        assert.ok(monster.hp > 0 && monster.maxHp >= monster.hp);
+    }
+    const full = heroAutomation.findOptimalAllocation(snapshot, 'stone_golem', {optimizationMode: 'balanced', divisions: 8, coarseSamples: 2, finalSamples: 4, maximumTicks: 4000, refineAllocation: false});
+    const quick = heroAutomation.findOptimalBattleMode(snapshot, 'stone_golem', {optimizationMode: 'balanced', searchProfile: 'battle', maximumTicks: 4000});
+    assert.ok(quick.candidatesEvaluated < full.candidatesEvaluated);
+    assert.equal(quick.searchProfile, 'battle');
+    const reused = heroAutomation.revalidateBattleRecommendation(snapshot, 'stone_golem', quick, {samples: 2, maximumTicks: 4000});
+    assert.equal(reused.quickValidation, true);
+    assert.deepEqual(reused.allocation, quick.allocation);
+});
+
 test('自行人偶默认闪避突袭，显式接受压制时触发全属性与当前HP衰减', () => {
     const raw = disableHeroSkills(createRawSnapshot());
     Object.assign(raw.battleStatus, {currentHp: 10000, maxHp: 10000, attack: 1, defense: 1000, speed: 100});

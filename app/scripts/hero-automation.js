@@ -49,9 +49,10 @@
         meteor_swarm: {name: '陨星虫群', prefix: 'meteorSwarm', region: 'forest', minDamage: 50, resistNull: 0.99, resistLight: 0.2, resistDark: 0.2, clientLevelField: 'clientMeteorSwarmLevel'}
     });
     const MONSTER_IDS = Object.freeze(Object.keys(MONSTERS));
+    const FOREST_MONSTER_IDS = Object.freeze(['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm']);
     const MONSTER_REGIONS = Object.freeze({
         novice: Object.freeze({key: 'novice', name: '海罗格姆村', monsterIds: Object.freeze(['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage'])}),
-        forest: Object.freeze({key: 'forest', name: '恐怖之森', monsterIds: Object.freeze(['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm'])})
+        forest: Object.freeze({key: 'forest', name: '恐怖之森', monsterIds: FOREST_MONSTER_IDS})
     });
     const FOREST_MONSTER_CATALOG = Object.freeze([
         Object.freeze({id: 'angry_bush', name: '愤怒灌木', available: true, hp: 50, atk: 20, def: 15, spd: 15, faithExp: 4}),
@@ -1472,6 +1473,27 @@
         return [...candidates.values()];
     }
 
+    function getSearchProfile(options, totalPoints) {
+        const profile = options.searchProfile || (options.fast ? 'battle' : 'full');
+        if (!['full', 'battle'].includes(profile)) throw new Error('配点搜索模式无效');
+        if (profile === 'battle') {
+            return {
+                divisions: Math.max(4, Math.min(10, toNonNegativeInteger(options.divisions ?? (totalPoints > 1000 ? 8 : 6), '搜索精度'))),
+                coarseSamples: Math.max(2, Math.min(8, toNonNegativeInteger(options.coarseSamples ?? 3, '初筛次数'))),
+                finalSamples: Math.max(4, Math.min(32, toNonNegativeInteger(options.finalSamples ?? 16, '复核次数'))),
+                maximumTicks: Math.max(2000, Math.min(30000, toNonNegativeInteger(options.maximumTicks ?? 12000, '模拟步数'))),
+                refineAllocation: options.refineAllocation === true
+            };
+        }
+        return {
+            divisions: Math.max(4, Math.min(24, toNonNegativeInteger(options.divisions ?? 20, '搜索精度'))),
+            coarseSamples: Math.max(2, Math.min(64, toNonNegativeInteger(options.coarseSamples ?? 8, '初筛次数'))),
+            finalSamples: Math.max(8, Math.min(512, toNonNegativeInteger(options.finalSamples ?? 96, '复核次数'))),
+            maximumTicks: Math.max(2000, Math.min(200000, toNonNegativeInteger(options.maximumTicks ?? 200000, '模拟步数'))),
+            refineAllocation: options.refineAllocation !== false
+        };
+    }
+
     function evaluateAllocation(snapshot, monsterId, allocation, sampleCount, options = {}) {
         const monster = getMonster(snapshot, monsterId);
         let victories = 0;
@@ -1592,9 +1614,10 @@
         const totalPoints = getTotalPoints(snapshot.account);
         const current = getCurrentAllocation(snapshot.account);
         const optimizationMode = getOptimizationMode(options.optimizationMode);
-        const divisions = Math.max(4, Math.min(24, toNonNegativeInteger(options.divisions ?? 20, '搜索精度')));
-        const coarseSamples = Math.max(2, Math.min(64, toNonNegativeInteger(options.coarseSamples ?? 8, '初筛次数')));
-        const finalSamples = Math.max(coarseSamples, Math.min(512, toNonNegativeInteger(options.finalSamples ?? 96, '复核次数')));
+        const profile = getSearchProfile(options, totalPoints);
+        const divisions = profile.divisions;
+        const coarseSamples = profile.coarseSamples;
+        const finalSamples = Math.max(coarseSamples, profile.finalSamples);
         const candidates = getCandidateAllocations(totalPoints, current, divisions);
         const activeSkills = getActiveSkillCandidates(snapshot, options.optimizeActiveSkill);
         const rebornSkills = getRebornSkillCandidates(snapshot, options);
@@ -1603,19 +1626,19 @@
             monsterId,
             allocation,
             coarseSamples,
-            {...options, activeSkillKey, rebornSkillKey}
+            {...options, maximumTicks: profile.maximumTicks, activeSkillKey, rebornSkillKey}
         ))));
         const optimizeWitchForest = getFaithRoute(snapshot) === 'M' && MONSTERS[monsterId]?.region === 'forest';
         if (optimizeWitchForest && options.optimizeActiveSkill !== false && options.battleOptions?.useActiveSkill === undefined) {
             coarse.push(...candidates.flatMap(allocation => rebornSkills.map(rebornSkillKey => evaluateAllocation(snapshot, monsterId, allocation, coarseSamples, {
-                ...options, activeSkillKey: snapshot.account.equippedActiveSkill || null, rebornSkillKey,
+                ...options, maximumTicks: profile.maximumTicks, activeSkillKey: snapshot.account.equippedActiveSkill || null, rebornSkillKey,
                 battleOptions: {...options.battleOptions, useActiveSkill: false}
             }))));
         }
         sortEvaluations(coarse, optimizationMode);
         const finalists = coarse.slice(0, Math.min(12, coarse.length));
         let refinedCandidates = 0;
-        if (optimizeWitchForest && options.refineAllocation !== false) {
+        if (optimizeWitchForest && profile.refineAllocation) {
             let centers = [...finalists.slice(0, 4)];
             for (let step = Math.max(1, Math.floor(totalPoints / divisions / 2)); step >= 1; step = step === 1 ? 0 : Math.max(1, Math.floor(step / 4))) {
                 const neighbors = new Map();
@@ -1626,7 +1649,7 @@
                             const allocation = {...candidate.allocation, [from]: candidate.allocation[from] - step, [to]: candidate.allocation[to] + step};
                             const key = `${getAllocationKey(allocation)}:${candidate.activeSkillKey}:${candidate.rebornSkillKey}:${candidate.battleOptions.useActiveSkill !== false}`;
                             if (neighbors.has(key)) continue;
-                            neighbors.set(key, evaluateAllocation(snapshot, monsterId, allocation, coarseSamples, {...options, activeSkillKey: candidate.activeSkillKey, rebornSkillKey: candidate.rebornSkillKey, battleOptions: candidate.battleOptions}));
+                            neighbors.set(key, evaluateAllocation(snapshot, monsterId, allocation, coarseSamples, {...options, maximumTicks: profile.maximumTicks, activeSkillKey: candidate.activeSkillKey, rebornSkillKey: candidate.rebornSkillKey, battleOptions: candidate.battleOptions}));
                         }
                     }
                 }
@@ -1640,7 +1663,7 @@
             monsterId,
             candidate.allocation,
             finalSamples,
-            {...options, activeSkillKey: candidate.activeSkillKey, rebornSkillKey: candidate.rebornSkillKey, battleOptions: candidate.battleOptions}
+            {...options, maximumTicks: profile.maximumTicks, activeSkillKey: candidate.activeSkillKey, rebornSkillKey: candidate.rebornSkillKey, battleOptions: candidate.battleOptions}
         ));
         sortEvaluations(reviewed, optimizationMode);
         return {
@@ -1649,7 +1672,35 @@
             totalPoints,
             candidatesEvaluated: coarse.length,
             refinedCandidates,
-            optimizationMode
+            optimizationMode,
+            searchProfile: options.searchProfile || (options.fast ? 'battle' : 'full'),
+            maximumTicks: profile.maximumTicks
+        };
+    }
+
+    function revalidateBattleRecommendation(snapshot, monsterId, recommendation, options = {}) {
+        if (!recommendation?.allocation || !recommendation.heroMode) throw new Error('待复用的战斗方案无效');
+        const modeSnapshot = getHeroModeSnapshot(snapshot, recommendation.heroMode);
+        const totalPoints = getTotalPoints(modeSnapshot.account);
+        if (totalPoints !== recommendation.totalPoints) throw new Error('勇者能力点已变化，需要重新计算配点');
+        const result = evaluateAllocation(modeSnapshot, monsterId, recommendation.allocation, options.samples || 4, {
+            ...options,
+            maximumTicks: options.maximumTicks || 12000,
+            activeSkillKey: recommendation.activeSkillKey,
+            rebornSkillKey: recommendation.rebornSkillKey,
+            battleOptions: recommendation.battleOptions
+        });
+        return {
+            ...recommendation,
+            ...result,
+            monster: getMonster(modeSnapshot, monsterId),
+            heroMode: recommendation.heroMode,
+            modeName: recommendation.modeName || HERO_MODES[recommendation.heroMode],
+            totalPoints,
+            candidatesEvaluated: 0,
+            refinedCandidates: 0,
+            quickValidation: true,
+            searchProfile: 'battle'
         };
     }
 
@@ -1820,6 +1871,7 @@
         MONSTER_IDS,
         MONSTER_REGIONS,
         FOREST_MONSTER_CATALOG,
+        FOREST_MONSTER_IDS,
         MONSTER_BATTLE_DEFAULTS,
         createSnapshot,
         normalizeHeroMode,
@@ -1856,6 +1908,7 @@
         createSeededRandom,
         sortEvaluations,
         findOptimalAllocation,
+        revalidateBattleRecommendation,
         findOptimalBattleMode,
         verifyMonsterModels,
         planAllocationChanges,

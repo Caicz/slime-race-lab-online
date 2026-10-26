@@ -7,6 +7,10 @@ const assert = require('node:assert/strict');
 test('战斗面板在未登录时正确接线，Android 适配器初始化不会发起请求', async () => {
     const root = path.join(__dirname, '..');
     const html = fs.readFileSync(path.join(root, 'app/index.html'), 'utf8');
+    const styles = fs.readFileSync(path.join(root, 'app/styles.css'), 'utf8');
+    const activity = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/marisa/slimeracelab/online/MainActivity.java'), 'utf8');
+    assert.match(styles, /@media \(max-width: 700px\)[\s\S]*\.combat-content-grid \{\s*grid-template-columns: minmax\(0, 1fr\)/);
+    assert.match(activity, /WindowCompat\.setDecorFitsSystemWindows\(getWindow\(\), true\)/);
     const nodes = new Map();
     function createElement() {
         return {children: [], listeners: new Map(), value: '', checked: false, textContent: '', disabled: false, classList: {add() {}, remove() {}},

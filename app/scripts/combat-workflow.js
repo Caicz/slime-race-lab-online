@@ -9,7 +9,7 @@
         slime: [40, 18, 10, 20], hilichurl: [50, 20, 15, 15], ruin_guard: [60, 24, 16, 4],
         familiar: [60, 10, 8, 16], debt_collector: [40, 20, 10, 15], firefly_mage: [50, 20, 16, 18],
         witch_clone: [60, 18, 16, 16], angry_bush: [50, 20, 15, 15], automaton: [60, 22, 18, 16],
-        stone_golem: [80, 40, 20, 12], golden_slime_dungeon: [10, 10, 10, 60]
+        stone_golem: [80, 40, 20, 12], mushroom_maiden: [75, 5, 25, 15], meteor_swarm: [60, 23, 22, 20], golden_slime_dungeon: [10, 10, 10, 60]
     });
     const STAT_KEYS = ['hp', 'atk', 'def', 'spd'];
     const SKILL_KEYS = ['dodge', 'crit', 'shield', 'drain', 'weaken', 'speed'];
@@ -71,6 +71,12 @@
         if (dungeonId === 'warehouse') return ['slime', 'hilichurl', 'ruin_guard'].map(id => createMonster(id, Math.round(level * 5) / 10));
         if (dungeonId !== 'golden_slime') throw new Error('副本类型无效');
         return [createMonster('slime', level / 2), createMonster('slime', level / 2), createMonster(['has_golden_slime', 'golden_slime_killed'].includes(metadata) ? 'golden_slime_dungeon' : 'slime', level / 2)];
+    }
+
+    function getForestMonsterSequence(account) {
+        const level = Number(account?.faithLevel);
+        if (!Number.isFinite(level) || level <= 0) throw new Error('恐怖之森等级未同步');
+        return ['angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm'].map(id => createMonster(id, level));
     }
 
     function drawTowerBuffs(random = Math.random) {
@@ -507,5 +513,5 @@
         return Object.freeze({sync, equip, enhance, startTower, stepTower, stopTower: () => exclusive(async () => { tower = null; }), dungeonAction, battleDungeon, reset: () => { tower = null; dungeonPlan = null; dungeonUncertain = false; goldenRun = null; }});
     }
 
-    return Object.freeze({createMonster, getCurrentPlayer, createTowerPlan, getTowerMonsterSequence, getDungeonMonsterSequence, drawTowerBuffs, applyTowerBuffs, selectBattleStrategy, recommendTowerBuffs, createChallengePlan, evaluateChallengeAllocation, compareChallengePlans, optimizeChallengeAllocation, createService});
+    return Object.freeze({createMonster, getCurrentPlayer, createTowerPlan, getTowerMonsterSequence, getDungeonMonsterSequence, getForestMonsterSequence, drawTowerBuffs, applyTowerBuffs, selectBattleStrategy, recommendTowerBuffs, createChallengePlan, evaluateChallengeAllocation, compareChallengePlans, optimizeChallengeAllocation, createService});
 });

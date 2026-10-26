@@ -133,6 +133,8 @@ npm run test:timer-error
 
 配点优化采用固定随机种子粗筛、邻域细化和最终 24 次整轮模拟复核，日志显示配点和整轮完成率；属于有限候选与样本内的推荐，不保证全局最优或必定通关。确认开始挑战即授权重新分配能力点，不切换勇者模式、不额外消耗恢复道具。配点请求串行提交，提交前重新比对面板，提交后确认点数；未确认或超时立即停止，不自动重试。界面的最低胜率同时约束整轮完成率和逐场预测，未达到整轮停止线时不修改配点。
 
+恐怖之森的五只模型均可单独分析；自动刷怪本轮首次遇到某只怪物时使用缩小候选集和 12000 步上限完成战斗配点，后续再次遇到同一只怪物只对原方案做 4 次快速复核，只有复核低于停止线才重新搜索。自然石像的睡眠、护盾、四次命中唤醒和再生机制仍保留在模拟中。手动刷新区域方案继续使用完整候选搜索，适合需要更细粒度的方案比较。
+
 副本结果不确定时停止自动流程；本地只保存按账号隔离的最小提交标记，不保存战斗日志或凭据。应用重启后若存在未核对提交，也禁止盲目重复结算。请先在官方页面核对，必要时明确放弃当前副本；不自动重试任何 POST。塔进度不能通过输入任意层数直接保存，必须由本次完成的五层阶段触发。
 
 官方模型对照命令（需提供已下载的官方前端 JS）：
@@ -204,8 +206,8 @@ npm run android:open
 npm run android:apk
 ```
 
-APK 默认副本位于 `release/slime-race-lab-online-1.2.4-android-release.apk`。项目首次构建会在被 Git 忽略的 `.local-android-sdk/signing/` 生成 keystore，后续构建复用同一证书。必须备份该目录；签名丢失后重新生成的 APK 无法覆盖安装同 application ID 的旧版，需恢复原签名，或卸载旧版后安装（本地缓存会丢失，服务端账号数据保留）。application ID 为 `com.marisa.slimeracelab.online.v2`，可以与更早的旧 application ID 版本并存。最低支持 Android 6.0（API 23）。
-本次 v1.2.4 构建环境未保留原签名，已生成新的本地签名；与 v1.2.3 Release APK 的证书对比不一致，因此从 v1.2.3 更新需先卸载旧版再安装。后续版本将复用本次生成的签名。
+APK 默认副本位于 `release/slime-race-lab-online-1.2.5-android-release.apk`。项目首次构建会在被 Git 忽略的 `.local-android-sdk/signing/` 生成 keystore，后续构建复用同一证书。必须备份该目录；签名丢失后重新生成的 APK 无法覆盖安装同 application ID 的旧版，需恢复原签名，或卸载旧版后安装（本地缓存会丢失，服务端账号数据保留）。application ID 为 `com.marisa.slimeracelab.online.v2`，可以与更早的旧 application ID 版本并存。最低支持 Android 6.0（API 23）。
+v1.2.5 继续复用 v1.2.4 生成的本地签名；如果 `.local-android-sdk/signing/` 丢失，后续 APK 无法覆盖安装当前版本，需要恢复签名或卸载旧版。
 联网版 Android 清单只申请网络权限。签名 APK 只发布到指定联网仓库的 Release，不发布到公共离线仓库或应用商店。
 
 在受限网络环境下，如果 Electron 运行时已经提前解压，可以分别使用 `npm run dist:mac:offline` 和 `npm run dist:win:offline`。

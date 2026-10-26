@@ -24,7 +24,7 @@ function main() {
     }
     const mismatches = [];
     let cases = 0;
-    for (const id of ['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage', 'witch_clone', 'angry_bush', 'automaton', 'stone_golem', 'golden_slime_dungeon']) {
+    for (const id of ['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage', 'witch_clone', 'angry_bush', 'automaton', 'stone_golem', 'mushroom_maiden', 'meteor_swarm', 'golden_slime_dungeon']) {
         for (const skill of ['star_curse', 'blood_pact']) {
             for (const activeSkill of [null, 'shield', 'drain', 'weaken', 'speed']) {
                 for (const level of [10, 100, 300]) {

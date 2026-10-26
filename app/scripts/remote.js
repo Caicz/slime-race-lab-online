@@ -1490,8 +1490,9 @@
         elements.heroRunLog.scrollTop = elements.heroRunLog.scrollHeight;
     }
 
-    async function calculateHeroRecommendation(snapshot, monsterId, allMonsters = false) {
+    async function calculateHeroRecommendation(snapshot, monsterId, allMonsters = false, battleRun = false) {
         await requestPolicy.delay(0);
+        const searchProfile = battleRun ? 'battle' : 'full';
         return heroAutomation.findOptimalBattleMode(snapshot, monsterId, {
             defensePotionStacks: elements.heroDefensePotions.checked ? 30 : undefined,
             autoHealing: elements.heroHealing.checked,
@@ -1501,9 +1502,12 @@
             pleasureResist: elements.heroPleasureResist.checked,
             rebornSkillKey: getSelectedHeroRebornSkill(snapshot),
             battleOptions: getSelectedHeroBattleOptions(monsterId),
-            divisions: allMonsters ? 14 : 18,
-            coarseSamples: 8,
-            finalSamples: allMonsters ? 64 : 96
+            divisions: battleRun ? 8 : allMonsters ? 14 : 18,
+            coarseSamples: battleRun ? 3 : 8,
+            finalSamples: battleRun ? 16 : allMonsters ? 64 : 96,
+            maximumTicks: battleRun ? 12000 : 30000,
+            searchProfile,
+            refineAllocation: battleRun ? false : undefined
         });
     }
 
@@ -1637,6 +1641,7 @@
             let defensePotionsPrepared = !elements.heroDefensePotions.checked;
             let pendingBattle = null;
             let retryCount = 0;
+            const recommendationCache = new Map();
 
             while (heroWins < limit && !heroStopRequested) {
                 try {
@@ -1685,8 +1690,34 @@
                         }
                     }
 
-                    elements.heroCurrentStep.textContent = `计算 ${monsterName} Lv.${monster.level} 最优配点`;
-                    const recommendation = await calculateHeroRecommendation(snapshot, monsterId);
+                    elements.heroCurrentStep.textContent = `核对 ${monsterName} Lv.${monster.level} 战斗配点`;
+                    let recommendation = recommendationCache.get(monsterId);
+                    if (recommendation) {
+                        try {
+                            recommendation = heroAutomation.revalidateBattleRecommendation(snapshot, monsterId, recommendation, {
+                                samples: 4,
+                                maximumTicks: 12000,
+                                defensePotionStacks: elements.heroDefensePotions.checked ? 30 : undefined,
+                                autoHealing: elements.heroHealing.checked,
+                                healingTargetRatio: 0.95,
+                                pleasureResist: elements.heroPleasureResist.checked
+                            });
+                            recommendation.cached = true;
+                        } catch (error) {
+                            if (!String(error.message || error).includes('能力点已变化')) throw error;
+                            recommendationCache.delete(monsterId);
+                            recommendation = await calculateHeroRecommendation(snapshot, monsterId, false, true);
+                            recommendationCache.set(monsterId, recommendation);
+                        }
+                    } else {
+                        recommendation = await calculateHeroRecommendation(snapshot, monsterId, false, true);
+                        recommendationCache.set(monsterId, recommendation);
+                    }
+                    if (recommendation.winRate < minimumWinRate && recommendation.cached) {
+                        elements.heroCurrentStep.textContent = `重新搜索 ${monsterName} Lv.${monster.level} 最优配点`;
+                        recommendation = await calculateHeroRecommendation(snapshot, monsterId, false, true);
+                        recommendationCache.set(monsterId, recommendation);
+                    }
                     const recommendedSnapshot = heroAutomation.getHeroModeSnapshot(snapshot, recommendation.heroMode);
                     const unallocatedPoints = Number(recommendedSnapshot.account.statPoints) || 0;
                     if (unallocatedPoints > 0) appendHeroLog(`检测到${recommendation.modeName}有 ${unallocatedPoints} 个升级未分配点，将并入本轮最优方案自动分配。`);
@@ -1696,7 +1727,7 @@
                         ? recommendation.pleasureResist ? '，快感抗性开启' : `，平均胜场高潮 ${recommendation.averageVictoryPleasureClimaxes.toFixed(1)} 次`
                         : '';
                     const strategyText = recommendation.battleOptions?.useActiveSkill === false ? '（本场不施放）' : '';
-                    appendHeroLog(`Lv.${monster.level}“${modeName}”自动选择${recommendation.modeName}：HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}${strategyText}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%${familiarLog}。`);
+                    appendHeroLog(`${recommendation.cached ? '复用本轮配点并快速复核；' : ''}Lv.${monster.level}“${modeName}”自动选择${recommendation.modeName}：HP ${recommendation.allocation.hp} / ATK ${recommendation.allocation.attack} / DEF ${recommendation.allocation.defense} / SPD ${recommendation.allocation.speed}，主动技能 ${heroAutomation.ACTIVE_SKILLS[recommendation.activeSkillKey] || '无'}${strategyText}，预测胜率 ${(recommendation.winRate * 100).toFixed(1)}%，平均掉血 ${(recommendation.averageHpLossRatio * 100).toFixed(1)}%${familiarLog}。`);
                     if (recommendation.winRate < minimumWinRate) {
                         throw new Error(`Lv.${monster.level} 的最高预测胜率只有 ${(recommendation.winRate * 100).toFixed(1)}%，低于停止线 ${(minimumWinRate * 100).toFixed(0)}%`);
                     }
