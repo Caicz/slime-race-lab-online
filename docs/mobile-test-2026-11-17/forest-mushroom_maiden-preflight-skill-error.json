@@ -1,0 +1,92 @@
+{
+  "monsterId": "mushroom_maiden",
+  "goal": "minimum_loss",
+  "healing": false,
+  "requested": 10,
+  "startAt": "2026-11-17T04:00:46.481Z",
+  "startMs": 1794888046481,
+  "requestOffset": 180,
+  "completedAt": "2026-11-17T04:01:35.047Z",
+  "elapsedMs": 48566,
+  "status": "转生技能或信仰路线已经变化，请重新计算方案；已完成安全重试或该错误不可重试，请刷新官方面板核对。",
+  "result": "0 胜 / 0 负",
+  "log": "[12:01:15] Lv.194.5“最少掉血”自动选择转生信仰模式：HP 1488 / ATK 1 / DEF 0 / SPD 2481，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[12:01:35] 异常：转生技能或信仰路线已经变化，请重新计算方案\n\n[12:01:35] 停止原因：转生技能或信仰路线已经变化，请重新计算方案",
+  "requests": [
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3263
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1093
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 538
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2841
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 987
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 495
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3650
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 492
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 487
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3708
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 980
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 539
+    }
+  ],
+  "liveResult": "0 胜 / 0 负",
+  "liveStep": "异常停机",
+  "liveStatus": "转生技能或信仰路线已经变化，请重新计算方案；已完成安全重试或该错误不可重试，请刷新官方面板核对。",
+  "battleCount": "54 / 60"
+}

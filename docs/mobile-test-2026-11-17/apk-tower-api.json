@@ -1,0 +1,27 @@
+{
+  "log": "塔每五层保存；副本通关后等待确认开箱。\n\n整轮自动配点：生命 40／攻击 1310／防御 1310／速度 1310；15 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n塔 1 层 · 第 1 场 重磁护卫：胜利，HP 3310，用时 2 秒；Buff def/atk + crit/drain\n\n塔 1 层 · 第 2 场 野生咕隆：胜利，HP 3310，用时 2 秒\n\n塔 1 层 · 第 3 场 史莱姆：胜利，HP 3310，用时 2 秒\n\n塔 2 层 · 第 1 场 野生咕隆：胜利，HP 4310，用时 2 秒；Buff hp/spd + shield/weaken\n\n塔 2 层 · 第 2 场 史莱姆：胜利，HP 4310，用时 2 秒\n\n塔 2 层 · 第 3 场 奏咪使魔：胜利，HP 4310，用时 2 秒\n\n塔 3 层 · 第 1 场 史莱姆：胜利，HP 5310，用时 2 秒；Buff atk/hp + dodge/shield\n\n塔 3 层 · 第 2 场 重磁护卫：胜利，HP 5310，用时 2 秒\n\n塔 3 层 · 第 3 场 极乐盗贼：胜利，HP 5310，用时 2.4 秒\n\n塔 4 层 · 第 1 场 野生咕隆：胜利，HP 5310，用时 2 秒；Buff def/atk + crit/weaken\n\n塔 4 层 · 第 2 场 重磁护卫：胜利，HP 5310，用时 2 秒\n\n塔 4 层 · 第 3 场 大雷精灵：胜利，HP 5310，用时 2 秒\n\n塔 5 层 · 第 1 场 史莱姆：胜利，HP 5310，用时 2 秒；Buff spd/atk + speed/weaken\n\n塔 5 层 · 第 2 场 奏咪使魔：胜利，HP 5310，用时 2 秒\n\n塔 5 层 · 第 3 场 魔女分身：胜利，HP 5125，用时 2 秒\n\n塔第 5 层存档已由服务器确认。",
+  "posts": [
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1801,
+      "data": {
+        "stat": "hp",
+        "points": 40
+      }
+    },
+    {
+      "path": "/api/tower/save",
+      "method": "POST",
+      "status": 200,
+      "ms": 1039,
+      "data": {
+        "floor": 5
+      }
+    }
+  ],
+  "settings": {
+    "floor": "1"
+  }
+}

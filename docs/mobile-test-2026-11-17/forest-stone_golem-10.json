@@ -1,0 +1,629 @@
+{
+  "monsterId": "stone_golem",
+  "goal": "minimum_loss",
+  "healing": false,
+  "requested": 10,
+  "startAt": "2026-11-17T03:53:28.313Z",
+  "startMs": 1794887608313,
+  "requestOffset": 0,
+  "completedAt": "2026-11-17T03:56:23.621Z",
+  "elapsedMs": 175308,
+  "status": "自动循环完成：10 胜 / 0 负；实际耗时 175.3 秒。",
+  "result": "10 胜 / 0 负",
+  "log": "[11:53:44] Lv.247“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:54:23] 胜利：自然石像 Lv.247 → Lv.247.5，剩余 HP 30617，胜利！获得 1235 信仰EXP。\n\n[11:54:23] 复用本轮配点并快速复核；Lv.247.5“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:54:36] 胜利：自然石像 Lv.247.5 → Lv.248，剩余 HP 30617，胜利！获得 1238 信仰EXP。\n\n[11:54:36] 复用本轮配点并快速复核；Lv.248“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:54:49] 胜利：自然石像 Lv.248 → Lv.248.5，剩余 HP 30617，胜利！获得 1240 信仰EXP。\n\n[11:54:49] 复用本轮配点并快速复核；Lv.248.5“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:55:02] 胜利：自然石像 Lv.248.5 → Lv.249，剩余 HP 30617，胜利！获得 1243 信仰EXP。\n\n[11:55:02] 复用本轮配点并快速复核；Lv.249“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:55:15] 胜利：自然石像 Lv.249 → Lv.249.5，剩余 HP 30617，胜利！获得 1245 信仰EXP。\n\n[11:55:15] 复用本轮配点并快速复核；Lv.249.5“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:55:27] 胜利：自然石像 Lv.249.5 → Lv.250，剩余 HP 30617，胜利！获得 1248 信仰EXP。\n\n[11:55:27] 复用本轮配点并快速复核；Lv.250“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:55:40] 胜利：自然石像 Lv.250 → Lv.250.5，剩余 HP 30617，胜利！获得 1250 信仰EXP。\n\n[11:55:40] 复用本轮配点并快速复核；Lv.250.5“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:55:53] 胜利：自然石像 Lv.250.5 → Lv.251，剩余 HP 30617，胜利！获得 1253 信仰EXP。\n\n[11:55:53] 复用本轮配点并快速复核；Lv.251“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:56:08] 胜利：自然石像 Lv.251 → Lv.251.5，剩余 HP 30617，胜利！获得 1255 信仰EXP。\n\n[11:56:08] 复用本轮配点并快速复核；Lv.251.5“最少掉血”自动选择转生信仰模式：HP 496 / ATK 993 / DEF 0 / SPD 2481，主动技能 速度激发，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:56:23] 胜利：自然石像 Lv.251.5 → Lv.252，剩余 HP 30617，胜利！获得 1258 信仰EXP。",
+  "requests": [
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1768
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 821
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 491
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1339
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 598
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 977
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1356
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1020
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1179
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1270
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 524
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 494
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1927,
+      "data": {
+        "stat": "attack",
+        "points": 330
+      }
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1786,
+      "data": {
+        "stat": "defense",
+        "points": 1323
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2174,
+      "data": {
+        "stat": "hp",
+        "points": 496
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1298,
+      "data": {
+        "stat": "speed",
+        "points": 1157
+      }
+    },
+    {
+      "path": "/api/hero/skills/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1329,
+      "data": {
+        "skillKey": "speed"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1343
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 490
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 833
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1746
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1180
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 525
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1845,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1306
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1018
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 514
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1250
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 479
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1047
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1414,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1531
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1495
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 667
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1587
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 528
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1003
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2296,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1291
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 597
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 561
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1094
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 532
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 568
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2105,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1865
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 609
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 534
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1621
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1027
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 499
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2794,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1470
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 549
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 498
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1511
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 890
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 492
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1498,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1309
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1017
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 513
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1460
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 496
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1560
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1638,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1840
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 505
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 497
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1851
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 638
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1070
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1825,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1623
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1070
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 490
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2677
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1312
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 921
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1470,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2098
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 615
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 491
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1984
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 657
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1362
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1792,
+      "data": {
+        "victory": true,
+        "currentHp": 30617,
+        "monsterType": "stone_golem"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2150
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1005
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 650
+    }
+  ],
+  "liveResult": "10 胜 / 0 负",
+  "liveStep": "达到本轮目标",
+  "liveStatus": "自动循环完成：10 胜 / 0 负；实际耗时 175.3 秒。",
+  "battleCount": "44 / 60"
+}

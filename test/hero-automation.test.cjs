@@ -224,10 +224,34 @@ test('恐怖之森新增模型都能生成战斗面板，战斗搜索模式显�
     assert.deepEqual(reused.allocation, quick.allocation);
 });
 
+test('最低掉血缓存允许怪物升级和应用推荐技能，但用最新面板重新复核', () => {
+    const raw = createRawSnapshot();
+    const options = {optimizationMode: 'minimum_loss', searchProfile: 'battle', maximumTicks: 4000};
+    const recommendation = heroAutomation.findOptimalBattleMode(heroAutomation.createSnapshot(raw), 'stone_golem', options);
+    raw.battleStatus.stoneGolemLevel += 0.5;
+    raw.battleStatus.stoneGolemCurrentHp = 1000;
+    raw.battleStatus.stoneGolemMaxHp = 1000;
+    raw.battleStatus.stoneGolemStats = {hp: 1000, atk: 180, def: 90, spd: 54};
+    raw.account.equippedActiveSkill = recommendation.activeSkillKey;
+    const updated = heroAutomation.createSnapshot(raw);
+    const reused = heroAutomation.revalidateBattleRecommendation(updated, 'stone_golem', recommendation, {samples: 4, maximumTicks: 4000});
+    assert.equal(reused.quickValidation, true);
+    assert.equal(reused.monster.level, 4.5);
+    assert.equal(reused.monster.maxHp, 1000);
+    assert.equal(reused.candidatesEvaluated, 0);
+    assert.equal(reused.optimizationMode, 'minimum_loss');
+    const replay = heroAutomation.simulateBattle(updated, 'stone_golem', {allocation: reused.allocation, activeSkillKey: reused.activeSkillKey, rebornSkillKey: reused.rebornSkillKey, battleOptions: reused.battleOptions, random: () => 0.99});
+    assert.ok(replay.elapsedSeconds > 0);
+    raw.battleStatus.equipmentBonuses.attackBonus += 1;
+    assert.throws(() => heroAutomation.revalidateBattleRecommendation(heroAutomation.createSnapshot(raw), 'stone_golem', reused), /需要重新计算配点/);
+});
+
 test('巨型森林狼按勇者当前状态选择咬碎、嗜血或吼叫', () => {
     const snapshot = heroAutomation.createSnapshot(createRawSnapshot());
     assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 1, playerDef: 1, playerHp: 100, playerAtk: 100}), 'crush');
     assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 0, playerDrainHp: 1, playerDef: 1, playerHp: 100, playerAtk: 100}), 'bloodlust');
+    assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 0, playerDrainHp: 1, playerDef: 1000, playerHp: 100, playerAtk: 200}), 'bloodlust');
+    assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 1, playerDrainHp: 1, playerDef: 1000, playerHp: 100, playerAtk: 200}), 'crush');
     assert.equal(heroAutomation.getForestWolfSkill({playerShieldBonus: 0, playerDrainHp: 0, playerDef: 1, playerHp: 100, playerAtk: 200}), 'roar');
     const basePlayer = heroAutomation.getProjectedStats(snapshot, heroAutomation.getCurrentAllocation(snapshot.account));
     const wolf = heroAutomation.getMonster(snapshot, 'forest_wolf');
@@ -242,6 +266,32 @@ test('巨型森林狼按勇者当前状态选择咬碎、嗜血或吼叫', () =>
     });
     assert.ok(['bloodlust', 'roar', 'crush'].includes(drain.mechanics.forestWolfLastSkill));
     assert.ok(drain.mechanics.forestWolfSkillUses > 0);
+});
+
+test('官方固定种子回放锁定森林狼行动条推进和血契虚弱、再生结算顺序', () => {
+    // 期望值来自 2026-11-17 官方引擎，既检查胜负，也检查耗血和行动耗时。
+    const cases = [
+        {id: 'forest_wolf', active: 'drain', hp: 6070, seconds: 20.6, actions: 20, explosions: 9, wolfUses: 10},
+        {id: 'angry_bush', active: 'weaken', hp: 8080, seconds: 14.6, actions: 12, explosions: 7, wolfUses: 0},
+        {id: 'stone_golem', active: 'weaken', hp: 5903, seconds: 26.6, actions: 18, explosions: 13, wolfUses: 0}
+    ];
+    for (const fixture of cases) {
+        const definition = heroAutomation.MONSTERS[fixture.id];
+        const catalog = heroAutomation.FOREST_MONSTER_CATALOG.find(monster => monster.id === fixture.id);
+        const stats = Object.fromEntries(['hp', 'atk', 'def', 'spd'].map(key => [key, catalog[key] * 100]));
+        const snapshot = heroAutomation.createSnapshot({
+            account: {statPoints: 0, hpBonus: 0, attackBonus: 0, defenseBonus: 0, speedBonus: 0, rebornType: 'M', rebornMode: 'faith', faithLevel: 500, equippedActiveSkill: fixture.active, equippedRebornSkill: 'blood_pact'},
+            battleStatus: {
+                currentHp: 10000, maxHp: 10000, attack: 5000, defense: 3000, speed: 2000, critRateBonus: 0.1, critDmgBonus: 0.5, battleCount: 0,
+                [`${definition.prefix}Level`]: 100, [`${definition.prefix}Stats`]: stats, [`${definition.prefix}CurrentHp`]: stats.hp, [`${definition.prefix}MaxHp`]: stats.hp
+            },
+            skills: ['dodge', 'crit', 'shield', 'drain', 'weaken', 'speed', 'preemptive_attack', 'defense_break'].map(skillKey => ({skillKey, level: 10})),
+            rebornSkills: {skills: [{skillKey: 'star_curse', level: 9}, {skillKey: 'blood_pact', level: 7}]}
+        });
+        const result = heroAutomation.simulateBattle(snapshot, fixture.id, {random: heroAutomation.createSeededRandom(1)});
+        assert.deepEqual({victory: result.victory, hp: result.currentHp, seconds: result.elapsedSeconds, actions: result.actions, explosions: result.mechanics.bloodPactExplosions, wolfUses: result.mechanics.forestWolfSkillUses},
+            {victory: true, hp: fixture.hp, seconds: fixture.seconds, actions: fixture.actions, explosions: fixture.explosions, wolfUses: fixture.wolfUses}, fixture.id);
+    }
 });
 
 test('自行人偶默认闪避突袭，显式接受压制时触发全属性与当前HP衰减', () => {

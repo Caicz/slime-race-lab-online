@@ -458,7 +458,10 @@ async function applyHeroAllocation(intent) {
             await requestPolicy.delay(300);
         }
 
-        const updated = await syncHeroAutomation();
+        const unchanged = plan.deallocate.length === 0 && plan.allocate.length === 0
+            && (targetSkill == null || targetSkill === snapshot.account.equippedActiveSkill)
+            && (!shouldManageRebornSkill || targetRebornSkill === (snapshot.account.equippedRebornSkill || null));
+        const updated = unchanged ? snapshot : await syncHeroAutomation();
         if (expectedFaithRoute !== heroAutomation.getFaithRoute(updated)) {
             throw new Error('服务器返回的信仰路线发生变化，自动刷怪已停止');
         }

@@ -1,0 +1,629 @@
+{
+  "monsterId": "forest_wolf",
+  "goal": "minimum_loss",
+  "healing": false,
+  "requested": 10,
+  "startAt": "2026-11-17T03:56:56.099Z",
+  "startMs": 1794887816099,
+  "requestOffset": 90,
+  "completedAt": "2026-11-17T04:00:30.323Z",
+  "elapsedMs": 214224,
+  "status": "自动循环完成：10 胜 / 0 负；实际耗时 214.2 秒。",
+  "result": "10 胜 / 0 负",
+  "log": "[11:57:14] 检测到基础模式有 15390 个升级未分配点，将并入本轮最优方案自动分配。\n\n[11:57:14] Lv.194.5“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:57:55] 胜利：巨型森林狼 Lv.194.5 → Lv.195，剩余 HP 270893，胜利！获得 1556 信仰EXP。\n\n[11:57:55] 复用本轮配点并快速复核；Lv.195“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:58:09] 胜利：巨型森林狼 Lv.195 → Lv.195.5，剩余 HP 270893，胜利！获得 1560 信仰EXP。\n\n[11:58:09] 复用本轮配点并快速复核；Lv.195.5“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:58:26] 胜利：巨型森林狼 Lv.195.5 → Lv.196，剩余 HP 270893，胜利！获得 1564 信仰EXP。\n\n[11:58:26] 复用本轮配点并快速复核；Lv.196“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:58:42] 胜利：巨型森林狼 Lv.196 → Lv.196.5，剩余 HP 270893，胜利！获得 1568 信仰EXP。\n\n[11:58:42] 复用本轮配点并快速复核；Lv.196.5“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:58:59] 胜利：巨型森林狼 Lv.196.5 → Lv.197，剩余 HP 270893，胜利！获得 1572 信仰EXP。\n\n[11:58:59] 复用本轮配点并快速复核；Lv.197“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:59:17] 胜利：巨型森林狼 Lv.197 → Lv.197.5，剩余 HP 270893，胜利！获得 1576 信仰EXP。\n\n[11:59:17] 复用本轮配点并快速复核；Lv.197.5“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:59:39] 胜利：巨型森林狼 Lv.197.5 → Lv.198，剩余 HP 270893，胜利！获得 1580 信仰EXP。\n\n[11:59:39] 复用本轮配点并快速复核；Lv.198“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[11:59:57] 胜利：巨型森林狼 Lv.198 → Lv.198.5，剩余 HP 270893，胜利！获得 1584 信仰EXP。\n\n[11:59:57] 复用本轮配点并快速复核；Lv.198.5“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[12:00:14] 胜利：巨型森林狼 Lv.198.5 → Lv.199，剩余 HP 270893，胜利！获得 1588 信仰EXP。\n\n[12:00:14] 复用本轮配点并快速复核；Lv.199“最少掉血”自动选择基础模式：HP 4840 / ATK 7260 / DEF 2420 / SPD 4840，主动技能 吸血，预测胜率 100.0%，平均掉血 0.0%。\n\n[12:00:30] 胜利：巨型森林狼 Lv.199 → Lv.199.5，剩余 HP 270893，胜利！获得 1592 信仰EXP。",
+  "requests": [
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2053
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 492
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 999
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2400
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 973
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 526
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1353
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 551
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 488
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2737
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 598
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 604
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1720,
+      "data": {
+        "stat": "hp",
+        "points": 4344
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1727,
+      "data": {
+        "stat": "attack",
+        "points": 6267
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2109,
+      "data": {
+        "stat": "defense",
+        "points": 2420
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1851,
+      "data": {
+        "stat": "speed",
+        "points": 2359
+      }
+    },
+    {
+      "path": "/api/hero/skills/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1957,
+      "data": {
+        "skillKey": "drain"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1853
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 488
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 485
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2249
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 560
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 485
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1939,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1691
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 676
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 481
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1834
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1002
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1038
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1980,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1900
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 540
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1075
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2176
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 518
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1075
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 3007,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3377
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1047
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 478
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2080
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 505
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 581
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 3472,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3245
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1048
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 486
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2255
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 670
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 801
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2952,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2958
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1027
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 495
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2471
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1003
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 984
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 3300,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3239
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 524
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1075
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 5612
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1479
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 739
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 4158,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3095
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 984
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 485
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2368
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 547
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 531
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2600,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2762
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 494
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1088
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2732
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 872
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 495
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 3291,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2766
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 641
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 527
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2354
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1039
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 554
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2483,
+      "data": {
+        "victory": true,
+        "currentHp": 270893,
+        "monsterType": "forest_wolf"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2423
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 618
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1077
+    }
+  ],
+  "liveResult": "10 胜 / 0 负",
+  "liveStep": "达到本轮目标",
+  "liveStatus": "自动循环完成：10 胜 / 0 负；实际耗时 214.2 秒。",
+  "battleCount": "54 / 60"
+}

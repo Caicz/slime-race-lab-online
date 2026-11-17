@@ -10,15 +10,20 @@ function main() {
     if (!sourcePath) throw new Error('用法：node scripts/audit-combat-model.cjs <官方前端 JS 文件>');
     const source = fs.readFileSync(sourcePath, 'utf8');
     const engine = loadOfficialEngine(source);
-    const sequenceStart = source.indexOf('function dh(t,r)') >= 0 ? source.indexOf('function dh(t,r)') : source.indexOf('function $h(t,r)');
-    const sequenceEnd = source.indexOf('function MPe()', sequenceStart) >= 0 ? source.indexOf('function MPe()', sequenceStart) : source.indexOf('function kTe()', sequenceStart);
-    if (sequenceStart < 0 || sequenceEnd < sequenceStart) throw new Error('官方塔序列结构发生变化');
-    const context = vm.createContext({Op: ['slime', 'hilichurl', 'ruin_guard'], EPe: ['familiar', 'debt_collector', 'firefly_mage'], mu: {familiar: 'familiar', debt_collector: 'debt_collector', firefly_mage: 'firefly_mage', witch_clone: 'witch_clone'}, dx: ['slime', 'hilichurl', 'ruin_guard'], $u: {familiar: 'familiar', debt_collector: 'debt_collector', firefly_mage: 'firefly_mage', witch_clone: 'witch_clone'}, NTe: ['familiar', 'debt_collector', 'firefly_mage']});
-    const sequenceName = source.indexOf('function dh(t,r)') >= 0 ? 'FC' : 'p3';
-    vm.runInContext(`${source.slice(sequenceStart, sequenceEnd)}; globalThis.sequence = ${sequenceName};`, context, {timeout: 1000});
+    const sequenceMatch = source.match(/function (\w+)\(t,r\)\{const n=t-r\+1,s=t\*31,a=t\*97;switch\(n\)\{.*?default:return (\w+)\((\w+),s\)\}\}/);
+    if (!sequenceMatch) throw new Error('官方塔序列结构发生变化');
+    const [, sequenceName, shuffleName, basicName] = sequenceMatch;
+    const specialName = sequenceMatch[0].match(new RegExp(`${shuffleName}\\((\\w+),a\\)`))?.[1];
+    const catalogName = sequenceMatch[0].match(/(\w+)\.witch_clone/)?.[1];
+    const shuffleStart = source.indexOf(`function ${shuffleName}(t,r)`);
+    if (!specialName || !catalogName || shuffleStart < 0) throw new Error('官方塔序列依赖发生变化');
+    const shuffleEnd = source.indexOf('function ', shuffleStart + 9);
+    const catalog = Object.fromEntries(['slime', 'hilichurl', 'ruin_guard', 'familiar', 'debt_collector', 'firefly_mage', 'witch_clone'].map(id => [id, {id}]));
+    const context = vm.createContext({[catalogName]: catalog, [basicName]: ['slime', 'hilichurl', 'ruin_guard'].map(id => catalog[id]), [specialName]: ['familiar', 'debt_collector', 'firefly_mage'].map(id => catalog[id])});
+    vm.runInContext(`${source.slice(shuffleStart, shuffleEnd)} ${sequenceMatch[0]}; globalThis.sequence = ${sequenceName};`, context, {timeout: 1000});
     for (let start = 1; start <= 96; start += 5) {
         for (let floor = start; floor < start + 5; floor += 1) {
-            const expected = [...context.sequence(floor, start)];
+            const expected = [...context.sequence(floor, start)].map(monster => monster.id);
             const actual = workflow.getTowerMonsterSequence(floor, start).map(monster => monster.id);
             if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`塔 ${floor} 层怪物序列不一致`);
         }

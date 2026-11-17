@@ -15,15 +15,10 @@ function createRandom(seed) {
 }
 
 function loadOfficialEngine(source) {
-    const helpersStart = source.indexOf('const Gv={drainHpPercentPerLevel:') >= 0
-        ? source.indexOf('const Gv={drainHpPercentPerLevel:')
-        : source.indexOf('const wy={drainHpPercentPerLevel:');
-    const engineStart = source.indexOf('function m5e({fps:') >= 0
-        ? source.indexOf('function m5e({fps:')
-        : source.indexOf('function sCe({fps:');
-    const engineEnd = source.indexOf('const f5e=', engineStart) >= 0
-        ? source.indexOf('const f5e=', engineStart)
-        : source.indexOf('const aCe=', engineStart);
+    const helpersStart = source.search(/const \w+=\{drainHpPercentPerLevel:/);
+    const engineStart = source.search(/function \w+\(\{fps:/);
+    const exportsStart = source.indexOf('return{battle:r,startBattle:m', engineStart);
+    const engineEnd = exportsStart < 0 ? -1 : source.indexOf('}}const ', exportsStart) + 2;
     if (helpersStart < 0 || engineStart < helpersStart || engineEnd < engineStart) throw new Error('官方引擎结构发生变化，请重新核对提取边界');
     const engine = source.slice(helpersStart, engineEnd).replace('return{battle:r,startBattle:m', 'return{getBattle:()=>s.current,tickBattle:c,battle:r,startBattle:m');
     const context = vm.createContext({
@@ -39,7 +34,7 @@ function loadOfficialEngine(source) {
 }
 
 function engineStartName(source) {
-    return source.indexOf('function m5e({fps:') >= 0 ? 'm5e' : 'sCe';
+    return source.match(/function (\w+)\(\{fps:/)?.[1];
 }
 
 function replayOfficial(engine, snapshot, monsterId, random, battleOptions, overrides = {}) {

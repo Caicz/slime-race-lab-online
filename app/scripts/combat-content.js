@@ -61,7 +61,7 @@
     function recommendEquipment(inventory, options = {}) {
         const route = options.route || 'M';
         const goal = options.goal || 'balanced';
-        const entries = (Array.isArray(inventory) ? inventory : []).filter(entry => Number(entry.quantity ?? 1) > 0 && (!entry.locked || entry.equipped));
+        const entries = (Array.isArray(inventory) ? inventory : []).filter(entry => entry.item?.category === 'equipment' && entry.item.equipSlot && Number(entry.quantity ?? 1) > 0 && (!entry.locked || entry.equipped));
         const selected = new Map();
         const equipped = entries.filter(entry => entry.equipped);
         if (new Set(equipped.map(entry => entry.item?.equipSlot)).size !== equipped.length) throw new Error('服务器装备槽重复，请先核对背包');

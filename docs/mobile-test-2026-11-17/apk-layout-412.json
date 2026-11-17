@@ -1,0 +1,128 @@
+{
+  "width": 412,
+  "scrollWidth": 412,
+  "dpr": 2.625,
+  "panelWidth": 331,
+  "cards": [
+    {
+      "title": "推荐装备",
+      "width": 307,
+      "scrollWidth": 307
+    },
+    {
+      "title": "饰品强化",
+      "width": 307,
+      "scrollWidth": 307
+    },
+    {
+      "title": "无尽之塔",
+      "width": 307,
+      "scrollWidth": 307
+    },
+    {
+      "title": "副本自动流程",
+      "width": 307,
+      "scrollWidth": 307
+    }
+  ],
+  "controls": [
+    {
+      "id": "combatContentRefreshButton",
+      "x": 53,
+      "width": 307,
+      "height": 37,
+      "overflow": false
+    },
+    {
+      "id": "combatEquipmentApplyButton",
+      "x": 63,
+      "width": 286,
+      "height": 37,
+      "overflow": false
+    },
+    {
+      "id": "combatGuardianToggle",
+      "x": 67,
+      "width": 16,
+      "height": 16,
+      "overflow": false
+    },
+    {
+      "id": "combatAccessoryEnhanceButton",
+      "x": 63,
+      "width": 286,
+      "height": 37,
+      "overflow": false
+    },
+    {
+      "id": "combatTowerFloorInput",
+      "x": 63,
+      "width": 286,
+      "height": 29,
+      "overflow": false
+    },
+    {
+      "id": "combatTowerStagesInput",
+      "x": 63,
+      "width": 286,
+      "height": 29,
+      "overflow": false
+    },
+    {
+      "id": "combatTowerStartButton",
+      "x": 63,
+      "width": 286,
+      "height": 37,
+      "overflow": false
+    },
+    {
+      "id": "combatDungeonSelect",
+      "x": 63,
+      "width": 286,
+      "height": 19,
+      "overflow": false
+    },
+    {
+      "id": "combatDungeonRunsInput",
+      "x": 63,
+      "width": 286,
+      "height": 29,
+      "overflow": false
+    },
+    {
+      "id": "combatDungeonStartButton",
+      "x": 63,
+      "width": 286,
+      "height": 37,
+      "overflow": false
+    },
+    {
+      "id": "combatDungeonChestSelect",
+      "x": 63,
+      "width": 286,
+      "height": 19,
+      "overflow": false
+    },
+    {
+      "id": "combatDungeonChestButton",
+      "x": 63,
+      "width": 286,
+      "height": 37,
+      "overflow": false
+    },
+    {
+      "id": "combatDungeonAbandonButton",
+      "x": 63,
+      "width": 286,
+      "height": 34,
+      "overflow": false
+    },
+    {
+      "id": "combatStopButton",
+      "x": 53,
+      "width": 104,
+      "height": 34,
+      "overflow": false
+    }
+  ]
+}

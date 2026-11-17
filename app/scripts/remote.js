@@ -13,6 +13,7 @@
     const combatWorkflow = globalThis.SlimeCombatWorkflow;
     const MAX_RECOMMENDATION_AGE_MS = 5000;
     const HERO_PLEASURE_RESIST_STORAGE_KEY = 'slime-race-lab.hero-pleasure-resist.v1';
+    const HERO_HEALING_STORAGE_KEY = 'slime-race-lab.hero-healing.v1';
     const endpointPaths = Object.freeze({
         current: '/api/slime-race/current',
         racers: '/api/slime-race/racers',
@@ -172,6 +173,8 @@
     try {
         const storedPleasureResist = localStorage.getItem(HERO_PLEASURE_RESIST_STORAGE_KEY);
         if (storedPleasureResist !== null) elements.heroPleasureResist.checked = storedPleasureResist === 'true';
+        const storedHealing = localStorage.getItem(HERO_HEALING_STORAGE_KEY);
+        if (storedHealing !== null) elements.heroHealing.checked = storedHealing === 'true';
     } catch {
         // Keep the safe checked default when local application storage is unavailable.
     }
@@ -623,7 +626,10 @@
                 await requestPolicy.delay(300);
             }
 
-            const updated = await fetchHeroAutomation();
+            const unchanged = plan.deallocate.length === 0 && plan.allocate.length === 0
+                && (targetSkill == null || targetSkill === snapshot.account.equippedActiveSkill)
+                && (!shouldManageRebornSkill || targetRebornSkill === (snapshot.account.equippedRebornSkill || null));
+            const updated = unchanged ? snapshot : await fetchHeroAutomation();
             if (expectedFaithRoute !== heroAutomation.getFaithRoute(updated)) {
                 throw new Error('服务器返回的信仰路线发生变化，自动刷怪已停止');
             }
@@ -1068,7 +1074,7 @@
         elements.heroHealing.disabled = heroBusy || heroRunning;
         elements.heroPleasureResist.disabled = heroBusy || heroRunning;
         elements.heroDebtCollectorEquipment.disabled = heroBusy || heroRunning;
-        elements.heroStart.disabled = busy || !authenticated || !supported || !heroRecommendations.has(elements.heroMonster.value);
+        elements.heroStart.disabled = busy || !authenticated || !supported;
         elements.heroStop.disabled = !heroRunning || heroStopRequested;
         elements.heroUnlock.disabled = busy || !authenticated || !atBattleLimit || !adapter?.getHeroUnlockChallenge;
         elements.heroUnlockSubmit.disabled = busy || heroUnlockSelection.size !== 2 || !adapter?.submitHeroUnlock;
@@ -1573,6 +1579,7 @@
 
     async function startHeroAutomation() {
         if (!authenticated || syncing || mutating || heroBusy || heroRunning || combatBusy || combatRunning) return;
+        const startedAt = Date.now();
         const adapter = getAdapter();
         if (!adapter?.syncHeroAutomation || !adapter?.applyHeroAllocation || !adapter?.prepareHeroHealing || !adapter?.runHeroBattle) return;
         let monsterId = elements.heroMonster.value;
@@ -1657,7 +1664,8 @@
                     }
 
                     elements.heroCurrentStep.textContent = pendingBattle ? '同步并对账上一场战斗' : '重新读取怪物面板';
-                    snapshot = await adapter.syncHeroAutomation({includeModes: true});
+                    // 上场结算已经返回核对后的新面板；仅在异常对账时重新读取双模式。
+                    if (pendingBattle || retryCount > 0) snapshot = await adapter.syncHeroAutomation({includeModes: true});
                     renderHeroSnapshot(snapshot);
                     if (pendingBattle) {
                         const reconciliation = heroAutomation.reconcileBattleAttempt(pendingBattle, snapshot);
@@ -1694,6 +1702,7 @@
                     let recommendation = recommendationCache.get(monsterId);
                     if (recommendation) {
                         try {
+                            if (!snapshot.heroModes?.[recommendation.heroMode]) snapshot = await adapter.syncHeroAutomation({includeModes: true});
                             recommendation = heroAutomation.revalidateBattleRecommendation(snapshot, monsterId, recommendation, {
                                 samples: 16,
                                 maximumTicks: 12000,
@@ -1706,15 +1715,18 @@
                         } catch (error) {
                             if (!String(error.message || error).includes('需要重新计算配点')) throw error;
                             recommendationCache.delete(monsterId);
+                            snapshot = await adapter.syncHeroAutomation({includeModes: true});
                             recommendation = await calculateHeroRecommendation(snapshot, monsterId, false, true);
                             recommendationCache.set(monsterId, recommendation);
                         }
                     } else {
+                        if (!snapshot.heroModes?.base || !snapshot.heroModes?.reborn) snapshot = await adapter.syncHeroAutomation({includeModes: true});
                         recommendation = await calculateHeroRecommendation(snapshot, monsterId, false, true);
                         recommendationCache.set(monsterId, recommendation);
                     }
                     if (recommendation.winRate < minimumWinRate && recommendation.cached) {
                         elements.heroCurrentStep.textContent = `重新搜索 ${monsterName} Lv.${monster.level} 最优配点`;
+                        snapshot = await adapter.syncHeroAutomation({includeModes: true});
                         recommendation = await calculateHeroRecommendation(snapshot, monsterId, false, true);
                         recommendationCache.set(monsterId, recommendation);
                     }
@@ -1737,16 +1749,23 @@
                     const allocationGuard = heroAutomation.createBattleGuard(snapshot, monsterId, {
                         heroMode: recommendation.heroMode,
                         requireDefensePotions: elements.heroDefensePotions.checked,
-                        rebornSkillKey: recommendation.rebornSkillKey,
                         battleOptions: recommendation.battleOptions
                     });
-                    snapshot = await adapter.applyHeroAllocation({
-                        heroMode: recommendation.heroMode,
-                        targetAllocation: recommendation.allocation,
-                        activeSkillKey: recommendation.activeSkillKey,
-                        rebornSkillKey: recommendation.rebornSkillKey,
-                        guard: allocationGuard
-                    });
+                    const currentAllocation = heroAutomation.getCurrentAllocation(snapshot.account);
+                    const allocationUnchanged = snapshot.heroMode === recommendation.heroMode
+                        && Object.entries(recommendation.allocation).every(([stat, points]) => currentAllocation[stat] === points)
+                        && snapshot.account.equippedActiveSkill === recommendation.activeSkillKey
+                        && (snapshot.heroMode !== 'reborn' || (snapshot.account.equippedRebornSkill || null) === recommendation.rebornSkillKey);
+                    // 无需重配时直接进入战前新鲜面板核对，避免再读一轮相同的账号与技能。
+                    if (!allocationUnchanged) {
+                        snapshot = await adapter.applyHeroAllocation({
+                            heroMode: recommendation.heroMode,
+                            targetAllocation: recommendation.allocation,
+                            activeSkillKey: recommendation.activeSkillKey,
+                            rebornSkillKey: recommendation.rebornSkillKey,
+                            guard: allocationGuard
+                        });
+                    }
                     renderHeroSnapshot(snapshot);
                     if (heroStopRequested) break;
 
@@ -1800,7 +1819,7 @@
             elements.heroCurrentStep.textContent = heroStopRequested ? '已安全停止' : '达到本轮目标';
             setStatus(
                 elements.heroStatus,
-                heroStopRequested ? `自动循环已停止：${heroWins} 胜 / ${heroLosses} 负。` : `自动循环完成：${heroWins} 胜 / ${heroLosses} 负。`,
+                `${heroStopRequested ? '自动循环已停止' : '自动循环完成'}：${heroWins} 胜 / ${heroLosses} 负；实际耗时 ${((Date.now() - startedAt) / 1000).toFixed(1)} 秒。`,
                 heroLosses === 0 ? 'success' : 'error'
             );
         } catch (error) {
@@ -2368,6 +2387,11 @@
         updateHeroControls();
     });
     elements.heroHealing.addEventListener('change', () => {
+        try {
+            localStorage.setItem(HERO_HEALING_STORAGE_KEY, String(elements.heroHealing.checked));
+        } catch {
+            // 本次选择仍然有效；存储不可用时不影响战斗。
+        }
         heroRecommendations = new Map();
         renderHeroRecommendations();
         setStatus(elements.heroStatus, '恢复药水条件已经变化，请重新刷新当前区域方案。');

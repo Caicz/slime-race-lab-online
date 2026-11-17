@@ -1,0 +1,791 @@
+{
+  "monsterId": "angry_bush",
+  "goal": "minimum_loss",
+  "healing": false,
+  "requested": 10,
+  "startAt": "2026-11-17T03:41:29.492Z",
+  "startMs": 1794886889492,
+  "requestOffset": 0,
+  "completedAt": "2026-11-17T03:45:35.213Z",
+  "elapsedMs": 245721,
+  "status": "自动循环完成：10 胜 / 0 负。",
+  "result": "10 胜 / 0 负",
+  "log": "[11:41:48] 检测到基础模式有 15390 个升级未分配点，将并入本轮最优方案自动分配。\n\n[11:41:48] Lv.2155“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.6%。\n\n[11:42:30] 胜利：愤怒灌木 Lv.2155 → Lv.2155.5，剩余 HP 145314，胜利！获得 8620 信仰EXP。\n\n[11:42:30] 复用本轮配点并快速复核；Lv.2155.5“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 4.1%。\n\n[11:42:53] 胜利：愤怒灌木 Lv.2155.5 → Lv.2156，剩余 HP 145234，胜利！获得 8622 信仰EXP。\n\n[11:42:53] 复用本轮配点并快速复核；Lv.2156“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 1.1%。\n\n[11:43:16] 胜利：愤怒灌木 Lv.2156 → Lv.2156.5，剩余 HP 145154，胜利！获得 8624 信仰EXP。\n\n[11:43:16] 复用本轮配点并快速复核；Lv.2156.5“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 3.8%。\n\n[11:43:35] 胜利：愤怒灌木 Lv.2156.5 → Lv.2157，剩余 HP 143670，胜利！获得 8626 信仰EXP。\n\n[11:43:35] 复用本轮配点并快速复核；Lv.2157“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 2.1%。\n\n[11:43:56] 胜利：愤怒灌木 Lv.2157 → Lv.2157.5，剩余 HP 143570，胜利！获得 8628 信仰EXP。\n\n[11:43:56] 复用本轮配点并快速复核；Lv.2157.5“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 2.3%。\n\n[11:44:18] 胜利：愤怒灌木 Lv.2157.5 → Lv.2158，剩余 HP 139383，胜利！获得 8630 信仰EXP。\n\n[11:44:18] 复用本轮配点并快速复核；Lv.2158“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 3.7%。\n\n[11:44:38] 胜利：愤怒灌木 Lv.2158 → Lv.2158.5，剩余 HP 139303，胜利！获得 8632 信仰EXP。\n\n[11:44:38] 复用本轮配点并快速复核；Lv.2158.5“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 4.3%。\n\n[11:44:56] 胜利：愤怒灌木 Lv.2158.5 → Lv.2159，剩余 HP 136189，胜利！获得 8634 信仰EXP。\n\n[11:44:56] 复用本轮配点并快速复核；Lv.2159“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 5.6%。\n\n[11:45:14] 胜利：愤怒灌木 Lv.2159 → Lv.2159.5，剩余 HP 136079，胜利！获得 8636 信仰EXP。\n\n[11:45:14] 复用本轮配点并快速复核；Lv.2159.5“最少掉血”自动选择基础模式：HP 2420 / ATK 7260 / DEF 4840 / SPD 4840，主动技能 虚弱，预测胜率 100.0%，平均掉血 4.9%。\n\n[11:45:35] 胜利：愤怒灌木 Lv.2159.5 → Lv.2160，剩余 HP 134524，胜利！获得 8638 信仰EXP。",
+  "requests": [
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2253
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 983
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 979
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1963
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 490
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1048
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1205
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 973
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 975
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1420
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1461
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1007
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1332,
+      "data": {
+        "stat": "hp",
+        "points": 1428
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1901,
+      "data": {
+        "stat": "attack",
+        "points": 6268
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1661,
+      "data": {
+        "stat": "defense",
+        "points": 3847
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2102,
+      "data": {
+        "stat": "speed",
+        "points": 3847
+      }
+    },
+    {
+      "path": "/api/hero/skills/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1320,
+      "data": {
+        "skillKey": "weaken"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1302
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1465
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 503
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1767
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 978
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 519
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2209,
+      "data": {
+        "victory": true,
+        "currentHp": 145314,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1826
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1025
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 983
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1576
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2676
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 987
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1467
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 976
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 997
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1578,
+      "data": {
+        "victory": true,
+        "currentHp": 145234,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2809
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1086
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 977
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1592
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1654
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1749
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1589
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 979
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1077
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1797,
+      "data": {
+        "victory": true,
+        "currentHp": 145154,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1436
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2174
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1492
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1995
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1002
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1074
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2014
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 508
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 979
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1377,
+      "data": {
+        "victory": true,
+        "currentHp": 143670,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1310
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 526
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 495
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1817
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1039
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 563
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1676
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 630
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1076
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1396,
+      "data": {
+        "victory": true,
+        "currentHp": 143570,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3331
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 986
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 498
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1249
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 997
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1010
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1717
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 604
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1167
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 3681,
+      "data": {
+        "victory": true,
+        "currentHp": 139383,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2183
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 990
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1118
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1838
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1059
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 486
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2697
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 543
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1074
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1852,
+      "data": {
+        "victory": true,
+        "currentHp": 139303,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1336
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 981
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 539
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2004
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 973
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1004
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1257
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 547
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 498
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2008,
+      "data": {
+        "victory": true,
+        "currentHp": 136189,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1850
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 991
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 485
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1367
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 983
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 514
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1636
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 493
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1004
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1550,
+      "data": {
+        "victory": true,
+        "currentHp": 136079,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1561
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 961
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1003
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1311
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1467
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 983
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2533
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 482
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 486
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1990,
+      "data": {
+        "victory": true,
+        "currentHp": 134524,
+        "monsterType": "angry_bush"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1644
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 527
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 979
+    }
+  ],
+  "liveResult": "10 胜 / 0 负",
+  "liveStep": "达到本轮目标",
+  "liveStatus": "自动循环完成：10 胜 / 0 负。",
+  "battleCount": "24 / 60"
+}

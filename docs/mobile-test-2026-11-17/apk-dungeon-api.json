@@ -1,0 +1,918 @@
+{
+  "startAt": "2026-11-17T04:11:48.473Z",
+  "startMs": 1794888708473,
+  "requestOffset": 66,
+  "protocol": "two complete forest dungeon rounds; claim first chest and continue; request safe stop during final settlement of round 2; claim final chest",
+  "status": "副本宝箱已领取，本轮完成。",
+  "summary": "2 / 10 次",
+  "log": "塔每五层保存；副本通关后等待确认开箱。\n\n整轮自动配点：生命 0／攻击 1985／防御 0／速度 1985；30 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n副本第 1 场 愤怒灌木：胜利，HP 683，用时 2 秒\n\n整轮自动配点：生命 0／攻击 1985／防御 0／速度 1985；30 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n副本第 2 场 自行人偶：胜利，HP 683，用时 2 秒\n\n副本第 3 场 自然石像：胜利，HP 683，用时 4.8 秒\n\n整轮自动配点：生命 0／攻击 1985／防御 0／速度 1985；30 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n副本第 1 场 愤怒灌木：胜利，HP 683，用时 2 秒\n\n整轮自动配点：生命 0／攻击 1985／防御 0／速度 1985；30 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n副本第 2 场 自行人偶：胜利，HP 683，用时 2 秒\n\n副本第 3 场 自然石像：胜利，HP 683，用时 4.8 秒",
+  "chestEnabled": false,
+  "stopEnabled": false,
+  "requests": [
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2063
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 748
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 745
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1349
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2101
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 477
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 986
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1450
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 988
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 916
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1323,
+      "data": {
+        "stat": "speed",
+        "points": 992
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1824,
+      "data": {
+        "stat": "attack",
+        "points": 992
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1773
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 470
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 461
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1211
+    },
+    {
+      "path": "/api/dungeon/start",
+      "method": "POST",
+      "status": 200,
+      "ms": 592,
+      "data": {
+        "dungeonId": "forest"
+      }
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1607
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 1202
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1250
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 701
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2110
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 563
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 630
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1414
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 983
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 468
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 677
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1547,
+      "data": {
+        "victory": true,
+        "currentHp": 683,
+        "monsterType": "angry_bush",
+        "isDungeon": true
+      }
+    },
+    {
+      "path": "/api/dungeon/advance",
+      "method": "POST",
+      "status": 200,
+      "ms": 555,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1550
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 941
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1190
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1167
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1388
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 476
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 465
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1624
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 475
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 963
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 650
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1298,
+      "data": {
+        "victory": true,
+        "currentHp": 683,
+        "monsterType": "automaton",
+        "isDungeon": true
+      }
+    },
+    {
+      "path": "/api/dungeon/advance",
+      "method": "POST",
+      "status": 200,
+      "ms": 519,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1595
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 943
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 687
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 709
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1782
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 498
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 975
+    },
+    {
+      "path": "/api/hero/skills/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1321,
+      "data": {
+        "skillKey": "speed"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1440
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1002
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 958
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 678
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1330,
+      "data": {
+        "victory": true,
+        "currentHp": 683,
+        "monsterType": "stone_golem",
+        "isDungeon": true
+      }
+    },
+    {
+      "path": "/api/dungeon/advance",
+      "method": "POST",
+      "status": 200,
+      "ms": 610,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2080
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 995
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 708
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2065
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 482
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 707
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1464
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 496
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 474
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1860
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 511
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 709
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1266
+    },
+    {
+      "path": "/api/dungeon/chest",
+      "method": "POST",
+      "status": 200,
+      "ms": 1162,
+      "data": {
+        "chestIndex": 0
+      }
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1704
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 462
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 700
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 882
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1110
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 495
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 584
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1321
+    },
+    {
+      "path": "/api/dungeon/start",
+      "method": "POST",
+      "status": 200,
+      "ms": 631,
+      "data": {
+        "dungeonId": "forest"
+      }
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1861
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 460
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 647
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 838
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1704
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 796
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 469
+    },
+    {
+      "path": "/api/hero/skills/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1609,
+      "data": {
+        "skillKey": "weaken"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1243
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 467
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 466
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1206
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1372,
+      "data": {
+        "victory": true,
+        "currentHp": 683,
+        "monsterType": "angry_bush",
+        "isDungeon": true
+      }
+    },
+    {
+      "path": "/api/dungeon/advance",
+      "method": "POST",
+      "status": 200,
+      "ms": 1044,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2409
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 471
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1354
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 642
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1301
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 516
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 488
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1755
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1473
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1367
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 795
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2795,
+      "data": {
+        "victory": true,
+        "currentHp": 683,
+        "monsterType": "automaton",
+        "isDungeon": true
+      }
+    },
+    {
+      "path": "/api/dungeon/advance",
+      "method": "POST",
+      "status": 200,
+      "ms": 1090,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1635
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 1286
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1030
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1859
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2526
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 975
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 465
+    },
+    {
+      "path": "/api/hero/skills/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1664,
+      "data": {
+        "skillKey": "speed"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1766
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 470
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 719
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 846
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 7269,
+      "data": {
+        "victory": true,
+        "currentHp": 683,
+        "monsterType": "stone_golem",
+        "isDungeon": true
+      }
+    },
+    {
+      "path": "/api/dungeon/advance",
+      "method": "POST",
+      "status": 200,
+      "ms": 1021,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2528
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 525
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 769
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2137
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 979
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 675
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2294
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1004
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 485
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2108
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 480
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1295
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 949
+    },
+    {
+      "path": "/api/dungeon/chest",
+      "method": "POST",
+      "status": 200,
+      "ms": 546,
+      "data": {
+        "chestIndex": 0
+      }
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1885
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 485
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1171
+    }
+  ],
+  "inflight": [],
+  "battleCount": "60 / 60",
+  "chestsClaimed": 2,
+  "safeStopRequested": true,
+  "completedAt": "2026-11-17T04:16:02.241Z",
+  "elapsedMs": 253770
+}

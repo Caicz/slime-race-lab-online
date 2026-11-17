@@ -1,0 +1,13 @@
+[
+  {
+    "monsterId": "angry_bush",
+    "goal": "minimum_loss",
+    "healing": false,
+    "requested": 10,
+    "startAt": "2026-11-17T03:36:18.508Z",
+    "startMs": 1794886578508,
+    "requestOffset": 42,
+    "status": "interrupted_by_test_display_density_change",
+    "confirmedVictories": 4
+  }
+]

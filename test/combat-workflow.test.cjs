@@ -84,6 +84,13 @@ test('评分计入固定词条和官方强化单位，不自动装备未装备�
     assert.equal(content.recommendEquipment([equipment(4, {locked: true, attackBonus: 100}), equipment(5, {attackBonus: 1})]).slots.ring.inventoryId, 5);
 });
 
+test('多个已佩戴纪念品不占用战斗装备槽，也不触发重复槽位检查', () => {
+    const collectibles = [16, 30, 39].map((itemId, index) => ({id: 10 + index, itemId, quantity: 1, equipped: true, item: {category: 'collectible', equipSlot: 'keepsake', name: '纪念品'}}));
+    const plan = content.recommendEquipment([...collectibles, equipment(1, {equipped: true})]);
+    assert.deepEqual(Object.keys(plan.slots), ['ring']);
+    assert.deepEqual(plan.actions, []);
+});
+
 test('未分配能力点不阻止塔和副本带入当前装备面板', () => {
     const snapshot = createSnapshot();
     snapshot.account.statPoints = 50;

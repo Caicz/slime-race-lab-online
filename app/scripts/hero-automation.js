@@ -294,8 +294,10 @@
     }
 
     function getForestWolfSkill(state) {
-        if (state.playerShieldBonus > 0 || state.playerDef >= state.playerHp && state.playerDef >= state.playerAtk) return 'crush';
-        if (state.playerDrainHp > 0 || state.playerHp >= state.playerAtk) return 'bloodlust';
+        if (state.playerShieldBonus > 0) return 'crush';
+        if (state.playerDrainHp > 0) return 'bloodlust';
+        if (state.playerDef >= state.playerHp && state.playerDef >= state.playerAtk) return 'crush';
+        if (state.playerHp >= state.playerAtk) return 'bloodlust';
         return 'roar';
     }
 
@@ -942,10 +944,9 @@
             state.stoneGolemRegeneratedHp += healed;
         }
 
-        function useForestWolfSkill(nextMonsterAtb) {
+        function useForestWolfSkill(nextPlayerAtb, nextMonsterAtb) {
             if (monsterId !== 'forest_wolf' || state.monsterAtb >= 50 || nextMonsterAtb < 50) return false;
-            let skill;
-            skill = getForestWolfSkill(state);
+            const skill = getForestWolfSkill(state);
             if (skill === 'crush') {
                 if (state.playerShieldBonus > 0) state.playerShieldBonus = 0;
                 else state.playerDef = Math.max(1, Math.floor(state.playerDef * 0.9));
@@ -957,6 +958,7 @@
             }
             state.forestWolfSkillUses += 1;
             state.forestWolfLastSkill = skill;
+            state.playerAtb = nextPlayerAtb;
             state.monsterAtb = Math.min(nextMonsterAtb, 100);
             if (state.playerHp <= 0) state.phase = 'defeat';
             return true;
@@ -1024,6 +1026,7 @@
             if (witchClone) state.lastPlayerDamage = damage;
             state.bloodPactCost = 0;
             state.bloodPactExplosions += 1;
+            weakenMonster(true);
             addAngryBushRage();
             addDrain(damage);
             applyStoneGolemHit(damage, critical);
@@ -1108,12 +1111,7 @@
             if (witchClone) state.lastPlayerDamage = damage;
             else addDrain(damage);
 
-            if (state.weakenModeActive && !witchClone) {
-                const rate = toFiniteNumber(player.skills.weaken) * 0.005;
-                state.monsterAtk = Math.max(1, state.monsterAtk - Math.max(1, Math.floor(state.monsterAtk * rate)));
-                state.monsterDef = Math.max(1, state.monsterDef - Math.max(1, Math.floor(state.monsterDef * rate)));
-                state.weakenStacks += 1;
-            }
+            weakenMonster();
             addAngryBushRage();
             applyStoneGolemHit(damage, critical);
             if (monsterId === 'firefly_mage') {
@@ -1313,6 +1311,15 @@
             state.phase = state.playerHp <= 0 ? 'defeat' : 'fighting';
         }
 
+        function weakenMonster(includeClone = false) {
+            const level = toFiniteNumber(player.skills.weaken);
+            if (!state.weakenModeActive || witchClone && !includeClone || level <= 0) return;
+            const rate = level * 0.005;
+            state.monsterAtk = Math.max(1, state.monsterAtk - Math.max(1, Math.floor(state.monsterAtk * rate)));
+            state.monsterDef = Math.max(1, state.monsterDef - Math.max(1, Math.floor(state.monsterDef * rate)));
+            state.weakenStacks += 1;
+        }
+
         const maximumTicks = Math.max(20, Math.min(200000, Math.floor(toFiniteNumber(options.maximumTicks, 200000))));
         while (state.phase === 'fighting' && state.ticks < maximumTicks) {
             state.ticks += 1;
@@ -1327,7 +1334,15 @@
                 ? state.monsterAtb
                 : state.monsterAtb + 5 * (state.monsterSpd / Math.max(state.playerSpd, 1));
 
-            if (useForestWolfSkill(nextMonsterAtb)) continue;
+            // 官方先结算血契引爆，再结算同一帧跨过的怪物技能与再生。
+            if (state.bloodPactCharged && previousPlayerAtb < 30 && nextPlayerAtb >= 30) {
+                state.playerAtb = nextPlayerAtb;
+                state.monsterAtb = Math.min(nextMonsterAtb, 100);
+                explodeBloodPact();
+                continue;
+            }
+
+            if (useForestWolfSkill(nextPlayerAtb, nextMonsterAtb)) continue;
 
             if ((monsterId === 'angry_bush' || monsterId === 'stone_golem' && !state.stoneGolemAsleep) && previousPlayerAtb < 50 && nextPlayerAtb >= 50) {
                 regenerateAngryBush();
@@ -1385,13 +1400,6 @@
                 state.monsterAtb = Math.min(nextMonsterAtb, 100);
                 continue;
             }
-            if (state.bloodPactCharged && previousPlayerAtb < 30 && nextPlayerAtb >= 30) {
-                state.playerAtb = nextPlayerAtb;
-                state.monsterAtb = Math.min(nextMonsterAtb, 100);
-                explodeBloodPact();
-                continue;
-            }
-
             state.playerAtb = nextPlayerAtb;
             state.monsterAtb = nextMonsterAtb;
             if (state.playerAtb >= 100) {
@@ -1539,16 +1547,19 @@
             totalPoints: getTotalPoints(account),
             skills: snapshot.skills,
             rebornSkills: snapshot.rebornSkills,
-            equippedActiveSkill: account.equippedActiveSkill || null,
-            equippedRebornSkill: account.equippedRebornSkill || null,
             equipmentBonuses: status.equipmentBonuses || {},
+            critRateBonus: status.critRateBonus,
+            critDmgBonus: status.critDmgBonus,
+            prayerBuffActive: status.prayerBuffActive,
+            prayerBuffStat: status.prayerBuffStat,
+            prayerBuffBonus: status.prayerBuffBonus,
             defensePotionStacks: options.defensePotionStacks ?? status.defenseBuffStacks ?? 0,
             autoHealing: options.autoHealing === true,
             healingTargetRatio: options.healingTargetRatio ?? null,
             pleasureResist: options.pleasureResist !== false,
             optimizationMode: options.optimizationMode || 'balanced',
             battleOptions: getDefaultBattleOptions(monsterId, options.battleOptions),
-            monster: {id: monster.id, level: monster.level, hp: monster.hp, maxHp: monster.maxHp, atk: monster.atk, def: monster.def, spd: monster.spd}
+            monsterId: monster.id
         });
     }
 
@@ -1742,7 +1753,7 @@
         const modeSnapshot = getHeroModeSnapshot(snapshot, recommendation.heroMode);
         const totalPoints = getTotalPoints(modeSnapshot.account);
         if (totalPoints !== recommendation.totalPoints) throw new Error('勇者能力点已变化，需要重新计算配点');
-        const contextOptions = {...options, battleOptions: recommendation.battleOptions};
+        const contextOptions = {...options, optimizationMode: options.optimizationMode || recommendation.optimizationMode, battleOptions: recommendation.battleOptions};
         if (recommendation.recommendationContext && recommendation.recommendationContext !== getBattleRecommendationContext(modeSnapshot, monsterId, contextOptions)) throw new Error('战斗面板或装备已变化，需要重新计算配点');
         const hpRatio = toFiniteNumber(modeSnapshot.battleStatus.currentHp)
             / Math.max(1, toFiniteNumber(modeSnapshot.battleStatus.maxHp, 1));
