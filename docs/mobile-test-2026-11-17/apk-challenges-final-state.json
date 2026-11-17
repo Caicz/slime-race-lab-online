@@ -1,0 +1,25 @@
+{
+  "verifiedAt": "2026-11-17T08:55:19.630Z",
+  "towerMaxFloor": 170,
+  "daily": {
+    "warehouse": {
+      "used": 10,
+      "limit": 10
+    },
+    "forest": {
+      "used": 10,
+      "limit": 10
+    },
+    "golden_slime": {
+      "used": 10,
+      "limit": 10
+    }
+  },
+  "activeRun": null,
+  "regularBattleCount": 20,
+  "healing": false,
+  "defensePotion": false,
+  "width": 412,
+  "scrollWidth": 412,
+  "protocol": "Same installed debug APK after user-requested emulator restart with 4096 MB RAM; Android API35 arm64; display 1080x2400 density420; final server GET verification"
+}

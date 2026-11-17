@@ -1,0 +1,60 @@
+{
+  "dungeons": [
+    {
+      "dungeonId": "warehouse",
+      "file": "apk-dungeon-warehouse-daily.json",
+      "dailyBefore": 0,
+      "dailyLimit": 10,
+      "newRounds": 10,
+      "battles": 30,
+      "victories": 30,
+      "chests": 10,
+      "equipmentPreparations": 1,
+      "allocationPreparations": 1,
+      "elapsedMs": 2276879,
+      "battleCount": "20 / 60"
+    },
+    {
+      "dungeonId": "forest",
+      "file": "apk-dungeon-forest-daily.json",
+      "dailyBefore": 2,
+      "dailyLimit": 10,
+      "newRounds": 8,
+      "battles": 24,
+      "victories": 24,
+      "chests": 8,
+      "equipmentPreparations": 1,
+      "allocationPreparations": 1,
+      "elapsedMs": 2669690,
+      "battleCount": "20 / 60"
+    },
+    {
+      "dungeonId": "golden_slime",
+      "file": "apk-dungeon-golden_slime-daily.json",
+      "dailyBefore": 0,
+      "dailyLimit": 10,
+      "newRounds": 10,
+      "battles": 30,
+      "victories": 30,
+      "chests": 10,
+      "equipmentPreparations": 1,
+      "allocationPreparations": 1,
+      "elapsedMs": 2213421,
+      "battleCount": "20 / 60"
+    }
+  ],
+  "tower": {
+    "floors": [
+      156,
+      170
+    ],
+    "victories": 45,
+    "saves": [
+      160,
+      165,
+      170
+    ],
+    "equipmentPreparations": 3,
+    "allocationPreparations": 3
+  }
+}

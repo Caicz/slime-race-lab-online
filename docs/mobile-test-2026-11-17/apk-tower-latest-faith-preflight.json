@@ -1,0 +1,60 @@
+{
+  "startAt": "2026-11-17T06:09:19.951Z",
+  "requestOffset": 39,
+  "protocol": "latest unlocked progress 155; three consecutive five-floor stages 156-170; automatic gear then allocation at each stage entrance; no tower reward claims",
+  "status": "整轮预测完成率 0.0% 低于停止线，未修改配点；未自动重试，请刷新核对。",
+  "log": "最新层数三轮五层实测：156～170层。",
+  "requests": [
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 9998
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 997
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 631
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 6044
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 944
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1850
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 937
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 13122
+    }
+  ],
+  "battleCount": "20 / 60",
+  "stopEnabled": false,
+  "idle": true
+}

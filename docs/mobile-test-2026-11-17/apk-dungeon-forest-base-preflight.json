@@ -1,0 +1,146 @@
+{
+  "dungeonId": "forest",
+  "requestedRuns": 10,
+  "dailyAtStart": {
+    "used": 2,
+    "limit": 10,
+    "remaining": 8
+  },
+  "startAt": "2026-11-17T07:02:12.531Z",
+  "startMs": 1794898932531,
+  "requestOffset": 712,
+  "protocol": "installed Android APK; route M; automatic gear then allocation once for the full daily batch; all available official daily challenges; confirm chests and continue without restarting batch",
+  "status": "整轮预测完成率 79.2% 低于停止线，未修改配点；未自动重试，请刷新核对。",
+  "summary": "2 / 10 次",
+  "log": "恐怖之森副本当天剩余次数实测。",
+  "chestEnabled": false,
+  "idle": true,
+  "requests": [
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 11140
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 953
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1218
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1327
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 7247
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1742
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1075
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 14951
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 14685
+    },
+    {
+      "path": "/api/inventory/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 2079,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 10197
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 12276
+    },
+    {
+      "path": "/api/inventory/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1042,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 16230
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 16465
+    },
+    {
+      "path": "/api/inventory/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1034,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 13807
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 4212
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 797
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 554
+    }
+  ],
+  "battleCount": "20 / 60",
+  "healing": false,
+  "chestsClaimed": 0
+}

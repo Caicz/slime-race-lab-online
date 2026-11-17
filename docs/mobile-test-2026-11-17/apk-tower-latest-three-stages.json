@@ -1,0 +1,378 @@
+{
+  "startAt": "2026-11-17T06:21:04.890Z",
+  "requestOffset": 0,
+  "protocol": "latest unlocked progress 155; three consecutive five-floor stages 156-170; automatic gear then allocation at each stage entrance; no tower reward claims",
+  "status": "塔阶段已完成并保存。",
+  "log": "最新层数三轮五层实测：156～170层。\n\n整轮配装已核对，保持当前装备。\n\n整轮自动配点：生命 0／攻击 9681／防御 3226／速度 6453；15 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n塔 156 层 · 第 1 场 野生咕隆：胜利，HP 1668，用时 2 秒；Buff atk/hp + drain/shield\n\n塔 156 层 · 第 2 场 史莱姆：胜利，HP 1668，用时 2 秒\n\n塔 156 层 · 第 3 场 重磁护卫：胜利，HP 1668，用时 2 秒\n\n塔 157 层 · 第 1 场 史莱姆：胜利，HP 1668，用时 2 秒；Buff def/atk + shield/dodge\n\n塔 157 层 · 第 2 场 重磁护卫：胜利，HP 1668，用时 2 秒\n\n塔 157 层 · 第 3 场 奏咪使魔：胜利，HP 1668，用时 2 秒\n\n塔 158 层 · 第 1 场 野生咕隆：胜利，HP 2668，用时 2 秒；Buff atk/hp + weaken/dodge\n\n塔 158 层 · 第 2 场 重磁护卫：胜利，HP 2668，用时 2 秒\n\n塔 158 层 · 第 3 场 极乐盗贼：胜利，HP 2668，用时 2.4 秒\n\n塔 159 层 · 第 1 场 史莱姆：胜利，HP 3668，用时 2 秒；Buff atk/hp + weaken/crit\n\n塔 159 层 · 第 2 场 野生咕隆：胜利，HP 3668，用时 2 秒\n\n塔 159 层 · 第 3 场 大雷精灵：胜利，HP 3668，用时 2 秒\n\n塔 160 层 · 第 1 场 重磁护卫：胜利，HP 3668，用时 2 秒；Buff def/atk + drain/weaken\n\n塔 160 层 · 第 2 场 极乐盗贼：胜利，HP 3668，用时 2.4 秒\n\n塔 160 层 · 第 3 场 魔女分身：胜利，HP 3540，用时 2 秒\n\n塔第 160 层存档已由服务器确认。\n\n整轮配装已核对，保持当前装备。\n\n整轮自动配点：生命 605／攻击 9076／防御 3226／速度 6453；15 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n塔 161 层 · 第 1 场 重磁护卫：胜利，HP 40531，用时 2 秒；Buff hp/atk + weaken/crit\n\n塔 161 层 · 第 2 场 野生咕隆：胜利，HP 40531，用时 2 秒\n\n塔 161 层 · 第 3 场 史莱姆：胜利，HP 40531，用时 4 秒\n\n塔 162 层 · 第 1 场 野生咕隆：胜利，HP 40531，用时 2 秒；Buff def/spd + shield/speed\n\n塔 162 层 · 第 2 场 史莱姆：胜利，HP 40531，用时 2 秒\n\n塔 162 层 · 第 3 场 奏咪使魔：胜利，HP 40531，用时 2 秒\n\n塔 163 层 · 第 1 场 史莱姆：胜利，HP 44584，用时 2 秒；Buff hp/def + crit/speed\n\n塔 163 层 · 第 2 场 重磁护卫：胜利，HP 44584，用时 2 秒\n\n塔 163 层 · 第 3 场 极乐盗贼：胜利，HP 44584，用时 2.3 秒\n\n塔 164 层 · 第 1 场 野生咕隆：胜利，HP 49042，用时 2 秒；Buff spd/hp + drain/dodge\n\n塔 164 层 · 第 2 场 重磁护卫：胜利，HP 49042，用时 2 秒\n\n塔 164 层 · 第 3 场 大雷精灵：胜利，HP 49042，用时 2 秒\n\n塔 165 层 · 第 1 场 史莱姆：胜利，HP 49042，用时 2 秒；Buff spd/def + crit/weaken\n\n塔 165 层 · 第 2 场 奏咪使魔：胜利，HP 49042，用时 2 秒\n\n塔 165 层 · 第 3 场 魔女分身：胜利，HP 47326，用时 2 秒\n\n塔第 165 层存档已由服务器确认。\n\n整轮配装已核对，保持当前装备。\n\n整轮自动配点：生命 1210／攻击 9076／防御 3226／速度 5848；15 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n塔 166 层 · 第 1 场 重磁护卫：胜利，HP 80328，用时 2 秒；Buff def/hp + crit/weaken\n\n塔 166 层 · 第 2 场 史莱姆：胜利，HP 80328，用时 2.4 秒\n\n塔 166 层 · 第 3 场 野生咕隆：胜利，HP 80328，用时 2 秒\n\n塔 167 层 · 第 1 场 重磁护卫：胜利，HP 88360，用时 2 秒；Buff hp/atk + crit/weaken\n\n塔 167 层 · 第 2 场 野生咕隆：胜利，HP 88360，用时 2 秒\n\n塔 167 层 · 第 3 场 奏咪使魔：胜利，HP 88360，用时 2 秒\n\n塔 168 层 · 第 1 场 野生咕隆：胜利，HP 97196，用时 2 秒；Buff def/hp + shield/speed\n\n塔 168 层 · 第 2 场 史莱姆：胜利，HP 97191，用时 2.4 秒\n\n塔 168 层 · 第 3 场 极乐盗贼：胜利，HP 97191，用时 2.4 秒\n\n塔 169 层 · 第 1 场 史莱姆：胜利，HP 106910，用时 2.4 秒；Buff atk/hp + dodge/shield\n\n塔 169 层 · 第 2 场 重磁护卫：胜利，HP 106910，用时 2 秒\n\n塔 169 层 · 第 3 场 大雷精灵：胜利，HP 106910，用时 2 秒\n\n塔 170 层 · 第 1 场 野生咕隆：胜利，HP 117606，用时 2 秒；Buff atk/hp + drain/speed\n\n塔 170 层 · 第 2 场 极乐盗贼：胜利，HP 117606，用时 2.3 秒\n\n塔 170 层 · 第 3 场 魔女分身：胜利，HP 113490，用时 2 秒\n\n塔第 170 层存档已由服务器确认。",
+  "requests": [
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2132
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 929
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1162
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1276
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 445
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 969
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 934
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2382
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1984
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 932
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1378
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1318,
+      "data": {
+        "stat": "hp",
+        "points": 124
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1294,
+      "data": {
+        "stat": "attack",
+        "points": 8315
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2363,
+      "data": {
+        "stat": "defense",
+        "points": 1738
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1902,
+      "data": {
+        "stat": "speed",
+        "points": 5461
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1887
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 942
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 949
+    },
+    {
+      "path": "/api/tower/save",
+      "method": "POST",
+      "status": 200,
+      "ms": 950,
+      "data": {
+        "floor": 160
+      }
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 977
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2079
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 933
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 932
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 1952
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3295
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 953
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 930
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1889,
+      "data": {
+        "stat": "attack",
+        "points": 605
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2196,
+      "data": {
+        "stat": "hp",
+        "points": 605
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1669
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 455
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1380
+    },
+    {
+      "path": "/api/tower/save",
+      "method": "POST",
+      "status": 200,
+      "ms": 941,
+      "data": {
+        "floor": 165
+      }
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 438
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1995
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 941
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 938
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 2387
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2032
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 441
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1521
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1882,
+      "data": {
+        "stat": "speed",
+        "points": 605
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2385,
+      "data": {
+        "stat": "hp",
+        "points": 605
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2861
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 959
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 442
+    },
+    {
+      "path": "/api/tower/save",
+      "method": "POST",
+      "status": 200,
+      "ms": 977,
+      "data": {
+        "floor": 170
+      }
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 448
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 3256
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 444
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1201
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2042
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 446
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 950
+    }
+  ],
+  "battleCount": "20 / 60",
+  "stopEnabled": false,
+  "idle": true,
+  "completedAt": "2026-11-17T06:23:34.049Z"
+}

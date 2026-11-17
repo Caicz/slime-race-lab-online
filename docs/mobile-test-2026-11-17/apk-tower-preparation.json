@@ -1,0 +1,243 @@
+{
+  "startAt": "2026-11-17T06:03:30.306Z",
+  "requestOffset": 0,
+  "protocol": "two consecutive five-floor stages; automatic gear then allocation at each stage entrance; no tower reward claims",
+  "status": "塔阶段已完成并保存。",
+  "log": "五层阶段自动配装与配点复测。\n\n整轮配装已核对，保持当前装备。\n\n整轮自动配点：生命 124／攻击 1366／防御 1488／速度 992；15 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n塔 1 层 · 第 1 场 重磁护卫：胜利，HP 8753，用时 2 秒；Buff atk/spd + shield/crit\n\n塔 1 层 · 第 2 场 野生咕隆：胜利，HP 8753，用时 2 秒\n\n塔 1 层 · 第 3 场 史莱姆：胜利，HP 8753，用时 2 秒\n\n塔 2 层 · 第 1 场 野生咕隆：胜利，HP 9753，用时 2 秒；Buff hp/def + drain/crit\n\n塔 2 层 · 第 2 场 史莱姆：胜利，HP 9753，用时 2 秒\n\n塔 2 层 · 第 3 场 奏咪使魔：胜利，HP 9753，用时 2 秒\n\n塔 3 层 · 第 1 场 史莱姆：胜利，HP 9753，用时 8 秒；Buff def/spd + drain/dodge\n\n塔 3 层 · 第 2 场 重磁护卫：胜利，HP 9753，用时 2 秒\n\n塔 3 层 · 第 3 场 极乐盗贼：胜利，HP 9753，用时 2.4 秒\n\n塔 4 层 · 第 1 场 野生咕隆：胜利，HP 10753，用时 2 秒；Buff def/hp + speed/weaken\n\n塔 4 层 · 第 2 场 重磁护卫：胜利，HP 10753，用时 2 秒\n\n塔 4 层 · 第 3 场 大雷精灵：胜利，HP 10753，用时 2 秒\n\n塔 5 层 · 第 1 场 史莱姆：胜利，HP 11828，用时 2 秒；Buff spd/hp + drain/dodge\n\n塔 5 层 · 第 2 场 奏咪使魔：胜利，HP 11828，用时 2 秒\n\n塔 5 层 · 第 3 场 魔女分身：胜利，HP 11415，用时 2 秒\n\n塔第 5 层存档已由服务器确认。\n\n整轮配装已核对，保持当前装备。\n\n整轮自动配点：生命 124／攻击 1366／防御 1488／速度 992；15 场连续战斗，整轮预测完成率 100.0%（24 次模拟）。\n\n塔 6 层 · 第 1 场 重磁护卫：胜利，HP 8753，用时 2 秒；Buff def/spd + shield/dodge\n\n塔 6 层 · 第 2 场 史莱姆：胜利，HP 8753，用时 2 秒\n\n塔 6 层 · 第 3 场 野生咕隆：胜利，HP 8753，用时 2 秒\n\n塔 7 层 · 第 1 场 重磁护卫：胜利，HP 8753，用时 2 秒；Buff atk/spd + drain/weaken\n\n塔 7 层 · 第 2 场 野生咕隆：胜利，HP 8753，用时 2 秒\n\n塔 7 层 · 第 3 场 奏咪使魔：胜利，HP 8753，用时 2 秒\n\n塔 8 层 · 第 1 场 野生咕隆：胜利，HP 9753，用时 2 秒；Buff atk/hp + weaken/speed\n\n塔 8 层 · 第 2 场 史莱姆：胜利，HP 9753，用时 2 秒\n\n塔 8 层 · 第 3 场 极乐盗贼：胜利，HP 9753，用时 2.4 秒\n\n塔 9 层 · 第 1 场 史莱姆：胜利，HP 9753，用时 2 秒；Buff atk/def + dodge/drain\n\n塔 9 层 · 第 2 场 重磁护卫：胜利，HP 9753，用时 2 秒\n\n塔 9 层 · 第 3 场 大雷精灵：胜利，HP 9753，用时 2 秒\n\n塔 10 层 · 第 1 场 野生咕隆：胜利，HP 9753，用时 2 秒；Buff spd/atk + dodge/shield\n\n塔 10 层 · 第 2 场 大雷精灵：胜利，HP 9753，用时 2 秒\n\n塔 10 层 · 第 3 场 魔女分身：胜利，HP 9412，用时 2 秒\n\n塔第 10 层存档已由服务器确认。",
+  "requests": [
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 4814
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 944
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 787
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2746
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 980
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1003
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 454
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 3455
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2262
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 973
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1040
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 1889,
+      "data": {
+        "stat": "attack",
+        "points": 124
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2454,
+      "data": {
+        "stat": "hp",
+        "points": 124
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3804
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2033
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 3021
+    },
+    {
+      "path": "/api/tower/save",
+      "method": "POST",
+      "status": 200,
+      "ms": 3725,
+      "data": {
+        "floor": 5
+      }
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 1049
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2388
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1503
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 963
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 4340
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2342
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 920
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 467
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3193
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 983
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 677
+    },
+    {
+      "path": "/api/tower/save",
+      "method": "POST",
+      "status": 200,
+      "ms": 963,
+      "data": {
+        "floor": 10
+      }
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 951
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 4118
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 972
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1218
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3799
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 945
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 950
+    }
+  ],
+  "battleCount": "20 / 60",
+  "stopEnabled": false,
+  "idle": true,
+  "completedAt": "2026-11-17T06:05:43.256Z"
+}

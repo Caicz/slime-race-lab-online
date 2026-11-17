@@ -1,0 +1,149 @@
+{
+  "dungeonId": "golden_slime",
+  "requestedRuns": 10,
+  "dailyAtStart": {
+    "used": 0,
+    "limit": 10,
+    "remaining": 10
+  },
+  "startAt": "2026-11-17T07:51:18.347Z",
+  "startMs": 1794901878351,
+  "requestOffset": 1266,
+  "protocol": "installed Android APK; route M; automatic gear then allocation once for the full daily batch; all available official daily challenges; confirm chests and continue without restarting batch",
+  "status": "正在核对魔女配装，再模拟当天全部剩余挑战并自动优化配点…",
+  "summary": "0 / 10 次",
+  "log": "黄金史莱姆副本当天剩余次数实测。",
+  "chestEnabled": false,
+  "idle": false,
+  "requests": [
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 15544
+    },
+    {
+      "path": "/api/tower/progress",
+      "method": "GET",
+      "status": 200,
+      "ms": 1199
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 782
+    },
+    {
+      "path": "/api/dungeon/status",
+      "method": "GET",
+      "status": 200,
+      "ms": 4310
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 10844
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1292
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1613
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 27729
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 28492
+    },
+    {
+      "path": "/api/inventory/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 906,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 20468
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 17715
+    },
+    {
+      "path": "/api/inventory/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1025,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 27461
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 18137
+    },
+    {
+      "path": "/api/inventory/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1752,
+      "data": {}
+    },
+    {
+      "path": "/api/inventory",
+      "method": "GET",
+      "status": 200,
+      "ms": 10595
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 4722
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1283
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1126
+    }
+  ],
+  "battleCount": "20 / 60",
+  "healing": false,
+  "chestsClaimed": 0,
+  "recordingNote": "Observation resumed on the same APK page after slow initial computation exceeded the observer read timeout; did not repeat challenge start or battle submissions.",
+  "interruptedAt": "2026-11-17T08:09:14.239Z",
+  "interruptionReason": "User requested emulator restart during initial allocation search; server independently confirmed goldenSlimeTodayCount 0/10 and no active dungeon before the app was stopped. No completed rounds attributed to this record."
+}
