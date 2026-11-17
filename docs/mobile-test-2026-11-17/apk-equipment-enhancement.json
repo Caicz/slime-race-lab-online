@@ -1,0 +1,628 @@
+{
+  "protocol": "Android APK 1.2.6; route M; minimum_loss; one equipment application and one enhancement; no purchases or resets",
+  "verifiedAt": "2026-11-17T05:55:24.680Z",
+  "before": {
+    "capturedAt": "2026-11-17T05:49:47.946Z",
+    "inventoryEntries": 204,
+    "accessoryItems": 55,
+    "stats": {
+      "currentHp": 718,
+      "maxHp": 718,
+      "attack": 25655,
+      "defense": 18262,
+      "speed": 6805
+    },
+    "magicFragments": 7293,
+    "guardianCharms": 0,
+    "trackedItems": [
+      {
+        "id": 293928,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": true,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": 300,
+        "hpPercent": null,
+        "attackPercent": null,
+        "defensePercent": null,
+        "speedPercent": 3,
+        "critRate": 0,
+        "critDamage": 6,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 0,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      },
+      {
+        "id": 383282,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": false,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": 300,
+        "hpPercent": 3,
+        "attackPercent": null,
+        "defensePercent": null,
+        "speedPercent": null,
+        "critRate": 3,
+        "critDamage": 0,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 0,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      },
+      {
+        "id": 392949,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": false,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": null,
+        "hpPercent": null,
+        "attackPercent": 3,
+        "defensePercent": 3,
+        "speedPercent": null,
+        "critRate": 3,
+        "critDamage": 0,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 0,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      }
+    ],
+    "equipmentPlan": {
+      "route": "M",
+      "goal": "minimum_loss",
+      "slots": {
+        "armor": {
+          "inventoryId": 257773,
+          "itemId": 29,
+          "name": "龙血法袍·守护",
+          "score": 500.17127999999997,
+          "equipped": true
+        },
+        "shoes": {
+          "inventoryId": 262563,
+          "itemId": 8,
+          "name": "黄金史莱姆鞋子",
+          "score": 105.47999999999999,
+          "equipped": true
+        },
+        "cloak": {
+          "inventoryId": 266388,
+          "itemId": 9,
+          "name": "魔法披风",
+          "score": 475.44,
+          "equipped": true
+        },
+        "weapon": {
+          "inventoryId": 268914,
+          "itemId": 12,
+          "name": "水晶之剑",
+          "score": 9859.216499999999,
+          "equipped": true
+        },
+        "necklace": {
+          "inventoryId": 392949,
+          "itemId": 46,
+          "name": "宝石项链",
+          "score": 3493.806,
+          "equipped": false
+        },
+        "ring": {
+          "inventoryId": 355386,
+          "itemId": 47,
+          "name": "血色戒指",
+          "score": 2368.11915,
+          "equipped": true
+        },
+        "earring": {
+          "inventoryId": 341902,
+          "itemId": 45,
+          "name": "骷髅耳环",
+          "score": 5614.437149999999,
+          "equipped": true
+        },
+        "glove": {
+          "inventoryId": 352520,
+          "itemId": 1,
+          "name": "普通手套",
+          "score": 106.57499999999999,
+          "equipped": true
+        },
+        "headpiece": {
+          "inventoryId": 427649,
+          "itemId": 44,
+          "name": "魔女发带",
+          "score": 2994.7038000000002,
+          "equipped": true
+        }
+      },
+      "actions": [
+        {
+          "type": "equip",
+          "inventoryId": 392949,
+          "name": "宝石项链"
+        }
+      ]
+    },
+    "enhancementPlan": {
+      "route": "M",
+      "goal": "minimum_loss",
+      "plans": [
+        {
+          "keepId": 392949,
+          "consumeId": 383282,
+          "useGuardianCharm": false,
+          "reason": "宝石项链保留最高战斗评分，强化 +0 → +1"
+        }
+      ]
+    }
+  },
+  "afterEquipment": {
+    "capturedAt": "2026-11-17T05:52:31.381Z",
+    "inventoryEntries": 204,
+    "accessoryItems": 55,
+    "stats": {
+      "currentHp": 718,
+      "maxHp": 718,
+      "attack": 26105,
+      "defense": 18710,
+      "speed": 6354
+    },
+    "magicFragments": 7293,
+    "guardianCharms": 0,
+    "trackedItems": [
+      {
+        "id": 293928,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": false,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": 300,
+        "hpPercent": null,
+        "attackPercent": null,
+        "defensePercent": null,
+        "speedPercent": 3,
+        "critRate": 0,
+        "critDamage": 6,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 0,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      },
+      {
+        "id": 383282,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": false,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": 300,
+        "hpPercent": 3,
+        "attackPercent": null,
+        "defensePercent": null,
+        "speedPercent": null,
+        "critRate": 3,
+        "critDamage": 0,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 0,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      },
+      {
+        "id": 392949,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": true,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": null,
+        "hpPercent": null,
+        "attackPercent": 3,
+        "defensePercent": 3,
+        "speedPercent": null,
+        "critRate": 3,
+        "critDamage": 0,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 0,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      }
+    ],
+    "equipmentPlan": {
+      "route": "M",
+      "goal": "minimum_loss",
+      "slots": {
+        "armor": {
+          "inventoryId": 257773,
+          "itemId": 29,
+          "name": "龙血法袍·守护",
+          "score": 500.17127999999997,
+          "equipped": true
+        },
+        "shoes": {
+          "inventoryId": 262563,
+          "itemId": 8,
+          "name": "黄金史莱姆鞋子",
+          "score": 105.47999999999999,
+          "equipped": true
+        },
+        "cloak": {
+          "inventoryId": 266388,
+          "itemId": 9,
+          "name": "魔法披风",
+          "score": 475.44,
+          "equipped": true
+        },
+        "weapon": {
+          "inventoryId": 268914,
+          "itemId": 12,
+          "name": "水晶之剑",
+          "score": 10032.151499999998,
+          "equipped": true
+        },
+        "necklace": {
+          "inventoryId": 392949,
+          "itemId": 46,
+          "name": "宝石项链",
+          "score": 3568.728,
+          "equipped": true
+        },
+        "ring": {
+          "inventoryId": 355386,
+          "itemId": 47,
+          "name": "血色戒指",
+          "score": 2373.4463699999997,
+          "equipped": true
+        },
+        "earring": {
+          "inventoryId": 341902,
+          "itemId": 45,
+          "name": "骷髅耳环",
+          "score": 5717.139749999999,
+          "equipped": true
+        },
+        "glove": {
+          "inventoryId": 352520,
+          "itemId": 1,
+          "name": "普通手套",
+          "score": 106.57499999999999,
+          "equipped": true
+        },
+        "headpiece": {
+          "inventoryId": 427649,
+          "itemId": 44,
+          "name": "魔女发带",
+          "score": 3038.0658,
+          "equipped": true
+        }
+      },
+      "actions": []
+    },
+    "enhancementPlan": {
+      "route": "M",
+      "goal": "minimum_loss",
+      "plans": [
+        {
+          "keepId": 392949,
+          "consumeId": 383282,
+          "useGuardianCharm": false,
+          "reason": "宝石项链保留最高战斗评分，强化 +0 → +1"
+        }
+      ]
+    }
+  },
+  "afterEnhancement": {
+    "capturedAt": "2026-11-17T05:54:32.524Z",
+    "inventoryEntries": 203,
+    "accessoryItems": 54,
+    "stats": {
+      "currentHp": 718,
+      "maxHp": 718,
+      "attack": 26105,
+      "defense": 19307,
+      "speed": 6354
+    },
+    "magicFragments": 7292,
+    "guardianCharms": 0,
+    "trackedItems": [
+      {
+        "id": 293928,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": false,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": 300,
+        "hpPercent": null,
+        "attackPercent": null,
+        "defensePercent": null,
+        "speedPercent": 3,
+        "critRate": 0,
+        "critDamage": 6,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 0,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      },
+      {
+        "id": 392949,
+        "itemId": 46,
+        "quantity": 1,
+        "equipped": true,
+        "locked": false,
+        "hpBonus": null,
+        "attackBonus": 300,
+        "defenseBonus": null,
+        "speedBonus": null,
+        "hpPercent": null,
+        "attackPercent": 3,
+        "defensePercent": 7,
+        "speedPercent": null,
+        "critRate": 3,
+        "critDamage": 0,
+        "enhanceValue": 0,
+        "enhanceValue2": 0,
+        "accessoryEnhanceLevel": 1,
+        "item": {
+          "id": 46,
+          "name": "宝石项链",
+          "category": "equipment",
+          "equipSlot": "necklace",
+          "routeType": "M",
+          "hpBonus": 0,
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "speedBonus": 0,
+          "hpPercent": 0,
+          "attackPercent": 0,
+          "defensePercent": 10,
+          "speedPercent": 0
+        }
+      }
+    ],
+    "equipmentPlan": {
+      "route": "M",
+      "goal": "minimum_loss",
+      "slots": {
+        "armor": {
+          "inventoryId": 257773,
+          "itemId": 29,
+          "name": "龙血法袍·守护",
+          "score": 500.17127999999997,
+          "equipped": true
+        },
+        "shoes": {
+          "inventoryId": 262563,
+          "itemId": 8,
+          "name": "黄金史莱姆鞋子",
+          "score": 105.47999999999999,
+          "equipped": true
+        },
+        "cloak": {
+          "inventoryId": 266388,
+          "itemId": 9,
+          "name": "魔法披风",
+          "score": 475.44,
+          "equipped": true
+        },
+        "weapon": {
+          "inventoryId": 268914,
+          "itemId": 12,
+          "name": "水晶之剑",
+          "score": 10032.151499999998,
+          "equipped": true
+        },
+        "necklace": {
+          "inventoryId": 392949,
+          "itemId": 46,
+          "name": "宝石项链",
+          "score": 4461.1125,
+          "equipped": true
+        },
+        "ring": {
+          "inventoryId": 355386,
+          "itemId": 47,
+          "name": "血色戒指",
+          "score": 2373.4463699999997,
+          "equipped": true
+        },
+        "earring": {
+          "inventoryId": 341902,
+          "itemId": 45,
+          "name": "骷髅耳环",
+          "score": 5736.885525000001,
+          "equipped": true
+        },
+        "glove": {
+          "inventoryId": 352520,
+          "itemId": 1,
+          "name": "普通手套",
+          "score": 106.57499999999999,
+          "equipped": true
+        },
+        "headpiece": {
+          "inventoryId": 427649,
+          "itemId": 44,
+          "name": "魔女发带",
+          "score": 3038.0658,
+          "equipped": true
+        }
+      },
+      "actions": []
+    },
+    "enhancementPlan": {
+      "route": "M",
+      "goal": "minimum_loss",
+      "plans": [
+        {
+          "keepId": 392949,
+          "consumeId": 293928,
+          "useGuardianCharm": false,
+          "reason": "宝石项链保留最高战斗评分，强化 +1 → +2"
+        }
+      ]
+    }
+  },
+  "result": {
+    "equipmentPosts": 1,
+    "enhancementPosts": 1,
+    "fragmentsConsumed": 1,
+    "spareAccessoriesConsumed": 1,
+    "guardianCharmsConsumed": 0,
+    "lockedItemsUnchanged": true,
+    "newLevel": 1,
+    "enhancedField": "defensePercent",
+    "addedPercent": 4,
+    "grade": "rare"
+  },
+  "requests": {
+    "equipment": [
+      {
+        "path": "/api/inventory/equip",
+        "method": "POST",
+        "status": 200,
+        "ms": 672,
+        "data": {}
+      }
+    ],
+    "enhancement": [
+      {
+        "path": "/api/accessory/enhance",
+        "method": "POST",
+        "status": 200,
+        "ms": 3768,
+        "data": {
+          "keepId": 392949,
+          "consumeId": 383282,
+          "useGuardianCharm": false
+        },
+        "result": {
+          "success": true,
+          "newLevel": 1,
+          "enhancedField": "defensePercent",
+          "addedUnit": 4,
+          "grade": "rare"
+        }
+      }
+    ]
+  },
+  "finalStatus": "已完成一项推荐饰品强化，请查看同步后的结果。"
+}

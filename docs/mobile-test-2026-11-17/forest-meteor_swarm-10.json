@@ -1,0 +1,592 @@
+{
+  "monsterId": "meteor_swarm",
+  "goal": "minimum_loss",
+  "healing": false,
+  "requested": 10,
+  "startAt": "2026-11-17T05:41:41.968Z",
+  "startMs": 1794894101968,
+  "requestOffset": 299,
+  "completedAt": "2026-11-17T05:47:16.243Z",
+  "elapsedMs": 334276,
+  "status": "自动循环完成：10 胜 / 0 负；实际耗时 334.2 秒。",
+  "result": "10 胜 / 0 负",
+  "log": "[13:42:44] Lv.194.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:43:37] 胜利：陨星虫群 Lv.194.5 → Lv.195，剩余 HP 718，胜利！获得 1167 信仰EXP。\n\n[13:43:37] 复用本轮配点并快速复核；Lv.195“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:44:01] 胜利：陨星虫群 Lv.195 → Lv.195.5，剩余 HP 718，胜利！获得 1170 信仰EXP。\n\n[13:44:01] 复用本轮配点并快速复核；Lv.195.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:44:27] 胜利：陨星虫群 Lv.195.5 → Lv.196，剩余 HP 718，胜利！获得 1173 信仰EXP。\n\n[13:44:27] 复用本轮配点并快速复核；Lv.196“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:44:48] 胜利：陨星虫群 Lv.196 → Lv.196.5，剩余 HP 718，胜利！获得 1176 信仰EXP。\n\n[13:44:48] 复用本轮配点并快速复核；Lv.196.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:45:10] 胜利：陨星虫群 Lv.196.5 → Lv.197，剩余 HP 718，胜利！获得 1179 信仰EXP。\n\n[13:45:10] 复用本轮配点并快速复核；Lv.197“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:45:30] 胜利：陨星虫群 Lv.197 → Lv.197.5，剩余 HP 718，胜利！获得 1182 信仰EXP。\n\n[13:45:30] 复用本轮配点并快速复核；Lv.197.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:45:55] 胜利：陨星虫群 Lv.197.5 → Lv.198，剩余 HP 718，胜利！获得 1185 信仰EXP。\n\n[13:45:55] 复用本轮配点并快速复核；Lv.198“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:46:19] 胜利：陨星虫群 Lv.198 → Lv.198.5，剩余 HP 718，胜利！获得 1188 信仰EXP。\n\n[13:46:19] 复用本轮配点并快速复核；Lv.198.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:46:45] 胜利：陨星虫群 Lv.198.5 → Lv.199，剩余 HP 718，胜利！获得 1191 信仰EXP。\n\n[13:46:45] 复用本轮配点并快速复核；Lv.199“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1490 / DEF 1488 / SPD 992，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:47:16] 胜利：陨星虫群 Lv.199 → Lv.199.5，剩余 HP 718，胜利！获得 1194 信仰EXP。",
+  "requests": [
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3046
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2518
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2839
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2330
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1174
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1158
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2525
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1973
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2541
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2105,
+      "data": {
+        "stat": "attack",
+        "points": 495
+      }
+    },
+    {
+      "path": "/api/hero/deallocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2497,
+      "data": {
+        "stat": "speed",
+        "points": 993
+      }
+    },
+    {
+      "path": "/api/hero/allocate-stats",
+      "method": "POST",
+      "status": 200,
+      "ms": 2413,
+      "data": {
+        "stat": "defense",
+        "points": 1488
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2198
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1133
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 680
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2846
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2815
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1218
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1564,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1988
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1700
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1161
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2295
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1220
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 610
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 3062,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1752
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1479
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2030
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2349
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 3037
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1553
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2516,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 4546
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 957
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1032
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2239
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1200
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 553
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2195,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2221
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1046
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1154
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2101
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 963
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1426
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2406,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2814
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1871
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1224
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2089
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 697
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1049
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2602,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2513
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1222
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1231
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 3500
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 748
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1046
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 3158,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 4302
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 735
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1662
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2723
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1603
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1053
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2260,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2322
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1065
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1643
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2933
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 630
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2208
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2314,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2455
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1208
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1233
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2750
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1446
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1398
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2273,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "meteor_swarm"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 4147
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1181
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2304
+    }
+  ],
+  "liveResult": "10 胜 / 0 负",
+  "liveStep": "达到本轮目标",
+  "liveStatus": "自动循环完成：10 胜 / 0 负；实际耗时 334.2 秒。",
+  "battleCount": "20 / 60"
+}

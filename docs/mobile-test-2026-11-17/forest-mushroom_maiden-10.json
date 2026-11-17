@@ -1,0 +1,571 @@
+{
+  "monsterId": "mushroom_maiden",
+  "goal": "minimum_loss",
+  "healing": false,
+  "requested": 10,
+  "startAt": "2026-11-17T05:33:27.240Z",
+  "startMs": 1794893607242,
+  "requestOffset": 210,
+  "completedAt": "2026-11-17T05:36:39.814Z",
+  "elapsedMs": 192572,
+  "status": "自动循环完成：10 胜 / 0 负；实际耗时 192.3 秒。",
+  "result": "10 胜 / 0 负",
+  "log": "[13:33:49] Lv.197.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:34:17] 胜利：魅惑菇娘 Lv.197.5 → Lv.198，剩余 HP 718，胜利！获得 1185 信仰EXP。\n\n[13:34:17] 复用本轮配点并快速复核；Lv.198“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:34:34] 胜利：魅惑菇娘 Lv.198 → Lv.198.5，剩余 HP 718，胜利！获得 1188 信仰EXP。\n\n[13:34:34] 复用本轮配点并快速复核；Lv.198.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:34:49] 胜利：魅惑菇娘 Lv.198.5 → Lv.199，剩余 HP 718，胜利！获得 1191 信仰EXP。\n\n[13:34:49] 复用本轮配点并快速复核；Lv.199“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:35:05] 胜利：魅惑菇娘 Lv.199 → Lv.199.5，剩余 HP 718，胜利！获得 1194 信仰EXP。\n\n[13:35:05] 复用本轮配点并快速复核；Lv.199.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:35:20] 胜利：魅惑菇娘 Lv.199.5 → Lv.200，剩余 HP 718，胜利！获得 1197 信仰EXP。\n\n[13:35:20] 复用本轮配点并快速复核；Lv.200“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:35:35] 胜利：魅惑菇娘 Lv.200 → Lv.200.5，剩余 HP 718，胜利！获得 1200 信仰EXP。\n\n[13:35:35] 复用本轮配点并快速复核；Lv.200.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:35:50] 胜利：魅惑菇娘 Lv.200.5 → Lv.201，剩余 HP 718，胜利！获得 1203 信仰EXP。\n\n[13:35:50] 复用本轮配点并快速复核；Lv.201“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:36:06] 胜利：魅惑菇娘 Lv.201 → Lv.201.5，剩余 HP 718，胜利！获得 1206 信仰EXP。\n\n[13:36:06] 复用本轮配点并快速复核；Lv.201.5“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:36:22] 胜利：魅惑菇娘 Lv.201.5 → Lv.202，剩余 HP 718，胜利！获得 1209 信仰EXP。\n\n[13:36:22] 复用本轮配点并快速复核；Lv.202“最少掉血”自动选择转生信仰模式：HP 0 / ATK 1985 / DEF 0 / SPD 1985，主动技能 虚弱，预测胜率 100.0%，平均掉血 0.0%。\n\n[13:36:39] 胜利：魅惑菇娘 Lv.202 → Lv.202.5，剩余 HP 718，胜利！获得 1212 信仰EXP。",
+  "requests": [
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1573
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 478
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 511
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2227
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1073
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1061
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2375
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1029
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 520
+    },
+    {
+      "path": "/api/hero/skills/equip",
+      "method": "POST",
+      "status": 200,
+      "ms": 1415,
+      "data": {
+        "skillKey": "weaken"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1359
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 673
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1032
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1185
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1113
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 603
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2274,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1612
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1021
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 745
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1828
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1126
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 979
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2140,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1717
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 481
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 976
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1932
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1116
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 495
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1728,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1841
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1054
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1253
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1800
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1573
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1080
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1792,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2068
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1106
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1054
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1334
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 501
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 487
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2222,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1748
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1064
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1109
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1530
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1100
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 986
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1445,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1993
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1262
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 975
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1510
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1015
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 490
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1961,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2051
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1071
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1063
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2181
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1068
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 602
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 2063,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1886
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 2003
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 990
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1880
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1072
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 619
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1870,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2666
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 648
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 614
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 2587
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 1371
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 528
+    },
+    {
+      "path": "/api/hero/battle-result",
+      "method": "POST",
+      "status": 200,
+      "ms": 1762,
+      "data": {
+        "victory": true,
+        "currentHp": 718,
+        "monsterType": "mushroom_maiden"
+      }
+    },
+    {
+      "path": "/api/hero/battle-status",
+      "method": "GET",
+      "status": 200,
+      "ms": 1366
+    },
+    {
+      "path": "/api/hero/skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 622
+    },
+    {
+      "path": "/api/hero/reborn-skills",
+      "method": "GET",
+      "status": 200,
+      "ms": 588
+    }
+  ],
+  "liveResult": "10 胜 / 0 负",
+  "liveStep": "达到本轮目标",
+  "liveStatus": "自动循环完成：10 胜 / 0 负；实际耗时 192.3 秒。",
+  "battleCount": "10 / 60"
+}

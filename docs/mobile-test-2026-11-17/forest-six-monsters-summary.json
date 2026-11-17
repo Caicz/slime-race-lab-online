@@ -1,0 +1,140 @@
+{
+  "protocol": "Android debug APK 1.2.6; single monster; minimum_loss; no automatic HP or defense potion; wall clock from start click through tenth settlement verification",
+  "verifiedAt": "2026-11-17T05:47:38.659Z",
+  "groups": [
+    {
+      "monsterId": "angry_bush",
+      "victories": 10,
+      "defeats": 0,
+      "elapsedMs": 245721,
+      "hp": [
+        145314,
+        145234,
+        145154,
+        143670,
+        143570,
+        139383,
+        139303,
+        136189,
+        136079,
+        134524
+      ],
+      "httpErrors": 0,
+      "potionUses": 0,
+      "allocationWrites": 4,
+      "reusedRecommendations": 9
+    },
+    {
+      "monsterId": "automaton",
+      "victories": 10,
+      "defeats": 0,
+      "elapsedMs": 286830,
+      "hp": [
+        621,
+        621,
+        621,
+        621,
+        621,
+        621,
+        621,
+        621,
+        621,
+        621
+      ],
+      "httpErrors": 0,
+      "potionUses": 0,
+      "allocationWrites": 4,
+      "reusedRecommendations": 9
+    },
+    {
+      "monsterId": "stone_golem",
+      "victories": 10,
+      "defeats": 0,
+      "elapsedMs": 175308,
+      "hp": [
+        30617,
+        30617,
+        30617,
+        30617,
+        30617,
+        30617,
+        30617,
+        30617,
+        30617,
+        30617
+      ],
+      "httpErrors": 0,
+      "potionUses": 0,
+      "allocationWrites": 4,
+      "reusedRecommendations": 9
+    },
+    {
+      "monsterId": "forest_wolf",
+      "victories": 10,
+      "defeats": 0,
+      "elapsedMs": 214224,
+      "hp": [
+        270893,
+        270893,
+        270893,
+        270893,
+        270893,
+        270893,
+        270893,
+        270893,
+        270893,
+        270893
+      ],
+      "httpErrors": 0,
+      "potionUses": 0,
+      "allocationWrites": 4,
+      "reusedRecommendations": 9
+    },
+    {
+      "monsterId": "mushroom_maiden",
+      "victories": 10,
+      "defeats": 0,
+      "elapsedMs": 192572,
+      "hp": [
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718
+      ],
+      "httpErrors": 0,
+      "potionUses": 0,
+      "allocationWrites": 0,
+      "reusedRecommendations": 9
+    },
+    {
+      "monsterId": "meteor_swarm",
+      "victories": 10,
+      "defeats": 0,
+      "elapsedMs": 334276,
+      "hp": [
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718,
+        718
+      ],
+      "httpErrors": 0,
+      "potionUses": 0,
+      "allocationWrites": 3,
+      "reusedRecommendations": 9
+    }
+  ],
+  "totalVictories": 60,
+  "totalElapsedMs": 1448931
+}
