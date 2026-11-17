@@ -46,7 +46,11 @@ function createMock(options = {}) {
             if (endpoint === '/api/dungeon/advance' && !options.ignoreAdvance) status.activeRun.stage += 1;
             if (endpoint === '/api/dungeon/update-metadata') status.activeRun.metadata = request.data.metadata;
             if (['/api/dungeon/fail', '/api/dungeon/abandon', '/api/dungeon/chest'].includes(endpoint)) status.activeRun = null;
-            if (endpoint === '/api/inventory/equip') inventory.find(item => item.id === request.data.inventoryId).equipped = true;
+            if (endpoint === '/api/inventory/equip' && !options.ignoreEquip) {
+                const entry = inventory.find(item => item.id === request.data.inventoryId);
+                inventory.filter(item => item.item?.equipSlot === entry.item.equipSlot).forEach(item => { item.equipped = item === entry; });
+                options.onEquip?.(snapshot, entry);
+            }
             if (endpoint === '/api/inventory/unequip') inventory.find(item => item.id === request.data.inventoryId).equipped = false;
             if (endpoint === '/api/accessory/enhance') accessoryItems.splice(accessoryItems.findIndex(item => item.id === request.data.consumeId), 1);
             if (['/api/hero/deallocate-stats', '/api/hero/allocate-stats'].includes(endpoint) && !options.ignoreAllocation) {
@@ -184,6 +188,21 @@ test('整轮完成率低于停止线时不修改配点和次数', async () => {
     assert.equal(mock.status.forestTodayCount, 0);
 });
 
+test('最新塔阶段初筛不足停止线时扩展候选，找到合格整轮方案后才配点', async () => {
+    const mock = createMock();
+    Object.assign(mock.snapshot, structuredClone(require('./fixtures/tower-stage-156.json')));
+    mock.towerProgress.towerMaxFloor = 155;
+    const coarse = await workflow.optimizeChallengeAllocation(mock.snapshot, {type: 'tower', startFloor: 156}, {goal: 'minimum_loss'});
+    assert.ok(coarse.winRate < 0.95);
+    const prepared = await mock.service.startTower({startFloor: 156, minWinRate: 0.95, goal: 'minimum_loss'});
+    assert.equal(prepared.recommendation.expandedSearch, true);
+    assert.equal(prepared.recommendation.winRate, 1);
+    assert.equal(prepared.recommendation.battleCount, 15);
+    assert.equal(mock.snapshot.account.statPoints, 0);
+    assert.ok(mock.posts.some(post => post.endpoint === '/api/hero/allocate-stats'));
+    assert.ok(mock.posts.every(post => /(?:deallocate|allocate)-stats$/.test(post.endpoint)));
+});
+
 test('同一副本批次开箱续轮沿用配点，手动恢复重新规划所有剩余次数', async () => {
     const mock = createMock();
     mock.status.forestTodayCount = 8;
@@ -192,11 +211,79 @@ test('同一副本批次开箱续轮沿用配点，手动恢复重新规划所�
     for (let stage = 1; stage <= 3; stage += 1) await mock.service.battleDungeon();
     await mock.service.dungeonAction({action: 'chest', chestIndex: 0});
     const next = await mock.service.dungeonAction({action: 'start', dungeonId: 'forest'});
-    assert.equal(next.recommendation.challenge.rounds, 2);
+    assert.equal(next.recommendation, null);
     assert.equal(mock.status.forestTodayCount, 10);
     const resumed = await mock.service.battleDungeon({resetPlan: true});
     assert.equal(resumed.recommendation.challenge.rounds, 1);
     assert.equal(resumed.recommendation.battleCount, 3);
+});
+
+test('塔每五层开始前先配装再配点，十五场内不重新配装', async () => {
+    const mock = createMock({inventory: [equipment(1, {attackBonus: 1, equipped: true}), equipment(2, {attackBonus: 20})]});
+    mock.snapshot.account.statPoints = 10;
+    const first = await mock.service.startTower({startFloor: 1, stages: 2, minWinRate: 0.95});
+    assert.equal(first.recommendation.equipmentActions.length, 1);
+    assert.equal(mock.posts[0].endpoint, '/api/inventory/equip');
+    assert.ok(mock.posts.slice(1).some(post => post.endpoint === '/api/hero/allocate-stats'));
+    mock.inventory.push(equipment(3, {attackBonus: 100}));
+    for (let index = 0; index < 14; index += 1) {
+        const event = await mock.service.stepTower();
+        assert.equal(event.recommendation, undefined);
+        assert.equal(mock.posts.filter(post => post.endpoint === '/api/inventory/equip').length, 1);
+    }
+    const boundary = await mock.service.stepTower();
+    assert.equal(boundary.savedFloor, 5);
+    assert.equal(boundary.recommendation.equipmentActions[0].inventoryId, 3);
+    assert.equal(mock.posts.filter(post => post.endpoint === '/api/inventory/equip').length, 2);
+    for (let index = 0; index < 15; index += 1) await mock.service.stepTower();
+    assert.equal(mock.posts.filter(post => post.endpoint === '/api/inventory/equip').length, 2);
+    assert.deepEqual(mock.posts.filter(post => post.endpoint === '/api/tower/save').map(post => post.data.floor), [5, 10]);
+});
+
+test('森林副本十连仅批次开始前配装配点一次，按配装后的面板缓存方案', async () => {
+    const mock = createMock({inventory: [equipment(1, {attackBonus: 1, equipped: true}), equipment(2, {attackBonus: 20})], onEquip(snapshot) {
+        snapshot.battleStatus.attack += 19;
+        snapshot.battleStatus.equipmentBonuses = {attackBonus: 20};
+    }});
+    mock.snapshot.account.statPoints = 10;
+    const first = await mock.service.dungeonAction({action: 'start', dungeonId: 'forest', resetPlan: true});
+    assert.equal(first.recommendation.challenge.rounds, 10);
+    assert.equal(first.recommendation.battleCount, 30);
+    assert.equal(first.recommendation.equipmentActions[0].inventoryId, 2);
+    assert.equal(mock.posts[0].endpoint, '/api/inventory/equip');
+    const allocationWrites = mock.posts.filter(post => /(?:deallocate|allocate)-stats$/.test(post.endpoint)).length;
+    assert.ok(allocationWrites > 0);
+    mock.inventory.push(equipment(3, {attackBonus: 100}));
+    for (let round = 0; round < 10; round += 1) {
+        if (round > 0) assert.equal((await mock.service.dungeonAction({action: 'start', dungeonId: 'forest'})).recommendation, null);
+        for (let stage = 1; stage <= 3; stage += 1) assert.equal((await mock.service.battleDungeon()).recommendation, null);
+        await mock.service.dungeonAction({action: 'chest', chestIndex: 0});
+    }
+    assert.equal(mock.status.forestTodayCount, 10);
+    assert.equal(mock.posts.filter(post => post.endpoint === '/api/inventory/equip').length, 1);
+    assert.equal(mock.posts.filter(post => /(?:deallocate|allocate)-stats$/.test(post.endpoint)).length, allocationWrites);
+    assert.equal(mock.posts.filter(post => post.endpoint === '/api/hero/battle-result').length, 30);
+});
+
+test('挑战配装未确认或超时即停止，不配点、不开始副本、不重试装备请求', async () => {
+    for (const options of [{ignoreEquip: true}, {failAt: '/api/inventory/equip'}]) {
+        const mock = createMock({...options, inventory: [equipment(1, {attackBonus: 1, equipped: true}), equipment(2, {attackBonus: 20})]});
+        mock.snapshot.account.statPoints = 10;
+        await assert.rejects(mock.service.dungeonAction({action: 'start', dungeonId: 'forest'}), /状态未确认|timeout/);
+        assert.deepEqual(mock.posts.map(post => post.endpoint), ['/api/inventory/equip']);
+        assert.equal(mock.status.forestTodayCount, 0);
+    }
+});
+
+test('副本批次中已装备配置发生变化时停止，明确恢复才重新准备', async () => {
+    const mock = createMock();
+    await mock.service.dungeonAction({action: 'start', dungeonId: 'forest'});
+    mock.snapshot.battleStatus.equipmentBonuses = {attackBonus: 20};
+    const before = mock.posts.length;
+    await assert.rejects(mock.service.battleDungeon(), /批次配置已变化/);
+    assert.equal(mock.posts.length, before);
+    const resumed = await mock.service.battleDungeon({resetPlan: true});
+    assert.equal(resumed.recommendation.battleCount, 30);
 });
 
 test('塔怪物序列与官方五层布局一致，森林副本只有前三只且使用信仰等级', () => {

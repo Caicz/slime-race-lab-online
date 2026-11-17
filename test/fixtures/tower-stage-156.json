@@ -1,0 +1,113 @@
+{
+  "heroMode": "base",
+  "faithRoute": "M",
+  "account": {
+    "rebornType": "M",
+    "rebornMode": "base",
+    "level": 1936,
+    "faithLevel": 397,
+    "statPoints": 15390,
+    "hpBonus": 124,
+    "attackBonus": 1366,
+    "defenseBonus": 1488,
+    "speedBonus": 992,
+    "equippedActiveSkill": "weaken",
+    "equippedRebornSkill": "star_curse"
+  },
+  "battleStatus": {
+    "currentHp": 8083,
+    "maxHp": 8083,
+    "attack": 19836,
+    "defense": 16321,
+    "speed": 5403,
+    "baseAttack": 13760,
+    "baseDefense": 14930,
+    "baseSpeed": 5010,
+    "equipmentBonuses": {
+      "hpBonus": 70,
+      "attackBonus": 200,
+      "defenseBonus": 1391,
+      "speedBonus": 393,
+      "hpPercent": 19.6,
+      "attackPercent": 42.7,
+      "defensePercent": 0,
+      "speedPercent": 0,
+      "critRate": 0,
+      "critDamage": 0
+    },
+    "defenseBuffStacks": 0,
+    "prayerBuffActive": false,
+    "critRateBonus": 0,
+    "critDmgBonus": 0
+  },
+  "skills": {
+    "blood_pact": 8,
+    "crit": 10,
+    "dodge": 10,
+    "drain": 10,
+    "shield": 10,
+    "speed": 10,
+    "star_curse": 10,
+    "weaken": 10
+  },
+  "rebornSkills": {
+    "holy_judgment": 0,
+    "mirror_shield": 0,
+    "star_curse": 10,
+    "blood_pact": 8
+  },
+  "rebornSkillOptions": [
+    {
+      "key": "holy_judgment",
+      "name": "holy_judgment",
+      "description": "",
+      "level": 0,
+      "faithCost": 0,
+      "faithRequired": 0,
+      "equipped": false,
+      "unlocked": false,
+      "supported": true,
+      "faithRoute": "N",
+      "effects": {}
+    },
+    {
+      "key": "mirror_shield",
+      "name": "mirror_shield",
+      "description": "",
+      "level": 0,
+      "faithCost": 0,
+      "faithRequired": 0,
+      "equipped": false,
+      "unlocked": false,
+      "supported": true,
+      "faithRoute": "N",
+      "effects": {}
+    },
+    {
+      "key": "star_curse",
+      "name": "star_curse",
+      "description": "",
+      "level": 10,
+      "faithCost": 0,
+      "faithRequired": 0,
+      "equipped": false,
+      "unlocked": true,
+      "supported": true,
+      "faithRoute": "M",
+      "effects": {}
+    },
+    {
+      "key": "blood_pact",
+      "name": "blood_pact",
+      "description": "",
+      "level": 8,
+      "faithCost": 0,
+      "faithRequired": 0,
+      "equipped": false,
+      "unlocked": true,
+      "supported": true,
+      "faithRoute": "M",
+      "effects": {}
+    }
+  ]
+}

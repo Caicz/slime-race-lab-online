@@ -277,8 +277,41 @@
             return JSON.stringify([hero.getFaithRoute(snapshot), snapshot.heroMode, snapshot.account.rebornMode, hero.getTotalPoints(snapshot.account), hero.getCurrentAllocation(snapshot.account), snapshot.battleStatus, snapshot.skills, snapshot.rebornSkills]);
         }
 
+        async function applyEquipmentAction(intent) {
+            const inventory = await request('/api/inventory');
+            const entry = inventory.find(item => Number(item.id) === Number(intent.inventoryId));
+            if (!entry || entry.locked || !entry.item?.equipSlot || entry.item.category !== 'equipment') throw new Error('装备不存在、已锁定或不可装备');
+            const action = intent.type === 'unequip' ? 'unequip' : 'equip';
+            if (action === 'equip' && entry.item.routeType && entry.item.routeType !== 'M') throw new Error('装备不属于魔女路线');
+            if (action === 'equip' && inventory.some(item => item.equipped && item.locked && item.item?.equipSlot === entry.item.equipSlot && item.id !== entry.id)) throw new Error('该槽位已有锁定装备');
+            if (Boolean(entry.equipped) === (action === 'equip')) return;
+            await post(`/api/inventory/${action}`, {inventoryId: entry.id});
+            const updated = await request('/api/inventory');
+            const changed = updated.find(item => item.id === entry.id);
+            if (!changed || Boolean(changed.equipped) !== (action === 'equip')) throw new Error('装备提交后状态未确认，请刷新核对');
+            if (action === 'equip' && updated.filter(item => item.equipped && item.item?.equipSlot === entry.item.equipSlot).length !== 1) throw new Error('装备槽状态异常，停止后续装备');
+        }
+
+        async function prepareChallenge(snapshot, challenge, options = {}) {
+            const inventory = await request('/api/inventory');
+            const equipment = content.recommendEquipment(inventory, {route: 'M', goal: options.goal, stats: snapshot.battleStatus});
+            for (const action of equipment.actions) await applyEquipmentAction(action);
+            const current = equipment.actions.length ? await syncHero() : snapshot;
+            validateWitch(current);
+            if (current.heroMode !== snapshot.heroMode || current.account.rebornMode !== snapshot.account.rebornMode) throw new Error('配装期间勇者模式已变化，请重新开始挑战');
+            const prepared = await prepareAllocation(current, challenge, options);
+            prepared.recommendation.equipmentActions = equipment.actions;
+            return prepared;
+        }
+
         async function prepareAllocation(snapshot, challenge, options = {}) {
-            const recommendation = await optimizeChallengeAllocation(snapshot, challenge, {...options, yield: () => delay(0)});
+            const searchOptions = {...options, yield: () => delay(0)};
+            let recommendation = await optimizeChallengeAllocation(snapshot, challenge, searchOptions);
+            if (options.minWinRate && recommendation.winRate < Number(options.minWinRate)) {
+                const expanded = await optimizeChallengeAllocation(snapshot, challenge, {...searchOptions, divisions: 6, coarseSamples: 4});
+                if (compareChallengePlans(expanded, recommendation, options.goal) < 0) recommendation = expanded;
+                recommendation.expandedSearch = true;
+            }
             if (options.minWinRate && recommendation.winRate < Number(options.minWinRate)) throw new Error(`整轮预测完成率 ${(recommendation.winRate * 100).toFixed(1)}% 低于停止线，未修改配点`);
             let current = await syncHero();
             if (allocationFingerprint(current) !== allocationFingerprint(snapshot)) throw new Error('优化期间勇者面板已变化，请重新开始挑战');
@@ -300,12 +333,15 @@
             const run = status.activeRun;
             const dungeonId = run?.status === 'active' ? run.dungeonId : options.dungeonId;
             const daily = content.planDungeonRun(status, {dungeonId, includeActive: true});
-            const context = JSON.stringify([new Date().toISOString().slice(0, 10), snapshot.heroMode, snapshot.account.rebornMode, snapshot.account.level, snapshot.account.faithLevel, snapshot.skills, snapshot.rebornSkills, snapshot.battleStatus.equipmentBonuses, snapshot.battleStatus.defenseBuffStacks, snapshot.battleStatus.prayerBuffActive, options.goal || 'balanced']);
-            if (dungeonPlan && context === dungeonPlanContext && dungeonPlan.challenge.dungeonId === dungeonId && dungeonPlan.totalPoints === hero.getTotalPoints(snapshot.account) && hero.STAT_KEYS.every(key => dungeonPlan.allocation[key] === hero.getCurrentAllocation(snapshot.account)[key])) return {snapshot, recommendation: dungeonPlan};
-            const prepared = await prepareAllocation(snapshot, {type: 'dungeon', dungeonId, rounds: daily.remaining, stage: run?.status === 'active' ? Number(run.stage) : 1, noFlee: run?.noFleeEnabled === true}, options);
+            const context = current => JSON.stringify([new Date().toISOString().slice(0, 10), current.heroMode, current.account.rebornMode, current.account.level, current.account.faithLevel, current.skills, current.rebornSkills, current.battleStatus.equipmentBonuses, current.battleStatus.defenseBuffStacks, current.battleStatus.prayerBuffActive, options.goal || 'balanced']);
+            if (dungeonPlan) {
+                if (context(snapshot) !== dungeonPlanContext || dungeonPlan.challenge.dungeonId !== dungeonId || dungeonPlan.totalPoints !== hero.getTotalPoints(snapshot.account) || hero.STAT_KEYS.some(key => dungeonPlan.allocation[key] !== hero.getCurrentAllocation(snapshot.account)[key])) throw new Error('副本批次配置已变化，请停止后重新开始挑战；未在批次中重新配装或配点');
+                return {snapshot, recommendation: dungeonPlan, prepared: false};
+            }
+            const prepared = await prepareChallenge(snapshot, {type: 'dungeon', dungeonId, rounds: daily.remaining, stage: run?.status === 'active' ? Number(run.stage) : 1, noFlee: run?.noFleeEnabled === true}, options);
             dungeonPlan = prepared.recommendation;
-            dungeonPlanContext = context;
-            return prepared;
+            dungeonPlanContext = context(prepared.snapshot);
+            return {...prepared, prepared: true};
         }
 
         async function exclusive(action) {
@@ -329,19 +365,8 @@
             return exclusive(async () => {
                 const snapshot = await syncHero();
                 validateWitch(snapshot);
-                const inventory = await request('/api/inventory');
-                const entry = inventory.find(item => Number(item.id) === Number(intent.inventoryId));
-                if (!entry || entry.locked || !entry.item?.equipSlot || entry.item.category !== 'equipment') throw new Error('装备不存在、已锁定或不可装备');
-                const action = intent.type === 'unequip' ? 'unequip' : 'equip';
-                if (action === 'equip' && entry.item.routeType && entry.item.routeType !== 'M') throw new Error('装备不属于魔女路线');
-                if (action === 'equip' && inventory.some(item => item.equipped && item.locked && item.item?.equipSlot === entry.item.equipSlot && item.id !== entry.id)) throw new Error('该槽位已有锁定装备');
-                if (Boolean(entry.equipped) === (action === 'equip')) return sync();
-                await post(`/api/inventory/${action}`, {inventoryId: entry.id});
-                const updated = await sync();
-                const changed = updated.inventory.find(item => item.id === entry.id);
-                if (!changed || Boolean(changed.equipped) !== (action === 'equip')) throw new Error('装备提交后状态未确认，请刷新核对');
-                if (action === 'equip' && updated.inventory.filter(item => item.equipped && item.item?.equipSlot === entry.item.equipSlot).length !== 1) throw new Error('装备槽状态异常，停止后续装备');
-                return updated;
+                await applyEquipmentAction(intent);
+                return sync();
             });
         }
 
@@ -366,7 +391,7 @@
                 validateWitch(snapshot);
                 const progress = await request('/api/tower/progress');
                 const plan = createTowerPlan(progress, options);
-                const prepared = await prepareAllocation(snapshot, {type: 'tower', startFloor: plan.startFloor}, options);
+                const prepared = await prepareChallenge(snapshot, {type: 'tower', startFloor: plan.startFloor}, options);
                 snapshot = prepared.snapshot;
                 const player = getCurrentPlayer(snapshot);
                 tower = {...plan, floor: plan.startFloor, index: 0, snapshot, player: {...player, hp: player.maxHp}, needsBuff: true, goal: options.goal, minWinRate: Number(options.minWinRate) || 0.95};
@@ -410,7 +435,7 @@
                         run.startFloor = run.floor + 1;
                         run.snapshot = await syncHero();
                         validateWitch(run.snapshot);
-                        const prepared = await prepareAllocation(run.snapshot, {type: 'tower', startFloor: run.startFloor}, {goal: run.goal});
+                        const prepared = await prepareChallenge(run.snapshot, {type: 'tower', startFloor: run.startFloor}, {goal: run.goal, minWinRate: run.minWinRate});
                         run.snapshot = prepared.snapshot;
                         event.recommendation = prepared.recommendation;
                         run.player = getCurrentPlayer(run.snapshot);
@@ -431,12 +456,13 @@
                 const status = await request('/api/dungeon/status');
                 const run = status.activeRun;
                 let data = {};
+                let preparation = null;
                 if (action === 'start') {
                     const snapshot = await syncHero();
                     validateWitch(snapshot);
                     if (run?.status === 'active') throw new Error('已有副本，请继续或放弃当前副本');
                     data = {dungeonId: content.planDungeonRun(status, intent).dungeonId};
-                    await prepareDungeon(status, snapshot, intent);
+                    preparation = await prepareDungeon(status, snapshot, intent);
                     const verified = await request('/api/dungeon/status');
                     if (verified.activeRun?.status === 'active' || content.planDungeonRun(verified, intent).remaining !== content.planDungeonRun(status, intent).remaining) throw new Error('配点期间副本次数或阶段变化，请重新开始');
                 }
@@ -456,7 +482,7 @@
                         dungeonUncertain = false;
                         if (action === 'abandon') dungeonPlan = null;
                     }
-                    return {result, content: updated, recommendation: action === 'start' ? dungeonPlan : null};
+                    return {result, content: updated, recommendation: preparation?.prepared ? preparation.recommendation : null};
                 } catch (error) { dungeonUncertain = true; throw error; }
             });
         }
@@ -505,7 +531,7 @@
                     await post('/api/dungeon/advance', {});
                     const updated = await sync();
                     if (Number(updated.dungeonStatus.activeRun?.stage) !== stage + 1 || updated.dungeonStatus.activeRun?.id !== run.id) throw new Error('副本推进结果尚未确认，禁止重复提交');
-                    return {result, stage, monsterName: monster.name, done: stage === 3, chestReady: stage === 3, content: updated, recommendation: prepared.recommendation};
+                    return {result, stage, monsterName: monster.name, done: stage === 3, chestReady: stage === 3, content: updated, recommendation: prepared.prepared ? prepared.recommendation : null};
                 } catch (error) { dungeonUncertain = true; throw error; }
             });
         }

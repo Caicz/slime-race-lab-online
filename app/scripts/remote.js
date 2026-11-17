@@ -322,8 +322,8 @@
     async function startCombatTower() {
         await performCombatAction(async adapter => {
             const plan = combatWorkflow.createTowerPlan((await adapter.syncCombatContent()).towerProgress, {startFloor: Number(elements.combatTowerFloor.value), stages: Number(elements.combatTowerStages.value)});
-            if (!window.confirm(`确认自动挑战无尽之塔 ${plan.startFloor}～${plan.endFloor} 层？自动重配当前模式全部能力点，以每阶段连续五层十五场的完成率和所选目标优化；阶段内保持配点。每层自动选择 Buff 和一次免费恢复，每五层核对存档，战败停止，不领取塔奖励。`)) return;
-            setCombatStatus('正在模拟连续五层并自动优化配点…');
+            if (!window.confirm(`确认自动挑战无尽之塔 ${plan.startFloor}～${plan.endFloor} 层？每五层开始前应用一次魔女推荐配装，再自动重配当前模式全部能力点，以连续十五场的完成率和所选目标优化；阶段内保持装备和配点，锁定装备不替换。每层自动选择 Buff 和一次免费恢复，每五层核对存档，战败停止，不领取塔奖励。`)) return;
+            setCombatStatus('正在核对魔女配装，再模拟连续五层并自动优化配点…');
             const prepared = await adapter.startCombatTower({...plan, goal: elements.heroOptimizationMode.value, minWinRate: getHeroMinimumWinRate()});
             logCombatAllocation(prepared.recommendation);
             await runCombatLoop('tower', adapter);
@@ -338,8 +338,8 @@
             const dungeonId = active ? run.dungeonId : elements.combatDungeon.value;
             const plan = combatContent.planDungeonRun(combatContentState.dungeonStatus, {dungeonId, includeActive: true});
             const runs = plan.remaining;
-            if (!window.confirm(`确认${active ? '继续' : '开始'}${plan.name}当天全部剩余 ${runs} 轮${active ? '（包含当前轮）' : ''}？自动重配当前模式全部能力点，连续计算所有轮次的血量和技能收益；逐场提交，战败或状态不确定时停止。每轮通关宝箱单独确认，开箱后继续。`)) return;
-            setCombatStatus('正在模拟当天全部剩余挑战并自动优化配点…');
+            if (!window.confirm(`确认${active ? '继续' : '开始'}${plan.name}当天全部剩余 ${runs} 轮${active ? '（包含当前轮）' : ''}？整批开始前应用一次魔女推荐配装，再自动重配当前模式全部能力点，连续计算所有轮次的血量和技能收益；批次内保持装备和配点，锁定装备不替换。逐场提交，战败或状态不确定时停止。每轮通关宝箱单独确认，开箱后继续。`)) return;
+            setCombatStatus('正在核对魔女配装，再模拟当天全部剩余挑战并自动优化配点…');
             combatDungeonRemaining = runs;
             combatDungeonBatchId = dungeonId;
             if (!active) renderCombatContent((await submitCombatDungeon(adapter, {action: 'start', dungeonId, resetPlan: true})).content);
@@ -388,6 +388,7 @@
 
     function logCombatAllocation(plan) {
         const points = plan.allocation;
+        if (Array.isArray(plan.equipmentActions)) appendCombatLog(plan.equipmentActions.length ? `整轮自动配装：${plan.equipmentActions.map(action => `${action.type === 'equip' ? '装备' : '卸下'}${action.name}`).join('、')}；已逐件核对。` : '整轮配装已核对，保持当前装备。');
         appendCombatLog(`整轮自动配点：生命 ${points.hp}／攻击 ${points.attack}／防御 ${points.defense}／速度 ${points.speed}；${plan.battleCount} 场连续战斗，整轮预测完成率 ${(plan.winRate * 100).toFixed(1)}%（${plan.samples} 次模拟）。`);
         heroRecommendations = new Map();
         renderHeroRecommendations();
